@@ -10,10 +10,10 @@ import (
 const ImagesCollection = "images"
 
 type ImageRepository struct {
-	repo Repository
+	repo *MainRepository
 }
 
-func NewImageRepository(repo Repository) *ImageRepository {
+func NewImageRepository(repo *MainRepository) *ImageRepository {
 	return &ImageRepository{
 		repo: repo,
 	}
@@ -34,6 +34,7 @@ func (ir *ImageRepository) ReadImage(ctx context.Context, imageID string) (*mode
 	image.FromMap(data)
 	return image, nil
 }
+
 func (ir *ImageRepository) UpdateImage(ctx context.Context, imageID string, updates map[string]interface{}) error {
 	updates["updated_at"] = time.Now()
 	return ir.repo.Update(ctx, ImagesCollection, imageID, updates)
@@ -43,13 +44,17 @@ func (ir *ImageRepository) DeleteImage(ctx context.Context, imageID string) erro
 	return ir.repo.Delete(ctx, ImagesCollection, imageID)
 }
 
-func (ir *ImageRepository) QueryImages(ctx context.Context, filters map[string]interface{}) ([]*models.Image, error) {
-	results, err := ir.repo.Query(ctx, ImagesCollection, filters)
+func (ir *ImageRepository) QueryImages(ctx context.Context, filters map[string]interface{}, pagination Pagination) (*QueryResult, error) {
+	return ir.repo.Query(ctx, ImagesCollection, filters, pagination)
+}
+
+func (ir *ImageRepository) GetImages(ctx context.Context, filters map[string]interface{}, pagination Pagination) ([]*models.Image, error) {
+	result, err := ir.repo.Query(ctx, ImagesCollection, filters, pagination)
 	if err != nil {
 		return nil, err
 	}
-	images := make([]*models.Image, 0, len(results))
-	for _, data := range results {
+	images := make([]*models.Image, 0, len(result.Data))
+	for _, data := range result.Data {
 		image := &models.Image{}
 		image.FromMap(data)
 		images = append(images, image)
