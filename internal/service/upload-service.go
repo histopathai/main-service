@@ -4,9 +4,9 @@ import (
 	"context"
 	"fmt"
 	"time"
-	apperrors "histopathai/internal/errors"
-	"histopathai/internal/repository"
-	"histopathai/models"
+
+	apperrors "github.com/histopathai/main-service/internal/errors"
+	"github.com/histopathai/main-service/internal/repository"
 
 	"cloud.google.com/go/storage"
 	"github.com/google/uuid"
@@ -19,21 +19,17 @@ type UploadService struct {
 	imgRepo       *repository.ImageRepository
 	patientRepo   *repository.PatientRepository
 	workspaceRepo *repository.WorkspaceRepository
-}
-
-type SignedUrlRequest struct {
-	FileName    string `json:"fileName"`
-	ContentType string `json:"contentType"`
-	ExpiresIn   int64  `json:"expiresIn"` // seconds, optional
+	userRepo      *repository.UserRepository
 }
 
 type SignedUrlResponse struct {
-	UploadURL string `json:"uploadUrl"`
-	ExpiresAt int64  `json:"expiresAt"` // unix timestamp
+	ImageID   string `json:"image_id"`
+	UploadURL string `json:"upload_url"`
+	ExpiresAt int64  `json:"expires_at"` // unix timestamp
 }
 
 type ImageInfo struct {
-	FileName  string `json:"filename"`
+	FileName  string `json:"file_name"`
 	Format    string `json:"format"`
 	Width     int    `json:"width"`
 	Height    int    `json:"height"`
@@ -41,12 +37,12 @@ type ImageInfo struct {
 }
 
 type PatientInfo struct {
-	PatientID string `json:"id,omitempty"` // optional, will be created if empty
-	Age       int    `json:"age,omitempty"`
-	Gender    string `json:"gender,omitempty"`
-	Race      string `json:"race,omitempty"`
-	Disease   string `json:"disease,omitempty"`
-	History   string `json:"history,omitempty"`
+	PatientID string  `json:"id,omitempty"` // optional, will be created if empty
+	Age       *int    `json:"age,omitempty"`
+	Gender    *string `json:"gender,omitempty"`
+	Race      *string `json:"race,omitempty"`
+	Disease   *string `json:"disease,omitempty"`
+	History   *string `json:"history,omitempty"`
 }
 
 type UploadImageRequest struct {
@@ -56,10 +52,21 @@ type UploadImageRequest struct {
 	WorkspaceID string      `json:"workspace_id"`
 }
 
-type UploadImageResponse struct {
-	ImageID   string `json:"image_id"`
-	PatientID string `json:"patient_id"`
-	FileURL   string `json:"file_url"`
+func MimeeTypeFromFormat(format string) string {
+	switch format {
+	case "jpeg", "jpg":
+		return "image/jpeg"
+	case "png":
+		return "image/png"
+	case "tiff", "tif":
+		return "image/tiff"
+	case "bmp":
+		return "image/bmp"
+	case "gif":
+		return "image/gif"
+	default:
+		return "application/octet-stream"
+	}
 }
 
 func NewUploadService(
@@ -76,15 +83,23 @@ func NewUploadService(
 		imgRepo:       imgRepo,
 		patientRepo:   patientRepo,
 		workspaceRepo: workspaceRepo,
-		userRepo:       userRepo,
+		userRepo:      userRepo,
 	}
 }
 
 func (us *UploadService) ValidateUploadRequest(ctx context.Context, req *UploadImageRequest) error {
 	details := make(map[string]interface{})
+	// Check creator exists
+	exists, err := us.userRepo.Exists(ctx, req.CreatorID)
+	if err != nil {
+		return apperrors.NewInternalError("failed to validate creator", err, details)
+	}
+	if !exists {
+		return apperrors.NewBadRequestError(fmt.Sprintf("creator %s does not exist", req.CreatorID), details)
+	}
 
 	// Check if workspace exists
-	exists, err := us.workspaceRepo.Exists(ctx, req.WorkspaceID)
+	exists, err = us.workspaceRepo.Exists(ctx, req.WorkspaceID)
 	if err != nil {
 		return apperrors.NewInternalError("failed to validate workspace", err, details)
 	}
@@ -94,11 +109,11 @@ func (us *UploadService) ValidateUploadRequest(ctx context.Context, req *UploadI
 
 	// Check image info
 	if req.ImageInfo.FileName == "" {
-		details["imageInfo.fileName"] = "required"
+		details["imageInfo.file_name"] = "required"
 	}
 	if req.ImageInfo.Format == "" {
 		details["imageInfo.format"] = "required"
-	} else if !models.SupportedImageFormats[req.ImageInfo.Format] {
+	} else if !models.IsImageFormatSupported(req.ImageInfo.Format) {
 		details["imageInfo.format"] = fmt.Sprintf("unsupported format: %s", req.ImageInfo.Format)
 	}
 	if req.ImageInfo.Width <= 0 {
@@ -108,7 +123,7 @@ func (us *UploadService) ValidateUploadRequest(ctx context.Context, req *UploadI
 		details["imageInfo.height"] = "must be positive"
 	}
 	if req.ImageInfo.SizeBytes <= 0 {
-		details["imageInfo.sizeBytes"] = "must be positive"
+		details["imageInfo.size_bytes"] = "must be positive"
 	}
 
 	if len(details) > 0 {
@@ -118,8 +133,8 @@ func (us *UploadService) ValidateUploadRequest(ctx context.Context, req *UploadI
 }
 
 func (us *UploadService) ValidateAndCreatePatient(info *PatientInfo) *models.Patient {
-	if info.Age <= 0 && info.Race == "" && info.Gender == "" &&
-		info.History == "" && info.Disease == "" {
+	if info.Age == nil && info.Race == nil && info.Gender == nil &&
+		info.History == nil && info.Disease == nil {
 		return nil
 	}
 
@@ -134,13 +149,30 @@ func (us *UploadService) ValidateAndCreatePatient(info *PatientInfo) *models.Pat
 	return patient
 }
 
-func (us *UploadService) ProcessUpload(ctx context.Context, req *UploadImageRequest) (*UploadImageResponse, error) {
-	
+func (us *UploadService) GenerateSignedUploadURL(ctx context.Context, fileName string, contentType string) (string, error) {
+
+	opts := &storage.SignedURLOptions{
+		Scheme:      storage.SigningSchemeV4,
+		Method:      "PUT",
+		Expires:     time.Now().Add(30 * time.Minute),
+		ContentType: contentType,
+		Headers:     []string{fmt.Sprintf("Content-Type:%s", contentType)},
+	}
+
+	u, err := us.storageClient.Bucket(us.bucketName).SignedURL(fileName, opts)
+	if err != nil {
+		return "", apperrors.NewInternalError("failed to generate signed URL", err)
+	}
+	return u, nil
+}
+
+func (us *UploadService) ProcessUpload(ctx context.Context, req *UploadImageRequest) (*SignedUrlResponse, error) {
+
 	if err := us.ValidateUploadRequest(ctx, req); err != nil {
 		return nil, err
 	}
 
-	patientId := req.PatientInfo.PatientID
+	patientID := req.PatientInfo.PatientID
 
 	if patientID == "" {
 		patient := us.ValidateAndCreatePatient(&req.PatientInfo)
@@ -166,26 +198,37 @@ func (us *UploadService) ProcessUpload(ctx context.Context, req *UploadImageRequ
 	fileName := fmt.Sprintf("%s-%s", imageID, req.ImageInfo.FileName)
 
 	image := &models.Image{
-		ID:          imageID,
-		FileName:    fileName,
-		Format:      req.ImageInfo.Format,
-		Width:       req.ImageInfo.Width,
-		Height:      req.ImageInfo.Height,
-		SizeBytes:   req.ImageInfo.SizeBytes,
-		PatientID:   patientID,
-		WorkspaceID: req.WorkspaceID,
-		OriginPath:  fmt.Sprintf("gs://%s/%s", us.bucketName, fileName),
+		ID:            imageID,
+		FileName:      fileName,
+		Format:        req.ImageInfo.Format,
+		Width:         req.ImageInfo.Width,
+		Height:        req.ImageInfo.Height,
+		SizeBytes:     req.ImageInfo.SizeBytes,
+		PatientID:     patientID,
+		WorkspaceID:   req.WorkspaceID,
+		OriginPath:    fmt.Sprintf("gs://%s/%s", us.bucketName, fileName),
 		ProcessedPath: "",
-		Status:      models.StatusUploadWaiting,
-		CreatedAt:   time.Now(),
-		UpdatedAt:   time.Now(),
+		Status:        models.StatusUploadWaiting,
+		CreatedAt:     time.Now(),
+		UpdatedAt:     time.Now(),
 	}
+
 	imgID, err := us.imgRepo.CreateImage(ctx, image)
 	if err != nil {
 		return nil, apperrors.NewInternalError("failed to create image record", err)
 	}
 
-	fileURL := fmt.Sprintf("gs://%s/%s", us.bucketName, fileName)
+	contentType := MimeeTypeFromFormat(req.ImageInfo.Format)
+	uploadURL, err := us.GenerateSignedUploadURL(ctx, fileName, contentType)
+	if err != nil {
+		return nil, err
+	}
 
+	resp := &SignedUrlResponse{
+		UploadURL: uploadURL,
+		ImageID:   imgID,
+		ExpiresAt: time.Now().Add(30 * time.Minute).Unix(),
+	}
 
-
+	return resp, nil
+}
