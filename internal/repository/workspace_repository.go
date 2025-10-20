@@ -44,13 +44,13 @@ func (wr *WorkspaceRepository) DeleteWorkspace(ctx context.Context, workspaceID 
 	return wr.repo.Delete(ctx, WorkspacesCollection, workspaceID)
 }
 
-func (wr *WorkspaceRepository) QueryWorkspaces(ctx context.Context, filters map[string]interface{}) ([]*models.Workspace, error) {
-	results, err := wr.repo.Query(ctx, WorkspacesCollection, filters)
+func (wr *WorkspaceRepository) QueryWorkspaces(ctx context.Context, filters map[string]interface{}, pagination Pagination) ([]*models.Workspace, error) {
+	results, err := wr.repo.Query(ctx, WorkspacesCollection, filters, pagination)
 	if err != nil {
 		return nil, err
 	}
-	workspaces := make([]*models.Workspace, 0, len(results))
-	for _, data := range results {
+	workspaces := make([]*models.Workspace, 0, len(results.Data))
+	for _, data := range results.Data {
 		workspace := &models.Workspace{}
 		workspace.FromMap(data)
 		workspaces = append(workspaces, workspace)
