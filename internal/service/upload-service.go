@@ -50,6 +50,7 @@ type PatientInfo struct {
 }
 
 type UploadImageRequest struct {
+	CreatorID   string      `json:"creator_id"`
 	ImageInfo   ImageInfo   `json:"image_info"`
 	PatientInfo PatientInfo `json:"patient_info"`
 	WorkspaceID string      `json:"workspace_id"`
@@ -67,6 +68,7 @@ func NewUploadService(
 	imgRepo *repository.ImageRepository,
 	patientRepo *repository.PatientRepository,
 	workspaceRepo *repository.WorkspaceRepository,
+	userRepo *repository.UserRepository,
 ) *UploadService {
 	return &UploadService{
 		storageClient: storageClient,
@@ -74,6 +76,7 @@ func NewUploadService(
 		imgRepo:       imgRepo,
 		patientRepo:   patientRepo,
 		workspaceRepo: workspaceRepo,
+		userRepo:       userRepo,
 	}
 }
 
@@ -183,4 +186,6 @@ func (us *UploadService) ProcessUpload(ctx context.Context, req *UploadImageRequ
 	}
 
 	fileURL := fmt.Sprintf("gs://%s/%s", us.bucketName, fileName)
+
+
 
