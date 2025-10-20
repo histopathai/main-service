@@ -92,7 +92,7 @@ func (us *UploadService) ValidateUploadRequest(ctx context.Context, req *UploadI
 	// Check creator exists
 	exists, err := us.userRepo.Exists(ctx, req.CreatorID)
 	if err != nil {
-		return apperrors.NewInternalError("failed to validate creator", err, details)
+		return apperrors.NewInternalError("failed to validate creator", err)
 	}
 	if !exists {
 		return apperrors.NewBadRequestError(fmt.Sprintf("creator %s does not exist", req.CreatorID), details)
@@ -101,7 +101,7 @@ func (us *UploadService) ValidateUploadRequest(ctx context.Context, req *UploadI
 	// Check if workspace exists
 	exists, err = us.workspaceRepo.Exists(ctx, req.WorkspaceID)
 	if err != nil {
-		return apperrors.NewInternalError("failed to validate workspace", err, details)
+		return apperrors.NewInternalError("failed to validate workspace", err)
 	}
 	if !exists {
 		return apperrors.NewBadRequestError(fmt.Sprintf("workspace %s does not exist", req.WorkspaceID), details)
