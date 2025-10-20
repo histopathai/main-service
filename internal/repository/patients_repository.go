@@ -44,13 +44,13 @@ func (pr *PatientRepository) DeletePatient(ctx context.Context, patientID string
 	return pr.repo.Delete(ctx, PatientsCollection, patientID)
 }
 
-func (pr *PatientRepository) QueryPatients(ctx context.Context, filters map[string]interface{}) ([]*models.Patient, error) {
-	results, err := pr.repo.Query(ctx, PatientsCollection, filters)
+func (pr *PatientRepository) QueryPatients(ctx context.Context, filters map[string]interface{}, pagination Pagination) ([]*models.Patient, error) {
+	result, err := pr.repo.Query(ctx, ImagesCollection, filters, pagination)
 	if err != nil {
 		return nil, err
 	}
-	patients := make([]*models.Patient, 0, len(results))
-	for _, data := range results {
+	patients := make([]*models.Patient, 0, len(result.Data))
+	for _, data := range result.Data {
 		patient := &models.Patient{}
 		patient.FromMap(data)
 		patients = append(patients, patient)
