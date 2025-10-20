@@ -39,6 +39,13 @@ func NewValidationError(message string, details map[string]interface{}) *AppErro
 		Details: details,
 	}
 }
+func NewBadRequestError(message string, details map[string]interface{}) *AppError {
+	return &AppError{
+		Type:    ErrorTypeValidation,
+		Message: message,
+		Details: details,
+	}
+}
 
 func NewNotFoundError(message string) *AppError {
 	return &AppError{
