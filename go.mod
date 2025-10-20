@@ -7,7 +7,7 @@ require (
 	cloud.google.com/go/pubsub v1.50.1
 	cloud.google.com/go/storage v1.56.0
 	github.com/google/uuid v1.6.0
-	github.com/histopathai/models v0.0.0-20251019151213-464c923c83ed
+	github.com/histopathai/models v0.0.0-20251020151908-ee20b40bbc8e
 	github.com/joho/godotenv v1.5.1
 	google.golang.org/grpc v1.76.0
 )
