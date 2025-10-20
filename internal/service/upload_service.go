@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 	"time"
 
 	apperrors "github.com/histopathai/main-service/internal/errors"
@@ -13,13 +14,19 @@ import (
 	"github.com/histopathai/models"
 )
 
+type Collection string
+
+const (
+	ImageCollection     Collection = "images"
+	PatientCollection   Collection = "patients"
+	WorkspaceCollection Collection = "workspaces"
+	UserCollection      Collection = "users"
+)
+
 type UploadService struct {
 	storageClient *storage.Client
 	bucketName    string
-	imgRepo       *repository.ImageRepository
-	patientRepo   *repository.PatientRepository
-	workspaceRepo *repository.WorkspaceRepository
-	userRepo      *repository.UserRepository
+	repo          *repository.MainRepository
 }
 
 type SignedUrlResponse struct {
@@ -72,25 +79,19 @@ func MimeeTypeFromFormat(format string) string {
 func NewUploadService(
 	storageClient *storage.Client,
 	bucketName string,
-	imgRepo *repository.ImageRepository,
-	patientRepo *repository.PatientRepository,
-	workspaceRepo *repository.WorkspaceRepository,
-	userRepo *repository.UserRepository,
+	repo *repository.MainRepository,
 ) *UploadService {
 	return &UploadService{
 		storageClient: storageClient,
 		bucketName:    bucketName,
-		imgRepo:       imgRepo,
-		patientRepo:   patientRepo,
-		workspaceRepo: workspaceRepo,
-		userRepo:      userRepo,
+		repo:          repo,
 	}
 }
 
 func (us *UploadService) ValidateUploadRequest(ctx context.Context, req *UploadImageRequest) error {
 	details := make(map[string]interface{})
 	// Check creator exists
-	exists, err := us.userRepo.Exists(ctx, req.CreatorID)
+	exists, err := us.repo.Exists(ctx, string(UserCollection), req.CreatorID)
 	if err != nil {
 		return apperrors.NewInternalError("failed to validate creator", err)
 	}
@@ -99,7 +100,7 @@ func (us *UploadService) ValidateUploadRequest(ctx context.Context, req *UploadI
 	}
 
 	// Check if workspace exists
-	exists, err = us.workspaceRepo.Exists(ctx, req.WorkspaceID)
+	exists, err = us.repo.Exists(ctx, string(WorkspaceCollection), req.WorkspaceID)
 	if err != nil {
 		return apperrors.NewInternalError("failed to validate workspace", err)
 	}
@@ -172,52 +173,76 @@ func (us *UploadService) ProcessUpload(ctx context.Context, req *UploadImageRequ
 		return nil, err
 	}
 
-	patientID := req.PatientInfo.PatientID
+	var imageID, patientID string
+	var fileName string
 
-	if patientID == "" {
-		patient := us.ValidateAndCreatePatient(&req.PatientInfo)
-		if patient != nil {
-			id, err := us.patientRepo.CreatePatient(ctx, patient)
-			if err != nil {
-				return nil, apperrors.NewInternalError("failed to create patient", err)
+	err := us.repo.RunTransaction(ctx, func(txCtx context.Context, tx repository.Transaction) error {
+
+		patientID = req.PatientInfo.PatientID
+
+		if patientID == "" {
+			patient := us.ValidateAndCreatePatient(&req.PatientInfo)
+			if patient != nil {
+				patient.CreatedAt = time.Now()
+				patient.UpdatedAt = time.Now()
+
+				id, err := tx.Create(string(PatientCollection), patient.ToMap())
+				if err != nil {
+					return apperrors.NewInternalError("failed to create patient transactionally", err)
+				}
+				patientID = id
+				slog.Info("Patient created in transaction", "patientID", patientID)
+
 			}
-			patientID = id
+
+		} else {
+			// Verify patient exists
+			_, err := tx.Read(string(PatientCollection), patientID)
+			if err != nil {
+				return apperrors.NewNotFoundError("patient not found")
+			}
 		}
-	} else {
-		// Patient ID varsa, varlığını kontrol et
-		exists, err := us.patientRepo.Exists(ctx, patientID)
+
+		imageID = uuid.New().String()
+		fileName = fmt.Sprintf("%s-%s", imageID, req.ImageInfo.FileName)
+
+		image := &models.Image{
+			ID:            imageID,
+			FileName:      fileName,
+			Format:        req.ImageInfo.Format,
+			Width:         req.ImageInfo.Width,
+			Height:        req.ImageInfo.Height,
+			SizeBytes:     req.ImageInfo.SizeBytes,
+			CreatorID:     req.CreatorID,
+			PatientID:     patientID,
+			WorkspaceID:   req.WorkspaceID,
+			OriginPath:    fmt.Sprintf("gs://%s/%s", us.bucketName, fileName),
+			ProcessedPath: "",
+			Status:        models.StatusUploadWaiting,
+			CreatedAt:     time.Now(),
+			UpdatedAt:     time.Now(),
+		}
+
+		imgID, err := tx.Create(string(ImageCollection), image.ToMap())
 		if err != nil {
-			return nil, apperrors.NewInternalError("failed to check patient existence", err)
+			return apperrors.NewInternalError("failed to create image record transactionally", err)
 		}
-		if !exists {
-			return nil, apperrors.NewNotFoundError("patient not found")
-		}
-	}
+		imageID = imgID
 
-	imageID := uuid.New().String()
-	fileName := fmt.Sprintf("%s-%s", imageID, req.ImageInfo.FileName)
+		slog.Info("Image record created in transaction",
+			"image_id", imageID,
+			"patient_id", patientID,
+			"workspace_id", req.WorkspaceID,
+		)
+		return nil
+	})
 
-	image := &models.Image{
-		ID:            imageID,
-		FileName:      fileName,
-		Format:        req.ImageInfo.Format,
-		Width:         req.ImageInfo.Width,
-		Height:        req.ImageInfo.Height,
-		SizeBytes:     req.ImageInfo.SizeBytes,
-		PatientID:     patientID,
-		WorkspaceID:   req.WorkspaceID,
-		OriginPath:    fmt.Sprintf("gs://%s/%s", us.bucketName, fileName),
-		ProcessedPath: "",
-		Status:        models.StatusUploadWaiting,
-		CreatedAt:     time.Now(),
-		UpdatedAt:     time.Now(),
-	}
-
-	imgID, err := us.imgRepo.CreateImage(ctx, image)
 	if err != nil {
-		return nil, apperrors.NewInternalError("failed to create image record", err)
+		slog.Error("Transaction failed during upload process", "error", err)
+		return nil, err
 	}
 
+	//Generate signed URL
 	contentType := MimeeTypeFromFormat(req.ImageInfo.Format)
 	uploadURL, err := us.GenerateSignedUploadURL(ctx, fileName, contentType)
 	if err != nil {
@@ -226,7 +251,7 @@ func (us *UploadService) ProcessUpload(ctx context.Context, req *UploadImageRequ
 
 	resp := &SignedUrlResponse{
 		UploadURL: uploadURL,
-		ImageID:   imgID,
+		ImageID:   imageID,
 		ExpiresAt: time.Now().Add(30 * time.Minute).Unix(),
 	}
 
