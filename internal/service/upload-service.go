@@ -33,32 +33,32 @@ type SignedUrlResponse struct {
 }
 
 type ImageInfo struct {
-	FileName  string `json:"fileName"`
+	FileName  string `json:"filename"`
 	Format    string `json:"format"`
 	Width     int    `json:"width"`
 	Height    int    `json:"height"`
-	SizeBytes int64  `json:"sizeBytes"`
+	SizeBytes int64  `json:"size_bytes"`
 }
 
 type PatientInfo struct {
-	PatientID string `json:"patientId,omitempty"` // optional, will be created if empty
+	PatientID string `json:"id,omitempty"` // optional, will be created if empty
 	Age       int    `json:"age,omitempty"`
-	Race      string `json:"race,omitempty"`
 	Gender    string `json:"gender,omitempty"`
-	History   string `json:"history,omitempty"`
+	Race      string `json:"race,omitempty"`
 	Disease   string `json:"disease,omitempty"`
+	History   string `json:"history,omitempty"`
 }
 
 type UploadImageRequest struct {
-	ImageInfo   ImageInfo   `json:"imageInfo"`
-	PatientInfo PatientInfo `json:"patientInfo"`
-	WorkspaceID string      `json:"workspaceId"`
+	ImageInfo   ImageInfo   `json:"image_info"`
+	PatientInfo PatientInfo `json:"patient_info"`
+	WorkspaceID string      `json:"workspace_id"`
 }
 
 type UploadImageResponse struct {
-	ImageID   string `json:"imageId"`
-	PatientID string `json:"patientId"`
-	FileURL   string `json:"fileUrl"`
+	ImageID   string `json:"image_id"`
+	PatientID string `json:"patient_id"`
+	FileURL   string `json:"file_url"`
 }
 
 func NewUploadService(
@@ -184,4 +184,3 @@ func (us *UploadService) ProcessUpload(ctx context.Context, req *UploadImageRequ
 
 	fileURL := fmt.Sprintf("gs://%s/%s", us.bucketName, fileName)
 
-	
