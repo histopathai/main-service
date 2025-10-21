@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	"cloud.google.com/go/pubsub"
@@ -27,7 +28,7 @@ func (g *GooglePubSubAdapter) Publish(ctx context.Context, topicID string, data 
 	messageId, err := result.Get(ctx)
 	if err != nil {
 		slog.Error("Pub/Sub publish error", "topic", topicID, "error", err)
-		return "", err
+		return "", fmt.Errorf("failed to publish message to topic %s: %w", topicID, err)
 	}
 	slog.Debug("Pub/Sub message published", "topic", topicID, "messageId", messageId)
 	return messageId, nil
