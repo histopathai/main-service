@@ -20,9 +20,11 @@ func NewWorkspaceRepository(repo Repository) *WorkspaceRepository {
 }
 
 func (wr *WorkspaceRepository) CreateWorkspace(ctx context.Context, workspace *models.Workspace) (string, error) {
+
 	workspace.CreatedAt = time.Now()
 	workspace.UpdatedAt = time.Now()
 	return wr.repo.Create(ctx, WorkspacesCollection, workspace.ToMap())
+
 }
 
 func (wr *WorkspaceRepository) ReadWorkspace(ctx context.Context, workspaceID string) (*models.Workspace, error) {
@@ -49,6 +51,7 @@ func (wr *WorkspaceRepository) QueryWorkspaces(ctx context.Context, filters map[
 	if err != nil {
 		return nil, err
 	}
+
 	workspaces := make([]*models.Workspace, 0, len(results.Data))
 	for _, data := range results.Data {
 		workspace := &models.Workspace{}
