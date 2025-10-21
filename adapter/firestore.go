@@ -11,12 +11,12 @@ import (
 	repo "github.com/histopathai/main-service/internal/repository"
 )
 
-type FirestoreTransctionAdapter struct {
+type FirestoreTransactionAdapter struct {
 	client *firestore.Client
 	tx     *firestore.Transaction
 }
 
-func (fta *FirestoreTransctionAdapter) Create(col string, data map[string]interface{}) (string, error) {
+func (fta *FirestoreTransactionAdapter) Create(col string, data map[string]interface{}) (string, error) {
 	id, ok := data["id"].(string)
 	if !ok || id == "" {
 		id = fta.client.Collection(col).NewDoc().ID
@@ -31,7 +31,7 @@ func (fta *FirestoreTransctionAdapter) Create(col string, data map[string]interf
 	return id, nil
 }
 
-func (fta *FirestoreTransctionAdapter) Read(col string, docID string) (map[string]interface{}, error) {
+func (fta *FirestoreTransactionAdapter) Read(col string, docID string) (map[string]interface{}, error) {
 	doc, err := fta.tx.Get(fta.client.Collection(col).Doc(docID))
 	if err != nil {
 		return nil, err
@@ -39,15 +39,15 @@ func (fta *FirestoreTransctionAdapter) Read(col string, docID string) (map[strin
 	return doc.Data(), nil
 }
 
-func (fta *FirestoreTransctionAdapter) Update(col string, docID string, updates map[string]interface{}) error {
+func (fta *FirestoreTransactionAdapter) Update(col string, docID string, updates map[string]interface{}) error {
 	return fta.tx.Set(fta.client.Collection(col).Doc(docID), updates, firestore.MergeAll)
 }
 
-func (fta *FirestoreTransctionAdapter) Delete(col string, docID string) error {
+func (fta *FirestoreTransactionAdapter) Delete(col string, docID string) error {
 	return fta.tx.Delete(fta.client.Collection(col).Doc(docID))
 }
 
-func (fta *FirestoreTransctionAdapter) Set(col string, docID string, data map[string]interface{}) error {
+func (fta *FirestoreTransactionAdapter) Set(col string, docID string, data map[string]interface{}) error {
 	return fta.tx.Set(fta.client.Collection(col).Doc(docID), data)
 }
 
@@ -149,7 +149,7 @@ func (f *FirestoreAdapter) Exists(ctx context.Context, col, docID string) (bool,
 
 func (f *FirestoreAdapter) RunTransaction(ctx context.Context, fn func(ctx context.Context, tx repo.TransactionAdapter) error) error {
 	return f.client.RunTransaction(ctx, func(ctx context.Context, fsTx *firestore.Transaction) error {
-		adapter := &FirestoreTransctionAdapter{
+		adapter := &FirestoreTransactionAdapter{
 			client: f.client,
 			tx:     fsTx,
 		}
