@@ -146,3 +146,13 @@ func (f *FirestoreAdapter) Exists(ctx context.Context, col, docID string) (bool,
 	}
 	return true, nil
 }
+
+func (f *FirestoreAdapter) RunTransaction(ctx context.Context, fn func(ctx context.Context, tx repo.TransactionAdapter) error) error {
+	return f.client.RunTransaction(ctx, func(ctx context.Context, fsTx *firestore.Transaction) error {
+		adapter := &FirestoreTransctionAdapter{
+			client: f.client,
+			tx:     fsTx,
+		}
+		return fn(ctx, adapter)
+	})
+}
