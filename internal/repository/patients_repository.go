@@ -45,7 +45,7 @@ func (pr *PatientRepository) DeletePatient(ctx context.Context, patientID string
 }
 
 func (pr *PatientRepository) QueryPatients(ctx context.Context, filters map[string]interface{}, pagination Pagination) ([]*models.Patient, error) {
-	result, err := pr.repo.Query(ctx, ImagesCollection, filters, pagination)
+	result, err := pr.repo.Query(ctx, PatientsCollection, filters, pagination)
 	if err != nil {
 		return nil, err
 	}
