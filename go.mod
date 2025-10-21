@@ -7,8 +7,9 @@ require (
 	cloud.google.com/go/pubsub v1.50.1
 	cloud.google.com/go/storage v1.56.0
 	github.com/google/uuid v1.6.0
-	github.com/histopathai/models v0.0.0-20251020151908-ee20b40bbc8e
+	github.com/histopathai/models v0.0.0-20251021175931-6a1e33c87694
 	github.com/joho/godotenv v1.5.1
+	google.golang.org/api v0.252.0
 	google.golang.org/grpc v1.76.0
 )
 
@@ -56,7 +57,6 @@ require (
 	golang.org/x/sys v0.37.0 // indirect
 	golang.org/x/text v0.30.0 // indirect
 	golang.org/x/time v0.14.0 // indirect
-	google.golang.org/api v0.252.0 // indirect
 	google.golang.org/genproto v0.0.0-20251014184007-4626949a642f // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20251014184007-4626949a642f // indirect
 	google.golang.org/genproto/googleapis/rpc v0.0.0-20251014184007-4626949a642f // indirect

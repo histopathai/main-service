@@ -105,8 +105,8 @@ github.com/googleapis/enterprise-certificate-proxy v0.3.6 h1:GW/XbdyBFQ8Qe+YAmFU
 github.com/googleapis/enterprise-certificate-proxy v0.3.6/go.mod h1:MkHOF77EYAE7qfSuSS9PU6g4Nt4e11cnsDUowfwewLA=
 github.com/googleapis/gax-go/v2 v2.15.0 h1:SyjDc1mGgZU5LncH8gimWo9lW1DtIfPibOG81vgd/bo=
 github.com/googleapis/gax-go/v2 v2.15.0/go.mod h1:zVVkkxAQHa1RQpg9z2AUCMnKhi0Qld9rcmyfL1OZhoc=
-github.com/histopathai/models v0.0.0-20251020151908-ee20b40bbc8e h1:/VEoHnKvV3ZUo2PWXG0Ct7FLoazQ16A6Cr9K++tS8Fk=
-github.com/histopathai/models v0.0.0-20251020151908-ee20b40bbc8e/go.mod h1:15gLvqdRBtELHhZUZDXE2M8Mfv1BVPhMuvTyAXv+4mE=
+github.com/histopathai/models v0.0.0-20251021175931-6a1e33c87694 h1:oXSeT6nyL94oNbMPk7mTtBb+dRD8rltUUn6iTxf5rVM=
+github.com/histopathai/models v0.0.0-20251021175931-6a1e33c87694/go.mod h1:15gLvqdRBtELHhZUZDXE2M8Mfv1BVPhMuvTyAXv+4mE=
 github.com/joho/godotenv v1.5.1 h1:7eLL/+HRGLY0ldzfGMeQkb7vMd0as4CfYvUVzLqw0N0=
 github.com/joho/godotenv v1.5.1/go.mod h1:f4LDr5Voq0i2e/R5DDNOoa2zzDfwtkZa6DnEwAbqwq4=
 github.com/planetscale/vtprotobuf v0.6.1-0.20240319094008-0393e58bdf10 h1:GFCKgmp0tecUJ0sJuv4pzYCqS9+RGSn52M3FUwPs+uo=
