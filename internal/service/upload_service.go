@@ -58,7 +58,7 @@ type UploadImageRequest struct {
 	WorkspaceID string      `json:"workspace_id"`
 }
 
-func MimeeTypeFromFormat(format string) string {
+func MimeTypeFromFormat(format string) string {
 	switch format {
 	case "jpeg", "jpg":
 		return "image/jpeg"
@@ -165,8 +165,8 @@ func (us *UploadService) GenerateSignedUploadURL(ctx context.Context, fileName s
 
 func (us *UploadService) ProcessUpload(ctx context.Context, req *UploadImageRequest) (*SignedUrlResponse, error) {
 	// Check creator exists
-	CreatorID := ctx.Value("user_id").(string)
-	if CreatorID == "" {
+	CreatorID, ok := ctx.Value("user_id").(string)
+	if !ok || CreatorID == "" {
 		return nil, apperrors.NewUnauthorizedError("missing user ID in context")
 	}
 
@@ -244,7 +244,7 @@ func (us *UploadService) ProcessUpload(ctx context.Context, req *UploadImageRequ
 	}
 
 	//Generate signed URL
-	contentType := MimeeTypeFromFormat(req.ImageInfo.Format)
+	contentType := MimeTypeFromFormat(req.ImageInfo.Format)
 	uploadURL, err := us.GenerateSignedUploadURL(ctx, fileName, contentType)
 	if err != nil {
 		return nil, err
