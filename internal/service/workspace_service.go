@@ -65,8 +65,8 @@ func (s *WorkspaceService) validateCreateWorkspaceRequest(req *CreateWorkspaceRe
 
 func (s *WorkspaceService) CreateWorkspace(ctx context.Context, req *CreateWorkspaceRequest) (*CreateWorkspaceResponse, error) {
 
-	CreatorID := ctx.Value("user_id").(string)
-	if CreatorID == "" {
+	CreatorID, ok := ctx.Value("user_id").(string)
+	if !ok || CreatorID == "" {
 		return nil, apperrors.NewUnauthorizedError("missing user ID in context")
 	}
 
