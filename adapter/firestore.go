@@ -2,6 +2,7 @@ package adapter
 
 import (
 	"context"
+	"fmt"
 
 	"cloud.google.com/go/firestore"
 	"google.golang.org/api/iterator"
@@ -25,7 +26,7 @@ func (fta *FirestoreTransactionAdapter) Create(col string, data map[string]inter
 
 	err := fta.tx.Set(fta.client.Collection(col).Doc(id), data)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to create document in transaction: %w", err)
 	}
 
 	return id, nil
@@ -70,7 +71,7 @@ func (f *FirestoreAdapter) Create(ctx context.Context, col string, data map[stri
 
 	_, err := f.client.Collection(col).Doc(id).Set(ctx, data)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to create document: %w", err)
 	}
 
 	return id, nil
