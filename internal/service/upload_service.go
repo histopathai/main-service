@@ -53,7 +53,6 @@ type PatientInfo struct {
 }
 
 type UploadImageRequest struct {
-	CreatorID   string      `json:"creator_id"`
 	ImageInfo   ImageInfo   `json:"image_info"`
 	PatientInfo PatientInfo `json:"patient_info"`
 	WorkspaceID string      `json:"workspace_id"`
@@ -88,24 +87,21 @@ func NewUploadService(
 	}
 }
 
-func (us *UploadService) ValidateUploadRequest(ctx context.Context, req *UploadImageRequest) error {
+func (us *UploadService) validateUploadRequest(ctx context.Context, req *UploadImageRequest) error {
 	details := make(map[string]interface{})
-	// Check creator exists
-	exists, err := us.repo.Exists(ctx, string(UserCollection), req.CreatorID)
+	// Check workspace exists
+	result, err := us.repo.Read(ctx, string(WorkspaceCollection), req.WorkspaceID)
 	if err != nil {
-		return apperrors.NewInternalError("failed to validate creator", err)
+		return apperrors.NewInternalError("failed to read workspace during upload validation", err)
 	}
-	if !exists {
-		return apperrors.NewBadRequestError(fmt.Sprintf("creator %s does not exist", req.CreatorID), details)
-	}
-
-	// Check if workspace exists
-	exists, err = us.repo.Exists(ctx, string(WorkspaceCollection), req.WorkspaceID)
-	if err != nil {
-		return apperrors.NewInternalError("failed to validate workspace", err)
-	}
-	if !exists {
-		return apperrors.NewBadRequestError(fmt.Sprintf("workspace %s does not exist", req.WorkspaceID), details)
+	if result == nil {
+		details["workspace"] = "required"
+	} else {
+		w := &models.Workspace{}
+		w.FromMap(result)
+		if w.AnnotationTypeID == "" {
+			details["workspace"] = "workspace must have an annotation type assigned"
+		}
 	}
 
 	// Check image info
@@ -168,8 +164,13 @@ func (us *UploadService) GenerateSignedUploadURL(ctx context.Context, fileName s
 }
 
 func (us *UploadService) ProcessUpload(ctx context.Context, req *UploadImageRequest) (*SignedUrlResponse, error) {
+	// Check creator exists
+	CreatorID := ctx.Value("user_id").(string)
+	if CreatorID == "" {
+		return nil, apperrors.NewUnauthorizedError("missing user ID in context")
+	}
 
-	if err := us.ValidateUploadRequest(ctx, req); err != nil {
+	if err := us.validateUploadRequest(ctx, req); err != nil {
 		return nil, err
 	}
 
@@ -213,7 +214,7 @@ func (us *UploadService) ProcessUpload(ctx context.Context, req *UploadImageRequ
 			Width:         req.ImageInfo.Width,
 			Height:        req.ImageInfo.Height,
 			SizeBytes:     req.ImageInfo.SizeBytes,
-			CreatorID:     req.CreatorID,
+			CreatorID:     CreatorID,
 			PatientID:     patientID,
 			WorkspaceID:   req.WorkspaceID,
 			OriginPath:    fmt.Sprintf("gs://%s/%s", us.bucketName, fileName),
