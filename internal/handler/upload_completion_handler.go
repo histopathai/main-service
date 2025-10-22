@@ -144,7 +144,7 @@ func (h *UploadCompletionHandler) handleMessage(ctx context.Context, data []byte
 			if err != nil {
 				return err
 			}
-			_, err = tx.Create(string(repository.PatientsCollection), newPatient.ToMap())
+			newPatient.ID, err = tx.Create(string(repository.PatientsCollection), newPatient.ToMap())
 			if err != nil {
 				return err
 			}
