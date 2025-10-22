@@ -69,10 +69,9 @@ func main() {
 	firestoreAdapter := adapter.NewFirestoreAdapter(firestoreClient)
 	pubsubAdapter := adapter.NewGooglePubSubAdapter(pubsubClient)
 
-	_ = pubsubAdapter // will be used later to avoid unused variable error
-
 	//initialize repositories
 	mainRepo := repository.NewMainRepository(firestoreAdapter)
+	messageBroker := repository.NewMessageBroker(pubsubAdapter)
 
 	//initialize handlers
 	uploadHandler := handler.NewUploadHandler(
