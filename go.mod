@@ -7,8 +7,9 @@ require (
 	cloud.google.com/go/pubsub v1.50.1
 	cloud.google.com/go/storage v1.56.0
 	github.com/gin-gonic/gin v1.11.0
+	github.com/go-faker/faker/v4 v4.7.0
 	github.com/google/uuid v1.6.0
-	github.com/histopathai/models v0.0.0-20251021175931-6a1e33c87694
+	github.com/histopathai/models v0.0.0-20251022225426-c31fcf2c442e
 	github.com/joho/godotenv v1.5.1
 	google.golang.org/api v0.252.0
 	google.golang.org/grpc v1.76.0
