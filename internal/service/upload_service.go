@@ -27,6 +27,7 @@ type UploadService struct {
 	storageClient *storage.Client
 	bucketName    string
 	repo          *repository.MainRepository
+	logger        *slog.Logger
 }
 
 type SignedUrlResponse struct {
@@ -79,11 +80,13 @@ func NewUploadService(
 	storageClient *storage.Client,
 	bucketName string,
 	repo *repository.MainRepository,
+	logger *slog.Logger,
 ) *UploadService {
 	return &UploadService{
 		storageClient: storageClient,
 		bucketName:    bucketName,
 		repo:          repo,
+		logger:        logger,
 	}
 }
 
@@ -124,6 +127,7 @@ func (us *UploadService) validateUploadRequest(ctx context.Context, req *UploadI
 	}
 
 	if len(details) > 0 {
+		us.logger.Info("Upload request validation failed", "details", details)
 		return apperrors.NewBadRequestError("invalid upload image request", details)
 	}
 	return nil
@@ -192,7 +196,7 @@ func (us *UploadService) ProcessUpload(ctx context.Context, req *UploadImageRequ
 					return apperrors.NewInternalError("failed to create patient transactionally", err)
 				}
 				patientID = id
-				slog.Info("Patient created in transaction", "patientID", patientID)
+				us.logger.Info("Patient created in transaction", "patientID", patientID)
 
 			}
 
@@ -230,7 +234,7 @@ func (us *UploadService) ProcessUpload(ctx context.Context, req *UploadImageRequ
 		}
 		imageID = imgID
 
-		slog.Info("Image record created in transaction",
+		us.logger.Info("Image record created in transaction",
 			"image_id", imageID,
 			"patient_id", patientID,
 			"workspace_id", req.WorkspaceID,
@@ -239,7 +243,7 @@ func (us *UploadService) ProcessUpload(ctx context.Context, req *UploadImageRequ
 	})
 
 	if err != nil {
-		slog.Error("Transaction failed during upload process", "error", err)
+		us.logger.Error("Transaction failed during upload process", "error", err)
 		return nil, err
 	}
 
