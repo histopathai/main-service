@@ -13,7 +13,13 @@ type Config struct {
 	ProjectID          string
 	OriginalBucketName string
 	Server             ServerConfig
+	MsgTopics          MsgTopicConfig
 	Env                string
+}
+type MsgTopicConfig struct {
+	UploadStatusTopicID       string
+	ImageProcessingTopicID    string
+	ImageProcessStatusTopicID string
 }
 
 type ServerConfig struct {
@@ -55,7 +61,7 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("ORIGINAL_BUCKET_NAME is required")
 	}
 
-	port := getEnvOrDefault("PORT", "8081")
+	port := getEnvOrDefault("PORT", "8080")
 	readTimeoutStr := getEnvOrDefault("READ_TIMEOUT", "15s")
 	readTimeout, err := time.ParseDuration(readTimeoutStr)
 	if err != nil {
