@@ -10,10 +10,10 @@ import (
 const WorkspacesCollection = "workspaces"
 
 type WorkspaceRepository struct {
-	repo Repository
+	repo *MainRepository
 }
 
-func NewWorkspaceRepository(repo Repository) *WorkspaceRepository {
+func NewWorkspaceRepository(repo *MainRepository) *WorkspaceRepository {
 	return &WorkspaceRepository{
 		repo: repo,
 	}
