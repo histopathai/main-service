@@ -137,7 +137,6 @@ func (h *UploadCompletionHandler) handleMessage(ctx context.Context, data []byte
 			}
 		}
 	} else {
-		var newPatient *models.Patient
 		err = h.repo.RunTransaction(ctx, func(txCtx context.Context, tx repository.Transaction) error {
 
 			newPatient, err := h.ParsePatientFromMetadata(event.MetaData)
@@ -155,6 +154,8 @@ func (h *UploadCompletionHandler) handleMessage(ctx context.Context, data []byte
 			if err != nil {
 				return err
 			}
+			h.logger.Info("Successfully created patient and image", "patientID", newPatient.ID, "imageID", newImage.ID)
+
 			return nil
 		})
 		if err != nil {
@@ -162,7 +163,6 @@ func (h *UploadCompletionHandler) handleMessage(ctx context.Context, data []byte
 			return err
 		}
 		// Successfully created patient and image
-		h.logger.Info("Successfully created patient and image", "patientID", newPatient.ID, "imageID", newImage.ID)
 	}
 	// Publish message to next topic for further processing
 
