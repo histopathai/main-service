@@ -113,14 +113,13 @@ func (h *UploadCompletionHandler) handleMessage(ctx context.Context, data []byte
 	sizeBytes, _ := strconv.ParseInt(event.Size, 10, 64)
 
 	newImage := &models.Image{
-		ID:          event.Name,
-		FileName:    event.MetaData["image-filename"],
-		Format:      event.MetaData["image-format"],
-		SizeBytes:   sizeBytes,
-		OriginPath:  event.MetaData["image-origin-path"],
-		WorkspaceID: workspaceID,
-		CreatorID:   creatorID,
-		Status:      models.StatusUploaded,
+		ID:         event.Name,
+		FileName:   event.MetaData["image-filename"],
+		Format:     event.MetaData["image-format"],
+		SizeBytes:  sizeBytes,
+		OriginPath: event.MetaData["image-origin-path"],
+		CreatorID:  creatorID,
+		Status:     models.StatusUploaded,
 	}
 
 	var err error
