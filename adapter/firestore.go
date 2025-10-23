@@ -157,3 +157,40 @@ func (f *FirestoreAdapter) RunTransaction(ctx context.Context, fn func(ctx conte
 		return fn(ctx, adapter)
 	})
 }
+
+func (f *FirestoreAdapter) List(ctx context.Context, col string, filters []repo.Filter, pagination repo.Pagination) (*repo.QueryResult, error) {
+	query := f.client.Collection(col).Query
+
+	for _, filter := range filters {
+		query = query.Where(filter.Field, string(filter.Op), filter.Value)
+	}
+
+	if pagination.Offset > 0 {
+		query = query.Offset(pagination.Offset)
+	}
+	if pagination.Limit > 0 {
+		query = query.Limit(pagination.Limit)
+	}
+
+	iter := query.Documents(ctx)
+	defer iter.Stop()
+
+	results := make([]map[string]interface{}, 0)
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, doc.Data())
+	}
+
+	return &repo.QueryResult{
+		Data:    results,
+		Limit:   pagination.Limit,
+		Offset:  pagination.Offset,
+		HasMore: len(results) == pagination.Limit,
+	}, nil
+}
