@@ -22,22 +22,47 @@ func NewWorkspaceService(repo *repository.WorkspaceRepository, logger *slog.Logg
 	}
 }
 
-func (s *WorkspaceService) CreateWorkspace(ctx context.Context,
-	workspace *models.Workspace) (string, error) {
+func (s *WorkspaceService) validateWorkspaceCreator(ctx context.Context,
+	creator_id string) error {
+
+	exists, err := s.repo.GetMainRepository().Exists(ctx, "users", creator_id)
+	if err != nil {
+		return apperrors.NewInternalError("failed to verify creator existence", err)
+	}
+	if !exists {
+		return apperrors.NewValidationError("creator does not exist for workspace", nil)
+	}
+	return nil
+}
+
+func (s *WorkspaceService) validateWorkspaceNameUnique(ctx context.Context,
+	name string) error {
 
 	filter := repository.Filter{
 		Field: "name",
 		Op:    "=",
-		Value: workspace.Name,
+		Value: name,
 	}
 
 	result, err := s.repo.List(ctx, []repository.Filter{filter}, repository.Pagination{Limit: 1, Offset: 0})
 	if err != nil {
-		s.logger.Error("failed to list workspaces", "error", err)
-		return "", apperrors.NewInternalError("failed to list workspaces", err)
+		return apperrors.NewInternalError("failed to list workspaces", err)
 	}
 	if result.Total > 0 {
-		return "", apperrors.NewValidationError(fmt.Sprintf("workspace with name %s already exists", result.Workspaces[0].Name), nil)
+		return apperrors.NewValidationError(fmt.Sprintf("workspace with name %s already exists", name), nil)
+	}
+	return nil
+}
+
+func (s *WorkspaceService) CreateWorkspace(ctx context.Context,
+	workspace *models.Workspace) (string, error) {
+
+	if err := s.validateWorkspaceCreator(ctx, workspace.CreatorID); err != nil {
+		return "", err
+	}
+
+	if err := s.validateWorkspaceNameUnique(ctx, workspace.Name); err != nil {
+		return "", err
 	}
 
 	workspaceID, err := s.repo.Create(ctx, workspace)
@@ -65,50 +90,21 @@ func (s *WorkspaceService) GetWorkspace(ctx context.Context,
 
 func (s *WorkspaceService) UpdateWorkspace(ctx context.Context,
 	workspaceID string, updates map[string]interface{}) error {
-	_, ok := updates["name"]
 
-	if ok {
-		filter := repository.Filter{
-			Field: "name",
-			Op:    "=",
-			Value: updates["name"],
-		}
-
-		result, err := s.repo.List(ctx, []repository.Filter{filter}, repository.Pagination{Limit: 1, Offset: 0})
-		if err != nil {
-			s.logger.Error("failed to list workspaces", "error", err)
-			return apperrors.NewInternalError("failed to list workspaces", err)
-		}
-		if result.Total > 0 {
-			return apperrors.NewValidationError(fmt.Sprintf("workspace with name %s already exists", updates["name"]), nil)
+	var err error
+	if name, exists := updates["name"]; exists {
+		if err = s.validateWorkspaceNameUnique(ctx, name.(string)); err != nil {
+			return err
 		}
 	}
 
-	_, ok = updates["creator_id"]
-	if ok {
-		exists, err := s.repo.GetMainRepository().Exists(ctx, "users", updates["creator_id"].(string))
-		if err != nil {
-			s.logger.Error("failed to verify creator existence", "error", err)
-			return apperrors.NewInternalError("failed to verify creator existence", err)
-		}
-		if !exists {
-			return apperrors.NewValidationError("creator does not exist for workspace", nil)
+	if creatorID, exists := updates["creator_id"]; exists {
+		if err = s.validateWorkspaceCreator(ctx, creatorID.(string)); err != nil {
+			return err
 		}
 	}
 
-	_, ok = updates["annotation_type_id"]
-	if ok {
-		exists, err := s.repo.GetMainRepository().Exists(ctx, repository.AnnotationTypesCollection, updates["annotation_type_id"].(string))
-		if err != nil {
-			s.logger.Error("failed to verify annotation type existence", "error", err)
-			return apperrors.NewInternalError("failed to verify annotation type existence", err)
-		}
-		if !exists {
-			return apperrors.NewValidationError("annotation type does not exist for workspace", nil)
-		}
-	}
-
-	err := s.repo.Update(ctx, workspaceID, updates)
+	err = s.repo.Update(ctx, workspaceID, updates)
 	if err != nil {
 		s.logger.Error("failed to update workspace", "error", err)
 		return apperrors.NewInternalError("failed to update workspace", err)
