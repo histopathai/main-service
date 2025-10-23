@@ -9,6 +9,14 @@ import (
 
 const PatientsCollection = "patients"
 
+type PatientQueryResult struct {
+	Patients []*models.Patient
+	Total    int
+	Limit    int
+	Offset   int
+	HasMore  bool
+}
+
 type PatientRepository struct {
 	repo Repository
 }
@@ -44,20 +52,56 @@ func (pr *PatientRepository) DeletePatient(ctx context.Context, patientID string
 	return pr.repo.Delete(ctx, PatientsCollection, patientID)
 }
 
-func (pr *PatientRepository) QueryPatients(ctx context.Context, filters map[string]interface{}, pagination Pagination) ([]*models.Patient, error) {
-	result, err := pr.repo.Query(ctx, PatientsCollection, filters, pagination)
+func (pr *PatientRepository) Exists(ctx context.Context, patientID string) (bool, error) {
+	return pr.repo.Exists(ctx, PatientsCollection, patientID)
+}
+
+func (pr *PatientRepository) ListPatients(ctx context.Context, filters []Filter, pagination Pagination) (*PatientQueryResult, error) {
+	result, err := pr.repo.List(ctx, PatientsCollection, filters, pagination)
 	if err != nil {
 		return nil, err
 	}
+
 	patients := make([]*models.Patient, 0, len(result.Data))
 	for _, data := range result.Data {
 		patient := &models.Patient{}
 		patient.FromMap(data)
 		patients = append(patients, patient)
 	}
-	return patients, nil
+
+	return &PatientQueryResult{
+		Patients: patients,
+		Total:    result.Total,
+		Limit:    result.Limit,
+		Offset:   result.Offset,
+		HasMore:  result.HasMore,
+	}, nil
 }
 
-func (pr *PatientRepository) Exists(ctx context.Context, patientID string) (bool, error) {
-	return pr.repo.Exists(ctx, PatientsCollection, patientID)
+func (pr *PatientRepository) GetPatientByCreator(ctx context.Context, creatorID string, pagination Pagination) (*PatientQueryResult, error) {
+	filters := []Filter{
+		{
+			Field: "creator_id",
+			Op:    OpEqual,
+			Value: creatorID,
+		},
+	}
+	return pr.ListPatients(ctx, filters, pagination)
+}
+
+func (pr *PatientRepository) GetPatientsByWorkspaceID(ctx context.Context, workspaceID string, pagination Pagination) (*PatientQueryResult, error) {
+	filters := []Filter{
+		{
+			Field: "workspace_id",
+			Op:    OpEqual,
+			Value: workspaceID,
+		},
+	}
+	return pr.ListPatients(ctx, filters, pagination)
+}
+
+func (pr *PatientRepository) GetAllPatients(ctx context.Context, pagination Pagination) (*PatientQueryResult, error) {
+	filter := []Filter{}
+
+	return pr.ListPatients(ctx, filter, pagination)
 }
