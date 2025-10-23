@@ -27,13 +27,17 @@ func NewImageRepository(repo *MainRepository) *ImageRepository {
 	}
 }
 
-func (ir *ImageRepository) CreateImage(ctx context.Context, image *models.Image) (string, error) {
+func (ir *ImageRepository) GetMainRepository() *MainRepository {
+	return ir.repo
+}
+
+func (ir *ImageRepository) Create(ctx context.Context, image *models.Image) (string, error) {
 	image.CreatedAt = time.Now()
 	image.UpdatedAt = time.Now()
 	return ir.repo.Create(ctx, ImagesCollection, image.ToMap())
 }
 
-func (ir *ImageRepository) ReadImage(ctx context.Context, imageID string) (*models.Image, error) {
+func (ir *ImageRepository) Read(ctx context.Context, imageID string) (*models.Image, error) {
 	data, err := ir.repo.Read(ctx, ImagesCollection, imageID)
 	if err != nil {
 		return nil, err
@@ -43,15 +47,16 @@ func (ir *ImageRepository) ReadImage(ctx context.Context, imageID string) (*mode
 	return image, nil
 }
 
-func (ir *ImageRepository) UpdateImage(ctx context.Context, imageID string, updates map[string]interface{}) error {
+func (ir *ImageRepository) Update(ctx context.Context, imageID string, updates map[string]interface{}) error {
 	updates["updated_at"] = time.Now()
 	return ir.repo.Update(ctx, ImagesCollection, imageID, updates)
 }
 
-func (ir *ImageRepository) DeleteImage(ctx context.Context, imageID string) error {
+func (ir *ImageRepository) Delete(ctx context.Context, imageID string) error {
 	return ir.repo.Delete(ctx, ImagesCollection, imageID)
 }
-func (ir *ImageRepository) ListImages(ctx context.Context, filters []Filter, pagination Pagination) (*ImageQueryResult, error) {
+
+func (ir *ImageRepository) List(ctx context.Context, filters []Filter, pagination Pagination) (*ImageQueryResult, error) {
 	result, err := ir.repo.List(ctx, ImagesCollection, filters, pagination)
 	if err != nil {
 		return nil, err
@@ -71,39 +76,6 @@ func (ir *ImageRepository) ListImages(ctx context.Context, filters []Filter, pag
 		Offset:  result.Offset,
 		HasMore: result.HasMore,
 	}, nil
-}
-
-func (ir *ImageRepository) GetImagesByPatientID(ctx context.Context, patientID string, pagination Pagination) (*ImageQueryResult, error) {
-	filters := []Filter{
-		{
-			Field: "patient_id",
-			Op:    OpEqual,
-			Value: patientID,
-		},
-	}
-	return ir.ListImages(ctx, filters, pagination)
-}
-
-func (ir *ImageRepository) GetImagesByCreatorID(ctx context.Context, creatorID string, pagination Pagination) (*ImageQueryResult, error) {
-	filters := []Filter{
-		{
-			Field: "creator_id",
-			Op:    OpEqual,
-			Value: creatorID,
-		},
-	}
-	return ir.ListImages(ctx, filters, pagination)
-}
-
-func (ir *ImageRepository) GetImagesByWorkspaceID(ctx context.Context, workspaceID string, pagination Pagination) (*ImageQueryResult, error) {
-	filters := []Filter{
-		{
-			Field: "workspace_id",
-			Op:    OpEqual,
-			Value: workspaceID,
-		},
-	}
-	return ir.ListImages(ctx, filters, pagination)
 }
 
 func (ir *ImageRepository) Exists(ctx context.Context, imageID string) (bool, error) {
