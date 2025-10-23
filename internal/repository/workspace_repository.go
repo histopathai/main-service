@@ -27,7 +27,10 @@ func NewWorkspaceRepository(repo *MainRepository) *WorkspaceRepository {
 	}
 }
 
-func (wr *WorkspaceRepository) CreateWorkspace(ctx context.Context, workspace *models.Workspace) (string, error) {
+func (wr *WorkspaceRepository) GetMainRepository() *MainRepository {
+	return wr.repo
+}
+func (wr *WorkspaceRepository) Create(ctx context.Context, workspace *models.Workspace) (string, error) {
 
 	workspace.CreatedAt = time.Now()
 	workspace.UpdatedAt = time.Now()
@@ -35,7 +38,7 @@ func (wr *WorkspaceRepository) CreateWorkspace(ctx context.Context, workspace *m
 
 }
 
-func (wr *WorkspaceRepository) ReadWorkspace(ctx context.Context, workspaceID string) (*models.Workspace, error) {
+func (wr *WorkspaceRepository) Read(ctx context.Context, workspaceID string) (*models.Workspace, error) {
 	data, err := wr.repo.Read(ctx, WorkspacesCollection, workspaceID)
 	if err != nil {
 		return nil, err
@@ -45,16 +48,16 @@ func (wr *WorkspaceRepository) ReadWorkspace(ctx context.Context, workspaceID st
 	return workspace, nil
 }
 
-func (wr *WorkspaceRepository) UpdateWorkspace(ctx context.Context, workspaceID string, updates map[string]interface{}) error {
+func (wr *WorkspaceRepository) Update(ctx context.Context, workspaceID string, updates map[string]interface{}) error {
 	updates["updated_at"] = time.Now()
 	return wr.repo.Update(ctx, WorkspacesCollection, workspaceID, updates)
 }
 
-func (wr *WorkspaceRepository) DeleteWorkspace(ctx context.Context, workspaceID string) error {
+func (wr *WorkspaceRepository) Delete(ctx context.Context, workspaceID string) error {
 	return wr.repo.Delete(ctx, WorkspacesCollection, workspaceID)
 }
 
-func (wr *WorkspaceRepository) ListWorkspaces(ctx context.Context, filters []Filter, pagination Pagination) (*WorkspaceQueryResult, error) {
+func (wr *WorkspaceRepository) List(ctx context.Context, filters []Filter, pagination Pagination) (*WorkspaceQueryResult, error) {
 
 	result, err := wr.repo.List(ctx, WorkspacesCollection, filters, pagination)
 	if err != nil {
@@ -78,52 +81,4 @@ func (wr *WorkspaceRepository) ListWorkspaces(ctx context.Context, filters []Fil
 
 func (wr *WorkspaceRepository) Exists(ctx context.Context, workspaceID string) (bool, error) {
 	return wr.repo.Exists(ctx, WorkspacesCollection, workspaceID)
-}
-
-func (wr *WorkspaceRepository) GetWorkspaceByName(ctx context.Context, name string, pagination Pagination) (*WorkspaceQueryResult, error) {
-	filters := []Filter{
-		{
-			Field: "name",
-			Op:    OpEqual,
-			Value: name,
-		},
-	}
-	return wr.ListWorkspaces(ctx, filters, pagination)
-}
-func (wr *WorkspaceRepository) GetWorkspaceByCreator(ctx context.Context, creatorID string, pagination Pagination) (*WorkspaceQueryResult, error) {
-	filters := []Filter{
-		{
-			Field: "creator_id",
-			Op:    OpEqual,
-			Value: creatorID,
-		},
-	}
-	return wr.ListWorkspaces(ctx, filters, pagination)
-}
-
-func (wr *WorkspaceRepository) GetWorkspaceByOrganType(ctx context.Context, organType string, pagination Pagination) (*WorkspaceQueryResult, error) {
-	filters := []Filter{
-		{
-			Field: "organ_type",
-			Op:    OpEqual,
-			Value: organType,
-		},
-	}
-	return wr.ListWorkspaces(ctx, filters, pagination)
-}
-
-func (wr *WorkspaceRepository) GetWorkspaceByOrganization(ctx context.Context, organizationID string, pagination Pagination) (*WorkspaceQueryResult, error) {
-	filters := []Filter{
-		{
-			Field: "organization",
-			Op:    OpEqual,
-			Value: organizationID,
-		},
-	}
-	return wr.ListWorkspaces(ctx, filters, pagination)
-}
-
-func (wr *WorkspaceRepository) GetAllWorkspaces(ctx context.Context, pagination Pagination) (*WorkspaceQueryResult, error) {
-	filters := []Filter{}
-	return wr.ListWorkspaces(ctx, filters, pagination)
 }
