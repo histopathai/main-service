@@ -87,6 +87,27 @@ func LoadConfig() (*Config, error) {
 		ginMode = "release"
 	}
 
+	uploadStatusTopicID := os.Getenv("UPLOAD_STATUS_TOPIC_ID")
+	if uploadStatusTopicID == "" {
+		return nil, fmt.Errorf("UPLOAD_STATUS_TOPIC_ID is required")
+	}
+
+	imageProcessingTopicID := os.Getenv("IMAGE_PROCESSING_TOPIC_ID")
+	if imageProcessingTopicID == "" {
+		return nil, fmt.Errorf("IMAGE_PROCESSING_TOPIC_ID is required")
+	}
+
+	imageProcessStatusTopicID := os.Getenv("IMAGE_PROCESS_STATUS_TOPIC_ID")
+	if imageProcessStatusTopicID == "" {
+		return nil, fmt.Errorf("IMAGE_PROCESS_STATUS_TOPIC_ID is required")
+	}
+
+	msgTopics := MsgTopicConfig{
+		UploadStatusTopicID:       uploadStatusTopicID,
+		ImageProcessingTopicID:    imageProcessingTopicID,
+		ImageProcessStatusTopicID: imageProcessStatusTopicID,
+	}
+
 	config := &Config{
 		ProjectID:          projectID,
 		OriginalBucketName: originalBucketName,
@@ -98,6 +119,7 @@ func LoadConfig() (*Config, error) {
 			IdleTimeout:  idleTimeout,
 			GINMode:      ginMode,
 		},
+		MsgTopics: msgTopics,
 	}
 
 	return config, nil
