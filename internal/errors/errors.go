@@ -17,7 +17,7 @@ type AppError struct {
 	Type    ErrorType
 	Message string
 	Details map[string]interface{}
-	Err     error // underlying error
+	Err     error
 }
 
 func (e *AppError) Error() string {
@@ -33,13 +33,6 @@ func (e *AppError) Unwrap() error {
 
 // Helper functions
 func NewValidationError(message string, details map[string]interface{}) *AppError {
-	return &AppError{
-		Type:    ErrorTypeValidation,
-		Message: message,
-		Details: details,
-	}
-}
-func NewBadRequestError(message string, details map[string]interface{}) *AppError {
 	return &AppError{
 		Type:    ErrorTypeValidation,
 		Message: message,
