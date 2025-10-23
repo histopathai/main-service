@@ -85,6 +85,15 @@ func main() {
 		logger,
 	)
 
+	UploadCompletionHandler := handler.NewUploadCompletionHandler(
+		messageBroker,
+		mainRepo,
+		logger,
+		cfg.MsgTopics.UploadStatusTopicID,
+		cfg.MsgTopics.ImageProcessingTopicID,
+	)
+
+	UploadCompletionHandler.StartListening(ctx)
 	// Setup router
 	r := router.SetupRouter(&router.RouterConfig{
 		UploadHandler:    uploadHandler,
