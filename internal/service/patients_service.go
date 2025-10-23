@@ -138,3 +138,26 @@ func (p *PatientService) GetAllPatients(ctx context.Context,
 	}
 	return result, nil
 }
+
+func (p *PatientService) MovePatientToWorkspace(ctx context.Context,
+	patientID string, workspaceID string) error {
+
+	ok, err := p.repo.GetMainRepository().Exists(ctx,
+		repository.WorkspacesCollection, workspaceID)
+	if err != nil {
+		return apperrors.NewInternalError("failed to verify workspace existence", err)
+	}
+	if !ok {
+		return apperrors.NewValidationError("target workspace does not exist", nil)
+	}
+
+	updates := map[string]interface{}{
+		"workspace_id": workspaceID,
+	}
+	err = p.repo.Update(ctx, patientID, updates)
+	if err != nil {
+		return apperrors.NewInternalError("failed to move patient to workspace", err)
+	}
+	p.logger.Info("Moved patient to new workspace", "patientID", patientID, "workspaceID", workspaceID)
+	return nil
+}
