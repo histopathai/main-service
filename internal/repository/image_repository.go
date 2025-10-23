@@ -9,6 +9,14 @@ import (
 
 const ImagesCollection = "images"
 
+type ImageQueryResult struct {
+	Data    []models.Image
+	Total   int
+	Limit   int
+	Offset  int
+	HasMore bool
+}
+
 type ImageRepository struct {
 	repo *MainRepository
 }
@@ -43,23 +51,59 @@ func (ir *ImageRepository) UpdateImage(ctx context.Context, imageID string, upda
 func (ir *ImageRepository) DeleteImage(ctx context.Context, imageID string) error {
 	return ir.repo.Delete(ctx, ImagesCollection, imageID)
 }
-
-func (ir *ImageRepository) QueryImages(ctx context.Context, filters map[string]interface{}, pagination Pagination) (*QueryResult, error) {
-	return ir.repo.Query(ctx, ImagesCollection, filters, pagination)
-}
-
-func (ir *ImageRepository) GetImages(ctx context.Context, filters map[string]interface{}, pagination Pagination) ([]*models.Image, error) {
-	result, err := ir.repo.Query(ctx, ImagesCollection, filters, pagination)
+func (ir *ImageRepository) ListImages(ctx context.Context, filters []Filter, pagination Pagination) (*ImageQueryResult, error) {
+	result, err := ir.repo.List(ctx, ImagesCollection, filters, pagination)
 	if err != nil {
 		return nil, err
 	}
-	images := make([]*models.Image, 0, len(result.Data))
-	for _, data := range result.Data {
-		image := &models.Image{}
+
+	images := make([]models.Image, len(result.Data))
+	for i, data := range result.Data {
+		image := models.Image{}
 		image.FromMap(data)
-		images = append(images, image)
+		images[i] = image
 	}
-	return images, nil
+
+	return &ImageQueryResult{
+		Data:    images,
+		Total:   result.Total,
+		Limit:   result.Limit,
+		Offset:  result.Offset,
+		HasMore: result.HasMore,
+	}, nil
+}
+
+func (ir *ImageRepository) GetImagesByPatientID(ctx context.Context, patientID string, pagination Pagination) (*ImageQueryResult, error) {
+	filters := []Filter{
+		{
+			Field: "patient_id",
+			Op:    OpEqual,
+			Value: patientID,
+		},
+	}
+	return ir.ListImages(ctx, filters, pagination)
+}
+
+func (ir *ImageRepository) GetImagesByCreatorID(ctx context.Context, creatorID string, pagination Pagination) (*ImageQueryResult, error) {
+	filters := []Filter{
+		{
+			Field: "creator_id",
+			Op:    OpEqual,
+			Value: creatorID,
+		},
+	}
+	return ir.ListImages(ctx, filters, pagination)
+}
+
+func (ir *ImageRepository) GetImagesByWorkspaceID(ctx context.Context, workspaceID string, pagination Pagination) (*ImageQueryResult, error) {
+	filters := []Filter{
+		{
+			Field: "workspace_id",
+			Op:    OpEqual,
+			Value: workspaceID,
+		},
+	}
+	return ir.ListImages(ctx, filters, pagination)
 }
 
 func (ir *ImageRepository) Exists(ctx context.Context, imageID string) (bool, error) {
