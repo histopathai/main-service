@@ -27,12 +27,13 @@ func NewWorkspaceHandler(repo *repository.MainRepository, logger *slog.Logger) *
 	}
 }
 
-func (h *WorkspaceHandler) RegisterWorkspaceRoutes(rg *gin.RouterGroup) {
+func (h *WorkspaceHandler) RegisterRoutes(rg *gin.RouterGroup) {
 	rg.POST("/workspaces", h.CreateWorkspace)
 	rg.GET("/workspaces/:id", h.GetWorkspace)
 	rg.PATCH("/workspaces/:id", h.UpdateWorkspace)
 	rg.GET("/creators/:creator_id/workspaces", h.GetWorkspacesByCreatorID)
 	rg.GET("/workspaces", h.GetAllWorkspaces)
+
 }
 
 func (h *WorkspaceHandler) validateAndBind(c *gin.Context, req interface{}) error {
