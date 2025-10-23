@@ -35,10 +35,7 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 		workspaces := v1.Group("/workspaces")
 		{
 			workspaces.POST("", cfg.WorkspaceHandler.CreateWorkspace)
-			workspaces.GET("", cfg.WorkspaceHandler.ListWorkspaces)
 			workspaces.GET("/:id", cfg.WorkspaceHandler.GetWorkspaces)
-			workspaces.PUT("/:id", cfg.WorkspaceHandler.UpdateWorkspace)
-			workspaces.DELETE("/:id", cfg.WorkspaceHandler.DeleteWorkspace)
 		}
 	}
 
