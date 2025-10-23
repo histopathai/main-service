@@ -22,16 +22,29 @@ func NewPatientService(repo *repository.PatientRepository, logger *slog.Logger) 
 	}
 }
 
+func (p *PatientService) validatePatientWorkspace(ctx context.Context,
+	patient *models.Patient) error {
+
+	workspace, err := p.repo.GetMainRepository().Read(ctx,
+		repository.WorkspacesCollection, patient.WorkspaceID)
+	if err != nil {
+		return apperrors.NewInternalError("failed to read workspace", err)
+	}
+	if workspace == nil {
+		return apperrors.NewValidationError("Patient workspace does not exist", nil)
+	}
+	if workspace["annotation_type_id"] == nil || workspace["annotation_type_id"] == "" {
+		return apperrors.NewValidationError("workspace must have an annotation type assigned. Assign an annotation type before creating patients.", nil)
+	}
+	return nil
+}
+
 func (p *PatientService) CreatePatient(ctx context.Context,
 	patient *models.Patient) (string, error) {
 
-	ok, err := p.repo.GetMainRepository().Exists(ctx,
-		repository.WorkspacesCollection, patient.WorkspaceID)
+	err := p.validatePatientWorkspace(ctx, patient)
 	if err != nil {
-		return "", apperrors.NewInternalError("failed to verify workspace existence", err)
-	}
-	if !ok {
-		return "", apperrors.NewValidationError("workspace does not exist", nil)
+		return "", err
 	}
 
 	if patient.AnonymousName == "" {
@@ -61,19 +74,8 @@ func (p *PatientService) GetPatient(ctx context.Context,
 
 func (p *PatientService) UpdatePatient(ctx context.Context,
 	patientID string, updates map[string]interface{}) error {
-	_, ok := updates["workspace_id"]
-	if ok {
-		exists, err := p.repo.GetMainRepository().Exists(ctx,
-			repository.WorkspacesCollection, updates["workspace_id"].(string))
-		if err != nil {
-			return apperrors.NewInternalError("failed to verify workspace existence", err)
-		}
-		if !exists {
-			return apperrors.NewValidationError("workspace does not exist", nil)
-		}
-	}
 
-	_, ok = updates["creator_id"]
+	_, ok := updates["creator_id"]
 	if ok {
 
 		exists, err := p.repo.GetMainRepository().Exists(ctx,
