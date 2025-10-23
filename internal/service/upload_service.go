@@ -174,7 +174,6 @@ func (us *UploadService) validateUploadRequest(ctx context.Context, req *UploadI
 	image.FileName = req.ImageInfo.FileName
 	image.Format = req.ImageInfo.Format
 	image.SizeBytes = req.ImageInfo.SizeBytes
-	image.WorkspaceID = req.WorkspaceID
 	image.ID = fmt.Sprintf("%s-%s", uuid, req.ImageInfo.FileName)
 	image.OriginPath = fmt.Sprintf("gs://%s/%s", us.bucketName, image.ID)
 	image.PatientID = patient.ID
@@ -187,7 +186,6 @@ func (us *UploadService) GenerateSignedUploadURL(ctx context.Context, contentTyp
 	headers := []string{
 		"Content-Type:" + contentType,
 		"x-goog-meta-image-id:" + image.ID,
-		"x-goog-meta-workspace-id:" + image.WorkspaceID,
 		"x-goog-meta-creator-id:" + image.CreatorID,
 		"x-goog-meta-image-format:" + image.Format,
 		"x-goog-meta-image-size-bytes:" + fmt.Sprintf("%d", image.SizeBytes),
