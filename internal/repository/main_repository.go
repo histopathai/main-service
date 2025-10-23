@@ -4,8 +4,10 @@ import "context"
 
 // Pagination struct
 type Pagination struct {
-	Limit  int
-	Offset int
+	Limit   int
+	Offset  int
+	SortBy  string
+	Sortdir string
 }
 
 // Query response with pagination info
@@ -15,6 +17,26 @@ type QueryResult struct {
 	Limit   int
 	Offset  int
 	HasMore bool
+}
+
+type FilterOp string
+
+const (
+	OpEqual           FilterOp = "=="
+	OpNotEqual        FilterOp = "!="
+	OpGreaterThan     FilterOp = ">"
+	OpGreaterThanOrEq FilterOp = ">="
+	OpLessThan        FilterOp = "<"
+	OpLessThanOrEq    FilterOp = "<="
+	OpIn              FilterOp = "in"
+	OpNotIn           FilterOp = "not-in"
+	OpArrayContains   FilterOp = "array-contains"
+)
+
+type Filter struct {
+	Field string
+	Op    FilterOp
+	Value interface{}
 }
 
 // Transaction interface for repository layer
@@ -34,6 +56,7 @@ type TransactionAdapter interface {
 	Delete(col string, docID string) error
 	Set(col string, docID string, data map[string]interface{}) error
 }
+
 type RepositoryTransaction struct {
 	adapterTx TransactionAdapter
 }
@@ -66,6 +89,7 @@ type Repository interface {
 	Delete(ctx context.Context, col, docID string) error
 	Set(ctx context.Context, col, docID string, data map[string]interface{}) error
 	Query(ctx context.Context, col string, filters map[string]interface{}, pagination Pagination) (*QueryResult, error)
+	List(ctx context.Context, col string, filters []Filter, pagination Pagination) (*QueryResult, error)
 	Exists(ctx context.Context, col, docID string) (bool, error)
 	RunTransaction(ctx context.Context, fn func(ctx context.Context, tx Transaction) error) error
 }
@@ -78,6 +102,7 @@ type RepositoryAdapter interface {
 	Delete(ctx context.Context, col, docID string) error
 	Set(ctx context.Context, col, docID string, data map[string]interface{}) error
 	Query(ctx context.Context, col string, filters map[string]interface{}, pagination Pagination) (*QueryResult, error)
+	List(ctx context.Context, col string, filters []Filter, pagination Pagination) (*QueryResult, error)
 	Exists(ctx context.Context, col, docID string) (bool, error)
 	RunTransaction(ctx context.Context, fn func(ctx context.Context, tx TransactionAdapter) error) error
 }
@@ -114,6 +139,10 @@ func (r *MainRepository) Set(ctx context.Context, col, docID string, data map[st
 
 func (r *MainRepository) Query(ctx context.Context, col string, filters map[string]interface{}, pagination Pagination) (*QueryResult, error) {
 	return r.adapter.Query(ctx, col, filters, pagination)
+}
+
+func (r *MainRepository) List(ctx context.Context, col string, filters []Filter, pagination Pagination) (*QueryResult, error) {
+	return r.adapter.List(ctx, col, filters, pagination)
 }
 
 func (r *MainRepository) Exists(ctx context.Context, col, docID string) (bool, error) {
