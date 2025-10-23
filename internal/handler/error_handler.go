@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/go-playground/validator/v10"
 	apperrors "github.com/histopathai/main-service/internal/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -12,35 +13,51 @@ import (
 
 func handleError(c *gin.Context, err error) {
 	var appErr *apperrors.AppError
+	var validationErrors validator.ValidationErrors
+
 	if errors.As(err, &appErr) {
-		statusCode := getHTTPStatusFromErrorType(appErr.Type)
-
-		response := gin.H{
-			"error": appErr.Message,
-			"type":  appErr.Type,
+	} else if st, ok := status.FromError(err); ok {
+		appErr = convertGRPCErrToAppErr(st)
+	} else if errors.As(err, &validationErrors) {
+		details := make(map[string]interface{})
+		for _, fieldErr := range validationErrors {
+			details[fieldErr.Field()] = "failed validation: " + fieldErr.Tag()
 		}
+		appErr = apperrors.NewValidationError("validation failed", details)
+	} else {
+		appErr = apperrors.NewInternalError("internal server error", err)
+	}
+	statusCode := getHTTPStatusFromErrorType(appErr.Type)
 
-		if appErr.Details != nil {
-			response["details"] = appErr.Details
-		}
-
-		c.JSON(statusCode, response)
-		return
+	response := gin.H{
+		"error": appErr.Message,
+		"type":  appErr.Type,
 	}
 
-	if st, ok := status.FromError(err); ok {
-		statusCode, message := getHTTPStatusFromGRPCCode(st.Code())
-		c.JSON(statusCode, gin.H{
-			"error": message,
-			"type":  "INTERNAL_ERROR",
-		})
-		return
+	if appErr.Details != nil {
+		response["details"] = appErr.Details
 	}
 
-	c.JSON(http.StatusInternalServerError, gin.H{
-		"error": "internal server error",
-		"type":  "internal_error",
-	})
+	c.JSON(statusCode, response)
+}
+
+func convertGRPCErrToAppErr(st *status.Status) *apperrors.AppError {
+	message := st.Message()
+
+	switch st.Code() {
+	case codes.NotFound:
+		return apperrors.NewNotFoundError(message)
+	case codes.AlreadyExists:
+		return apperrors.NewConflictError(message)
+	case codes.PermissionDenied:
+		return apperrors.NewForbiddenError(message)
+	case codes.Unauthenticated:
+		return apperrors.NewUnauthorizedError(message)
+	case codes.InvalidArgument:
+		return apperrors.NewValidationError(message, nil)
+	default:
+		return apperrors.NewInternalError(message, st.Err())
+	}
 }
 
 func getHTTPStatusFromErrorType(errType apperrors.ErrorType) int {
@@ -59,22 +76,5 @@ func getHTTPStatusFromErrorType(errType apperrors.ErrorType) int {
 		return http.StatusInternalServerError
 	default:
 		return http.StatusInternalServerError
-	}
-}
-
-func getHTTPStatusFromGRPCCode(code codes.Code) (int, string) {
-	switch code {
-	case codes.NotFound:
-		return http.StatusNotFound, "resource not found"
-	case codes.AlreadyExists:
-		return http.StatusConflict, "resource already exists"
-	case codes.PermissionDenied:
-		return http.StatusForbidden, "permission denied"
-	case codes.Unauthenticated:
-		return http.StatusUnauthorized, "unauthenticated"
-	case codes.InvalidArgument:
-		return http.StatusBadRequest, "invalid argument"
-	default:
-		return http.StatusInternalServerError, "internal server error"
 	}
 }
