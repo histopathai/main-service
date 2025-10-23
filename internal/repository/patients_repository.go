@@ -18,22 +18,25 @@ type PatientQueryResult struct {
 }
 
 type PatientRepository struct {
-	repo Repository
+	repo MainRepository
 }
 
-func NewPatientRepository(repo Repository) *PatientRepository {
+func NewPatientRepository(repo MainRepository) *PatientRepository {
 	return &PatientRepository{
 		repo: repo,
 	}
 }
+func (pr *PatientRepository) GetMainRepository() *MainRepository {
+	return &pr.repo
+}
 
-func (pr *PatientRepository) CreatePatient(ctx context.Context, patient *models.Patient) (string, error) {
+func (pr *PatientRepository) Create(ctx context.Context, patient *models.Patient) (string, error) {
 	patient.CreatedAt = time.Now()
 	patient.UpdatedAt = time.Now()
 	return pr.repo.Create(ctx, PatientsCollection, patient.ToMap())
 }
 
-func (pr *PatientRepository) ReadPatient(ctx context.Context, patientID string) (*models.Patient, error) {
+func (pr *PatientRepository) Read(ctx context.Context, patientID string) (*models.Patient, error) {
 	data, err := pr.repo.Read(ctx, PatientsCollection, patientID)
 	if err != nil {
 		return nil, err
@@ -43,20 +46,16 @@ func (pr *PatientRepository) ReadPatient(ctx context.Context, patientID string) 
 	return patient, nil
 }
 
-func (pr *PatientRepository) UpdatePatient(ctx context.Context, patientID string, updates map[string]interface{}) error {
+func (pr *PatientRepository) Update(ctx context.Context, patientID string, updates map[string]interface{}) error {
 	updates["updated_at"] = time.Now()
 	return pr.repo.Update(ctx, PatientsCollection, patientID, updates)
 }
 
-func (pr *PatientRepository) DeletePatient(ctx context.Context, patientID string) error {
+func (pr *PatientRepository) Delete(ctx context.Context, patientID string) error {
 	return pr.repo.Delete(ctx, PatientsCollection, patientID)
 }
 
-func (pr *PatientRepository) Exists(ctx context.Context, patientID string) (bool, error) {
-	return pr.repo.Exists(ctx, PatientsCollection, patientID)
-}
-
-func (pr *PatientRepository) ListPatients(ctx context.Context, filters []Filter, pagination Pagination) (*PatientQueryResult, error) {
+func (pr *PatientRepository) List(ctx context.Context, filters []Filter, pagination Pagination) (*PatientQueryResult, error) {
 	result, err := pr.repo.List(ctx, PatientsCollection, filters, pagination)
 	if err != nil {
 		return nil, err
@@ -78,30 +77,6 @@ func (pr *PatientRepository) ListPatients(ctx context.Context, filters []Filter,
 	}, nil
 }
 
-func (pr *PatientRepository) GetPatientByCreator(ctx context.Context, creatorID string, pagination Pagination) (*PatientQueryResult, error) {
-	filters := []Filter{
-		{
-			Field: "creator_id",
-			Op:    OpEqual,
-			Value: creatorID,
-		},
-	}
-	return pr.ListPatients(ctx, filters, pagination)
-}
-
-func (pr *PatientRepository) GetPatientsByWorkspaceID(ctx context.Context, workspaceID string, pagination Pagination) (*PatientQueryResult, error) {
-	filters := []Filter{
-		{
-			Field: "workspace_id",
-			Op:    OpEqual,
-			Value: workspaceID,
-		},
-	}
-	return pr.ListPatients(ctx, filters, pagination)
-}
-
-func (pr *PatientRepository) GetAllPatients(ctx context.Context, pagination Pagination) (*PatientQueryResult, error) {
-	filter := []Filter{}
-
-	return pr.ListPatients(ctx, filter, pagination)
+func (pr *PatientRepository) Exists(ctx context.Context, patientID string) (bool, error) {
+	return pr.repo.Exists(ctx, PatientsCollection, patientID)
 }
