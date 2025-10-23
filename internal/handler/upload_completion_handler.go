@@ -101,7 +101,7 @@ func (h *UploadCompletionHandler) handleMessage(ctx context.Context, data []byte
 	creatorID, ok1 := event.MetaData["creator-id"]
 	workspaceID, ok2 := event.MetaData["workspace-id"]
 
-	if ok1 || ok2 {
+	if !ok1 || !ok2 {
 		h.logger.Info("Required metadata missing, skipping",
 			"object", event.Name,
 			"creatorID", creatorID,
