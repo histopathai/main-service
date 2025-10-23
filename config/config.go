@@ -19,7 +19,7 @@ type Config struct {
 type MsgTopicConfig struct {
 	UploadStatusTopicID       string
 	ImageProcessingTopicID    string
-	ImageProcessStatusTopicID string
+	ImageProcessresultTopicID string
 }
 
 type ServerConfig struct {
@@ -97,15 +97,15 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("IMAGE_PROCESSING_TOPIC_ID is required")
 	}
 
-	imageProcessStatusTopicID := os.Getenv("IMAGE_PROCESS_STATUS_TOPIC_ID")
-	if imageProcessStatusTopicID == "" {
+	ImageProcessresultTopicID := os.Getenv("IMAGE_PROCESS_STATUS_TOPIC_ID")
+	if ImageProcessresultTopicID == "" {
 		return nil, fmt.Errorf("IMAGE_PROCESS_STATUS_TOPIC_ID is required")
 	}
 
 	msgTopics := MsgTopicConfig{
 		UploadStatusTopicID:       uploadStatusTopicID,
 		ImageProcessingTopicID:    imageProcessingTopicID,
-		ImageProcessStatusTopicID: imageProcessStatusTopicID,
+		ImageProcessresultTopicID: ImageProcessresultTopicID,
 	}
 
 	config := &Config{
