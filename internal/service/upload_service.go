@@ -163,7 +163,7 @@ func (us *UploadService) validateUploadRequest(ctx context.Context, req *UploadI
 	}
 
 	if len(details) > 0 {
-		return nil, nil, apperrors.NewBadRequestError("invalid upload image request", details)
+		return nil, nil, apperrors.NewValidationError("invalid upload image request", details)
 	}
 
 	// Create image object
