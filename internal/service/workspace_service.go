@@ -146,9 +146,11 @@ func (s *WorkspaceService) GetAllWorkspaces(ctx context.Context,
 	pagination repository.Pagination) (*repository.WorkspaceQueryResult, error) {
 
 	result, err := s.repo.List(ctx, []repository.Filter{}, pagination)
+
 	if err != nil {
 		s.logger.Error("failed to list all workspaces", "error", err)
 		return nil, apperrors.NewInternalError("failed to list all workspaces", err)
 	}
+
 	return result, nil
 }
