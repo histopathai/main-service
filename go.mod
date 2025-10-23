@@ -10,7 +10,7 @@ require (
 	github.com/go-faker/faker/v4 v4.7.0
 	github.com/go-playground/validator/v10 v10.27.0
 	github.com/google/uuid v1.6.0
-	github.com/histopathai/models v0.0.0-20251022225426-c31fcf2c442e
+	github.com/histopathai/models v0.0.0-20251023231529-999318003079
 	github.com/joho/godotenv v1.5.1
 	google.golang.org/api v0.252.0
 	google.golang.org/grpc v1.76.0
