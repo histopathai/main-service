@@ -1,5 +1,7 @@
 package model
 
+import "time"
+
 type Patient struct {
 	ID          string
 	WorkspaceID string
@@ -11,6 +13,6 @@ type Patient struct {
 	Subtype     *string
 	Grade       *string
 	History     *string
-	CreatedAt   string
-	UpdatedAt   string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
