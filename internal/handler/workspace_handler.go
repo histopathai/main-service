@@ -28,11 +28,11 @@ func NewWorkspaceHandler(repo *repository.MainRepository, logger *slog.Logger) *
 }
 
 func (h *WorkspaceHandler) RegisterRoutes(rg *gin.RouterGroup) {
-	rg.POST("/workspaces", h.CreateWorkspace)
-	rg.GET("/workspaces/:id", h.GetWorkspace)
-	rg.PATCH("/workspaces/:id", h.UpdateWorkspace)
-	rg.GET("/creators/:creator_id/workspaces", h.GetWorkspacesByCreatorID)
-	rg.GET("/workspaces", h.GetAllWorkspaces)
+	rg.POST("/", h.CreateWorkspace)
+	rg.GET("/:id", h.GetWorkspace)
+	rg.PATCH("/:id", h.UpdateWorkspace)
+	rg.GET("/creators/:creator_id", h.GetWorkspacesByCreatorID)
+	rg.GET("/", h.GetAllWorkspaces)
 
 }
 
