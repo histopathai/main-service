@@ -25,7 +25,7 @@ func NewUploadHandler(gcs_client *storage.Client, bucketName string, repo *repos
 }
 
 func (h *UploadHandler) RegisterRoutes(rg *gin.RouterGroup) {
-	rg.POST("/upload", h.ProcessUpload)
+	rg.POST("/process-upload", h.ProcessUpload)
 }
 
 func (h *UploadHandler) ProcessUpload(c *gin.Context) {
