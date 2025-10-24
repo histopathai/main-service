@@ -3,14 +3,14 @@ package repository
 import (
 	"context"
 
-	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/shared/query"
+	"github.com/histopathai/main-service-refactor/internal/domain/model"
+	"github.com/histopathai/main-service-refactor/internal/shared/query"
 )
 
 type Repository[T any] interface {
 	Create(ctx context.Context, entity *T) (*T, error)
-	GetByID(ctx context.Context, id string) (*T, error)
-	Update(ctx context.Context, id string, entity *T) (*T, error)
+	GetByID(ctx context.Context, id string) error
+	Update(ctx context.Context, id string, updates map[string]interface{}) error
 	GetByCriteria(ctx context.Context, filters []query.Filter, paginationOpts *query.Pagination) (*query.Result[T], error)
 }
 
