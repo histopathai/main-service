@@ -71,10 +71,10 @@ func (ir *ImageRepositoryImpl) fromFirestoreDoc(doc *firestore.DocumentSnapshot)
 	return i, nil
 }
 
-func (ir *ImageRepositoryImpl) Create(ctx context.Context, entity *model.Image) error {
+func (ir *ImageRepositoryImpl) Create(ctx context.Context, entity *model.Image) (*model.Image, error) {
 
 	if entity == nil {
-		return errors.NewValidationError("image entity cannot be nil", nil)
+		return nil, errors.NewValidationError("image entity cannot be nil", nil)
 	}
 
 	if entity.ID == "" {
@@ -89,10 +89,10 @@ func (ir *ImageRepositoryImpl) Create(ctx context.Context, entity *model.Image) 
 
 	_, err := ir.client.Collection(ir.collection).Doc(entity.ID).Set(ctx, data)
 	if err != nil {
-		return errors.NewInternalError("failed to create image", err)
+		return nil, errors.NewInternalError("failed to create image", err)
 	}
 
-	return nil
+	return entity, nil
 }
 
 func (ir *ImageRepositoryImpl) GetByID(ctx context.Context, id string) (*model.Image, error) {
