@@ -9,7 +9,7 @@ import (
 
 type Repository[T any] interface {
 	Create(ctx context.Context, entity *T) (*T, error)
-	GetByID(ctx context.Context, id string) error
+	GetByID(ctx context.Context, id string) (*T, error)
 	Update(ctx context.Context, id string, updates map[string]interface{}) error
 	GetByCriteria(ctx context.Context, filters []query.Filter, paginationOpts *query.Pagination) (*query.Result[T], error)
 }
@@ -26,7 +26,7 @@ type TransactionProvider interface {
 	WithTx(ctx context.Context, fn func(ctx context.Context, tx Transaction) error) error
 }
 
-type WorkSpaceRepository interface {
+type WorkspaceRepository interface {
 	Repository[model.Workspace]
 	TransactionProvider
 	GetByCreatorID(ctx context.Context, creatorID string) (*query.Result[model.Workspace], error)
