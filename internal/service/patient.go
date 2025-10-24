@@ -6,6 +6,7 @@ import (
 
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	"github.com/histopathai/main-service-refactor/internal/domain/repository"
+	"github.com/histopathai/main-service-refactor/internal/shared/constants"
 	errors "github.com/histopathai/main-service-refactor/internal/shared/errors"
 	sharedQuery "github.com/histopathai/main-service-refactor/internal/shared/query"
 )
@@ -120,32 +121,32 @@ func (ps *PatientService) UpdatePatient(ctx context.Context, patientID string, i
 		if err := ps.validatePatientCreation(ctx, *input.WorkspaceID); err != nil {
 			return err
 		}
-		updates["WorkspaceID"] = *input.WorkspaceID
+		updates[constants.PatientWorkspaceIDField] = *input.WorkspaceID
 	}
 
 	if input.AnonymName != nil {
-		updates["AnonymName"] = *input.AnonymName
+		updates[constants.PatientAnonymNameField] = *input.AnonymName
 	}
 	if input.Age != nil {
-		updates["Age"] = *input.Age
+		updates[constants.PatientAgeField] = *input.Age
 	}
 	if input.Gender != nil {
-		updates["Gender"] = *input.Gender
+		updates[constants.PatientGenderField] = *input.Gender
 	}
 	if input.Race != nil {
-		updates["Race"] = *input.Race
+		updates[constants.PatientRaceField] = *input.Race
 	}
 	if input.Disease != nil {
-		updates["Disease"] = *input.Disease
+		updates[constants.PatientDiseaseField] = *input.Disease
 	}
 	if input.Subtype != nil {
-		updates["Subtype"] = *input.Subtype
+		updates[constants.PatientSubtypeField] = *input.Subtype
 	}
 	if input.Grade != nil {
-		updates["Grade"] = *input.Grade
+		updates[constants.PatientGradeField] = *input.Grade
 	}
 	if input.History != nil {
-		updates["History"] = *input.History
+		updates[constants.PatientHistoryField] = *input.History
 	}
 
 	if len(updates) == 0 {
