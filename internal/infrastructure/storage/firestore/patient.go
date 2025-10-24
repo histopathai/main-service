@@ -142,23 +142,23 @@ func (pr *PatientRepositoryImpl) Update(ctx context.Context, id string, updates 
 	firestoreUpdates := make(map[string]interface{})
 	for key, value := range updates {
 		switch key {
-		case "WorkspaceID":
+		case constants.PatientWorkspaceIDField:
 			firestoreUpdates["workspace_id"] = value
-		case "AnonymName":
+		case constants.PatientAnonymNameField:
 			firestoreUpdates["anonym_name"] = value
-		case "Age":
+		case constants.PatientAgeField:
 			firestoreUpdates["age"] = value
-		case "Gender":
+		case constants.PatientGenderField:
 			firestoreUpdates["gender"] = value
-		case "Race":
+		case constants.PatientRaceField:
 			firestoreUpdates["race"] = value
-		case "Disease":
+		case constants.PatientDiseaseField:
 			firestoreUpdates["disease"] = value
-		case "Subtype":
+		case constants.PatientSubtypeField:
 			firestoreUpdates["subtype"] = value
-		case "Grade":
+		case constants.PatientGradeField:
 			firestoreUpdates["grade"] = value
-		case "History":
+		case constants.PatientHistoryField:
 			firestoreUpdates["history"] = value
 		default:
 			return errors.NewValidationError("invalid field for update: "+key, nil)
