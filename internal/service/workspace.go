@@ -6,6 +6,7 @@ import (
 
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	"github.com/histopathai/main-service-refactor/internal/domain/repository"
+	"github.com/histopathai/main-service-refactor/internal/shared/constants"
 	errors "github.com/histopathai/main-service-refactor/internal/shared/errors"
 	sharedQuery "github.com/histopathai/main-service-refactor/internal/shared/query"
 )
@@ -120,22 +121,22 @@ func (ws *WorkspaceService) UpdateWorkspace(ctx context.Context, id string, inpu
 	updates := make(map[string]interface{})
 
 	if input.Name != nil {
-		updates["Name"] = *input.Name
+		updates[constants.WorkspaceNameField] = *input.Name
 	}
 	if input.OrganType != nil {
-		updates["OrganType"] = *input.OrganType
+		updates[constants.WorkspaceOrganTypeField] = *input.OrganType
 	}
 	if input.Organization != nil {
-		updates["Organization"] = *input.Organization
+		updates[constants.WorkspaceOrganizationField] = *input.Organization
 	}
 	if input.Description != nil {
-		updates["Description"] = *input.Description
+		updates[constants.WorkspaceDescField] = *input.Description
 	}
 	if input.License != nil {
-		updates["License"] = *input.License
+		updates[constants.WorkspaceLicenseField] = *input.License
 	}
 	if input.ResourceURL != nil {
-		updates["ResourceURL"] = *input.ResourceURL
+		updates[constants.WorkspaceResourceURLField] = *input.ResourceURL
 	}
 	if input.ReleaseYear != nil {
 		year := *input.ReleaseYear
@@ -143,10 +144,10 @@ func (ws *WorkspaceService) UpdateWorkspace(ctx context.Context, id string, inpu
 			details := map[string]interface{}{"release_year": "Release year must be between 1900 and 2100."}
 			return errors.NewValidationError("invalid release year", details)
 		}
-		updates["ReleaseYear"] = *input.ReleaseYear
+		updates[constants.WorkspaceReleaseYearField] = *input.ReleaseYear
 	}
 	if input.AnnotationTypeID != nil {
-		updates["AnnotationTypeID"] = *input.AnnotationTypeID
+		updates[constants.WorkspaceAnnotationTypeIDField] = *input.AnnotationTypeID
 	}
 
 	if len(updates) == 0 {
