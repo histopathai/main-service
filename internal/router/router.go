@@ -9,6 +9,7 @@ import (
 type RouterConfig struct {
 	UploadHandler    *handler.UploadHandler
 	WorkspaceHandler *handler.WorkspaceHandler
+	PatientHandler   *handler.PatientHandler
 }
 
 func SetupRouter(cfg *RouterConfig) *gin.Engine {
@@ -27,16 +28,19 @@ func SetupRouter(cfg *RouterConfig) *gin.Engine {
 	{
 		v1.Use(middleware.AuthMiddleware())
 
-		upload := v1.Group("/upload")
-		{
-			upload.POST("/process", cfg.UploadHandler.ProcessUpload)
-		}
-
 		workspaces := v1.Group("/workspaces")
 		{
-			workspaces.POST("", cfg.WorkspaceHandler.CreateWorkspace)
-			workspaces.GET("/:id", cfg.WorkspaceHandler.GetWorkspaces)
+			cfg.WorkspaceHandler.RegisterRoutes(workspaces)
 		}
+		patients := v1.Group("/patients")
+		{
+			cfg.PatientHandler.RegisterRoutes(patients)
+		}
+		uploads := v1.Group("/uploads")
+		{
+			cfg.UploadHandler.RegisterRoutes(uploads)
+		}
+
 	}
 
 	return r
