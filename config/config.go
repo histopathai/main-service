@@ -97,9 +97,9 @@ func LoadConfig() (*Config, error) {
 		return nil, fmt.Errorf("IMAGE_PROCESSING_TOPIC_ID is required")
 	}
 
-	ImageProcessresultTopicID := os.Getenv("IMAGE_PROCESS_STATUS_TOPIC_ID")
+	ImageProcessresultTopicID := os.Getenv("IMAGE_PROCESS_RESULT_TOPIC_ID")
 	if ImageProcessresultTopicID == "" {
-		return nil, fmt.Errorf("IMAGE_PROCESS_STATUS_TOPIC_ID is required")
+		return nil, fmt.Errorf("IMAGE_PROCESS_RESULT_TOPIC_ID is required")
 	}
 
 	msgTopics := MsgTopicConfig{
