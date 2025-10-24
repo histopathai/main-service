@@ -85,6 +85,11 @@ func main() {
 		logger,
 	)
 
+	patientHandler := handler.NewPatientHandler(
+		mainRepo,
+		logger,
+	)
+
 	UploadCompletionHandler := handler.NewUploadCompletionHandler(
 		messageBroker,
 		mainRepo,
@@ -98,6 +103,7 @@ func main() {
 	r := router.SetupRouter(&router.RouterConfig{
 		UploadHandler:    uploadHandler,
 		WorkspaceHandler: workspaceHandler,
+		PatientHandler:   patientHandler,
 	})
 
 	//Create HTTP server
