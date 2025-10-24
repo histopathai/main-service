@@ -125,17 +125,17 @@ func (atr *AnnotationTypeRepositoryImpl) Update(ctx context.Context, id string, 
 	firestoreUpdates := make(map[string]interface{})
 	for key, value := range updates {
 		switch key {
-		case "Name":
+		case constants.AnnotationTypeNameField:
 			firestoreUpdates["name"] = value
-		case "ScoreEnabled":
+		case constants.AnnotationTypeScoreEnabledField:
 			firestoreUpdates["score_enabled"] = value
-		case "ClassificationEnabled":
+		case constants.AnnotationTypeClassificationEnabledField:
 			firestoreUpdates["classification_enabled"] = value
-		case "ScoreRange":
+		case constants.AnnotationTypeScoreRangeField:
 			firestoreUpdates["score_range"] = value
-		case "ScoreName":
+		case constants.AnnotationTypeScoreNameField:
 			firestoreUpdates["score_name"] = value
-		case "ClassList":
+		case constants.AnnotationTypeClassListField:
 			firestoreUpdates["class_list"] = value
 		}
 	}
