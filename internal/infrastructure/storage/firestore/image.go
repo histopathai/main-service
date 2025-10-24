@@ -112,21 +112,21 @@ func (ir *ImageRepositoryImpl) Update(ctx context.Context, id string, updates ma
 	firestoreUpdates := make(map[string]interface{})
 	for key, value := range updates {
 		switch key {
-		case "FileName":
+		case constants.ImageFileNameField:
 			firestoreUpdates["file_name"] = value
-		case "Format":
+		case constants.ImageFormatField:
 			firestoreUpdates["format"] = value
-		case "Width":
+		case constants.ImageWidthField:
 			firestoreUpdates["width"] = value
-		case "Height":
+		case constants.ImageHeightField:
 			firestoreUpdates["height"] = value
-		case "Size":
+		case constants.ImageSizeField:
 			firestoreUpdates["size"] = value
-		case "OriginPath":
+		case constants.ImageOriginPathField:
 			firestoreUpdates["origin_path"] = value
-		case "ProcessedPath":
+		case constants.ImageProcessedPathField:
 			firestoreUpdates["processed_path"] = value
-		case "Status":
+		case constants.ImageStatusField:
 			firestoreUpdates["status"] = value
 		}
 	}
