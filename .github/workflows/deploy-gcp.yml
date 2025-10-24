@@ -1,59 +1,52 @@
 name: Deploy main-service to Cloud Run
-
 on:
-    push:
-        branches:
-        - main
+  push:
+    branches:
+      - main
 
 env:
-    PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
-    REGION: ${{ secrets.GCP_REGION }}
-    ORIGINAL_BUCKET_NAME: ${{ secrets.GCS_ORIGINAL_BUCKET_NAME }}
-    GIN_MODE: release
-    UPLOAD_STATUS_TOPIC_ID: ${{ secrets.GCP_UPLOAD_STATUS_TOPIC_ID }}
-    IMAGE_PROCESSING_TOPIC_ID: ${{ secrets.GCP_IMAGE_PROCESSING_TOPIC_ID }}
-    IMAGE_PROCESS_RESULT_TOPIC_ID: ${{ secrets.GCP_IMAGE_PROCESS_RESULT_TOPIC_ID }}
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: ${{ secrets.GCP_REGION }}
+  ORIGINAL_BUCKET_NAME: ${{ secrets.GCS_ORIGINAL_BUCKET_NAME }}
+  GIN_MODE: release
+  UPLOAD_STATUS_TOPIC_ID: ${{ secrets.GCP_UPLOAD_STATUS_TOPIC_ID }}
+  IMAGE_PROCESSING_TOPIC_ID: ${{ secrets.GCP_IMAGE_PROCESSING_TOPIC_ID }}
+  IMAGE_PROCESS_RESULT_TOPIC_ID: ${{ secrets.GCP_IMAGE_PROCESS_RESULT_TOPIC_ID }}
 
 jobs:
-    build-and-deploy:
-        runs-on: ubuntu-latest
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
 
-        steps:
-        - name: Checkout code
-          uses: actions/checkout@v3
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v1
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
 
-        - name: Authenticate to Google Cloud
-          uses: google-github-actions/auth@v1
-          with:
-            credentials_json: ${{ secrets.GCP_SA_KEY }}
-        
-        - name: Set up Cloud SDK
-          uses: google-github-actions/setup-gcloud@v2
-          with:
-            project_id: ${{ env.PROJECT_ID}}
-        
-        - name: Configure Docker to use Artifact Registry
-          run: |
-            gcloud auth configure-docker ${REGION}-docker.pkg.dev
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+        with:
+          project_id: ${{ env.PROJECT_ID }}
 
-        - name: Build Docker image
-          run: |
-            docker build -t ${REGION}-docker.pkg.dev/${PROJECT_ID}/histopath-docker-repo/main-service:latest .
+      - name: Configure Docker to use Artifact Registry
+        run: |
+          gcloud auth configure-docker ${REGION}-docker.pkg.dev
 
-        - name: Push Docker image to Artifact Registry
-          run: |
-            docker push ${REGION}-docker.pkg.dev/${PROJECT_ID}/histopath-docker-repo/main-service:latest
+      - name: Build Docker image
+        run: |
+          docker build -t ${REGION}-docker.pkg.dev/${PROJECT_ID}/histopath-docker-repo/main-service:latest .
 
-        - name: Deploy to Cloud Run
-          run: |
-            gcloud run deploy main-service \
-              --image ${REGION}-docker.pkg.dev/${PROJECT_ID}/histopath-docker-repo/main-service:latest \
-              --region ${REGION} \
-              --platform managed \
-              --allow-unauthenticated \
-              --set-env-vars=PROJECT_ID=${PROJECT_ID},GIN_MODE=${GIN_MODE},\
-ORIGINAL_BUCKET_NAME=${ORIGINAL_BUCKET_NAME},ENV=prod,\
-READ_TIMEOUT=15s,WRITE_TIMEOUT=30s,IDLE_TIMEOUT=120s,\
-UPLOAD_STATUS_TOPIC_ID=${UPLOAD_STATUS_TOPIC_ID},\
-IMAGE_PROCESSING_TOPIC_ID=${IMAGE_PROCESSING_TOPIC_ID},\
-IMAGE_PROCESS_RESULT_TOPIC_ID=${IMAGE_PROCESS_RESULT_TOPIC_ID}
+      - name: Push Docker image to Artifact Registry
+        run: |
+          docker push ${REGION}-docker.pkg.dev/${PROJECT_ID}/histopath-docker-repo/main-service:latest
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy main-service \
+            --image ${REGION}-docker.pkg.dev/${PROJECT_ID}/histopath-docker-repo/main-service:latest \
+            --region ${REGION} \
+            --platform managed \
+            --allow-unauthenticated \
+            --set-env-vars=PROJECT_ID=${PROJECT_ID},GIN_MODE=${GIN_MODE},ORIGINAL_BUCKET_NAME=${ORIGINAL_BUCKET_NAME},ENV=prod,READ_TIMEOUT=15s,WRITE_TIMEOUT=30s,IDLE_TIMEOUT=120s,UPLOAD_STATUS_TOPIC_ID=${UPLOAD_STATUS_TOPIC_ID},IMAGE_PROCESSING_TOPIC_ID=${IMAGE_PROCESSING_TOPIC_ID},IMAGE_PROCESS_RESULT_TOPIC_ID=${IMAGE_PROCESS_RESULT_TOPIC_ID}
