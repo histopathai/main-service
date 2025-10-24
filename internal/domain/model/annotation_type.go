@@ -8,7 +8,6 @@ type AnnotationType struct {
 	Desc                  *string
 	ScoreEnabled          bool
 	ScoreName             *string
-	ScoreDesc             *string
 	ScoreRange            *[2]float64
 	ClassificationEnabled bool
 	ClassList             *[]string
