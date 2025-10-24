@@ -6,6 +6,7 @@ import (
 
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	"github.com/histopathai/main-service-refactor/internal/domain/repository"
+	"github.com/histopathai/main-service-refactor/internal/shared/constants"
 	errors "github.com/histopathai/main-service-refactor/internal/shared/errors"
 	sharedQuery "github.com/histopathai/main-service-refactor/internal/shared/query"
 )
@@ -114,10 +115,10 @@ func (ats *AnnotationTypeService) UpdateAnnotationType(ctx context.Context, id s
 	updates := make(map[string]interface{})
 
 	if input.Name != nil {
-		updates["name"] = *input.Name
+		updates[constants.AnnotationTypeNameField] = *input.Name
 	}
 	if input.Description != nil {
-		updates["desc"] = *input.Description
+		updates[constants.AnnotationTypeDescField] = *input.Description
 	}
 
 	if len(updates) == 0 {
@@ -145,7 +146,7 @@ func (ats *AnnotationTypeService) GetAllAnnotationTypes(ctx context.Context, pag
 func (ats *AnnotationTypeService) GetClassificationAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.AnnotationType], error) {
 	filters := []sharedQuery.Filter{
 		{
-			Field:    "ClassificationEnabled",
+			Field:    constants.AnnotationTypeClassificationEnabledField,
 			Operator: sharedQuery.OpEqual,
 			Value:    true,
 		},
@@ -162,7 +163,7 @@ func (ats *AnnotationTypeService) GetClassificationAnnotationTypes(ctx context.C
 func (ats *AnnotationTypeService) GetScoreAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.AnnotationType], error) {
 	filters := []sharedQuery.Filter{
 		{
-			Field:    "ScoreEnabled",
+			Field:    constants.AnnotationTypeScoreEnabledField,
 			Operator: sharedQuery.OpEqual,
 			Value:    true,
 		},
