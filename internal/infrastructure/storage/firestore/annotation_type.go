@@ -91,7 +91,7 @@ func (atr *AnnotationTypeRepositoryImpl) Create(ctx context.Context, entity *mod
 		return nil, errors.NewValidationError("annotation type entity cannot be nil", nil)
 	}
 
-	if entity.ID != "" {
+	if entity.ID == "" {
 		entity.ID = atr.client.Collection(atr.collection).NewDoc().ID
 	}
 
