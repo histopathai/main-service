@@ -1,8 +1,10 @@
 package model
 
+import "time"
+
 type Point struct {
-	X float64 `firestore:"x"`
-	Y float64 `firestore:"y"`
+	X float64
+	Y float64
 }
 
 type Annotation struct {
@@ -13,6 +15,6 @@ type Annotation struct {
 	Polygon          []Point
 	Score            *float64
 	Class            *string
-	CreatedAt        string
-	UpdatedAt        string
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
 }
