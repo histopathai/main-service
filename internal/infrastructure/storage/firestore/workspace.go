@@ -118,21 +118,21 @@ func (r *WorkspaceRepositoryImpl) Update(ctx context.Context, id string, updates
 	firestoreUpdates := make(map[string]interface{})
 	for key, value := range updates {
 		switch key {
-		case "Name":
+		case constants.WorkspaceNameField:
 			firestoreUpdates["name"] = value
-		case "OrganType":
+		case constants.WorkspaceOrganTypeField:
 			firestoreUpdates["organ_type"] = value
-		case "Organization":
+		case constants.WorkspaceOrganizationField:
 			firestoreUpdates["organization"] = value
-		case "Description":
+		case constants.WorkspaceDescField:
 			firestoreUpdates["description"] = value
-		case "License":
+		case constants.WorkspaceLicenseField:
 			firestoreUpdates["license"] = value
-		case "ResourceURL":
+		case constants.WorkspaceResourceURLField:
 			firestoreUpdates["resource_url"] = value
-		case "ReleaseYear":
+		case constants.WorkspaceReleaseYearField:
 			firestoreUpdates["release_year"] = value
-		case "AnnotationTypeID":
+		case constants.WorkspaceAnnotationTypeIDField:
 			firestoreUpdates["annotation_type_id"] = value
 		default:
 			return errors.NewValidationError("invalid field for update: "+key, nil)
