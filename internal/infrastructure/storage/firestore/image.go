@@ -55,10 +55,21 @@ func (ir *ImageRepositoryImpl) fromFirestoreDoc(doc *firestore.DocumentSnapshot)
 	i.CreatorID = data["creator_id"].(string)
 	i.FileName = data["file_name"].(string)
 	i.Format = data["format"].(string)
-	i.Width = int(data["width"].(int64))
-	i.Height = int(data["height"].(int64))
-	i.Size = data["size"].(int64)
+
 	i.OriginPath = data["origin_path"].(string)
+
+	if v, ok := data["width"].(int64); ok {
+		width := int(v)
+		i.Width = &width
+	}
+	if v, ok := data["height"].(int64); ok {
+		height := int(v)
+		i.Height = &height
+	}
+	if v, ok := data["size"].(int64); ok {
+		size := int64(v)
+		i.Size = &size
+	}
 
 	if v, ok := data["processed_path"].(string); ok {
 		i.ProcessedPath = &v
