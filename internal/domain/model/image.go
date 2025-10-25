@@ -17,9 +17,9 @@ type Image struct {
 	CreatorID     string
 	FileName      string
 	Format        string
-	Width         int
-	Height        int
-	Size          int64
+	Width         *int
+	Height        *int
+	Size          *int64
 	OriginPath    string
 	ProcessedPath *string
 	Status        ImageStatus
