@@ -7,7 +7,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/histopathai/main-service-refactor/internal/domain/messaging"
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	"github.com/histopathai/main-service-refactor/internal/domain/repository"
 	"github.com/histopathai/main-service-refactor/internal/domain/storage"
@@ -17,7 +16,6 @@ import (
 type ImageService struct {
 	imageRepo   repository.ImageRepository
 	patientRepo repository.PatientRepository
-	messaging   messaging.PubSubClient
 	storage     storage.ObjectStorage
 	bucketName  string
 	logger      *slog.Logger
@@ -26,7 +24,6 @@ type ImageService struct {
 func NewImageService(
 	imageRepo repository.ImageRepository,
 	patientRepo repository.PatientRepository,
-	messaging messaging.PubSubClient,
 	storage storage.ObjectStorage,
 	bucketName string,
 	logger *slog.Logger,
@@ -34,7 +31,6 @@ func NewImageService(
 	return &ImageService{
 		imageRepo:   imageRepo,
 		patientRepo: patientRepo,
-		messaging:   messaging,
 		storage:     storage,
 		bucketName:  bucketName,
 		logger:      logger,
@@ -96,6 +92,39 @@ func (is *ImageService) UploadImage(ctx context.Context, input *UploadImageInput
 	return &url, nil
 }
 
-func (is *ImageService) ConfirmUpload() {
+type ConfirmUploadInput struct {
+	ImageID    string
+	PatientID  string
+	CreattorID string
+	FileName   string
+	Format     string
+	Width      *int
+	Height     *int
+	Size       *int64
+	Status     model.ImageStatus
+	OriginPath string
+}
 
+func (is *ImageService) ConfirmUpload(ctx context.Context, input *ConfirmUploadInput) error {
+	image := &model.Image{
+		ID:         input.ImageID,
+		PatientID:  input.PatientID,
+		CreatorID:  input.CreattorID,
+		FileName:   input.FileName,
+		Format:     input.Format,
+		Width:      input.Width,
+		Height:     input.Height,
+		Size:       input.Size,
+		Status:     input.Status,
+		OriginPath: input.OriginPath,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	_, err := is.imageRepo.Create(ctx, image)
+	if err != nil {
+		return errors.NewInternalError("Failed to create image record: %v", err)
+	}
+
+	return nil
 }
