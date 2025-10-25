@@ -97,8 +97,5 @@ func (is *ImageService) UploadImage(ctx context.Context, input *UploadImageInput
 }
 
 func (is *ImageService) ConfirmUpload() {
-	// subscribe to pub/sub topic
-	// validate upload
-	// update image record status
-	// trigger image processing
+
 }
