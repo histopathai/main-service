@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
+	"github.com/histopathai/main-service-refactor/internal/domain/repository"
 	"github.com/histopathai/main-service-refactor/internal/shared/constants"
 	"github.com/histopathai/main-service-refactor/internal/shared/errors"
 	sharedQuery "github.com/histopathai/main-service-refactor/internal/shared/query"
@@ -148,6 +149,21 @@ func (r *WorkspaceRepositoryImpl) Update(ctx context.Context, id string, updates
 	_, err := r.client.Collection(r.collection).Doc(id).Set(ctx, firestoreUpdates, firestore.MergeAll)
 	if err != nil {
 		return errors.NewInternalError("failed to update workspace", err)
+	}
+
+	return nil
+}
+
+func (r *WorkspaceRepositoryImpl) WithTx(ctx context.Context, fn func(ctx context.Context, tx repository.Transaction) error) error {
+	err := r.client.RunTransaction(ctx, func(ctx context.Context, fstx *firestore.Transaction) error {
+
+		tx := NewFirestoreTransaction(r.client, fstx)
+
+		return fn(ctx, tx)
+	})
+
+	if err != nil {
+		return errors.NewInternalError("firestore transaction failed", err)
 	}
 
 	return nil

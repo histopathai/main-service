@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
+	"github.com/histopathai/main-service-refactor/internal/domain/repository"
 	"github.com/histopathai/main-service-refactor/internal/shared/constants"
 	"github.com/histopathai/main-service-refactor/internal/shared/errors"
 	sharedQuery "github.com/histopathai/main-service-refactor/internal/shared/query"
@@ -145,6 +146,21 @@ func (atr *AnnotationTypeRepositoryImpl) Update(ctx context.Context, id string, 
 	if err != nil {
 		return errors.NewInternalError("failed to update annotation type", err)
 	}
+	return nil
+}
+
+func (atr *AnnotationTypeRepositoryImpl) WithTx(ctx context.Context, fn func(ctx context.Context, tx repository.Transaction) error) error {
+	err := atr.client.RunTransaction(ctx, func(ctx context.Context, fstx *firestore.Transaction) error {
+
+		tx := NewFirestoreTransaction(atr.client, fstx)
+
+		return fn(ctx, tx)
+	})
+
+	if err != nil {
+		return errors.NewInternalError("firestore transaction failed", err)
+	}
+
 	return nil
 }
 

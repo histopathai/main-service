@@ -6,6 +6,7 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
+	"github.com/histopathai/main-service-refactor/internal/domain/repository"
 	"github.com/histopathai/main-service-refactor/internal/shared/constants"
 	"github.com/histopathai/main-service-refactor/internal/shared/errors"
 	sharedQuery "github.com/histopathai/main-service-refactor/internal/shared/query"
@@ -172,6 +173,21 @@ func (pr *PatientRepositoryImpl) Update(ctx context.Context, id string, updates 
 	_, err := pr.client.Collection(pr.collection).Doc(id).Set(ctx, firestoreUpdates, firestore.MergeAll)
 	if err != nil {
 		return errors.NewInternalError("failed to update patient", err)
+	}
+
+	return nil
+}
+
+func (pr *PatientRepositoryImpl) WithTx(ctx context.Context, fn func(ctx context.Context, tx repository.Transaction) error) error {
+	err := pr.client.RunTransaction(ctx, func(ctx context.Context, fstx *firestore.Transaction) error {
+
+		tx := NewFirestoreTransaction(pr.client, fstx)
+
+		return fn(ctx, tx)
+	})
+
+	if err != nil {
+		return errors.NewInternalError("firestore transaction failed", err)
 	}
 
 	return nil
