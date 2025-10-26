@@ -38,7 +38,7 @@ func (ws *WorkspaceService) validateWorkspaceCreation(ctx context.Context, works
 
 	filters := []sharedQuery.Filter{
 		{
-			Field:    "Name",
+			Field:    constants.WorkspaceNameField,
 			Operator: sharedQuery.OpEqual,
 			Value:    workspaceName,
 		},
