@@ -30,9 +30,7 @@ func NewBaseEvent(eventType EventType) BaseEvent {
 }
 
 type ImageUploadedEvent struct {
-	// Unique identifier for the event
 	BaseEvent
-	// Details about the uploaded image
 	ImageID    string `json:"image-id"`
 	PatientID  string `json:"patient-id"`
 	CreatorID  string `json:"creator-id"`
@@ -67,7 +65,6 @@ func NewImageUploadedEvent(
 
 type ImageProcessingRequestedEvent struct {
 	BaseEvent
-	// Details about the image to be processed
 	ImageID    string `json:"image-id"`
 	OriginPath string `json:"origin-path"`
 }
@@ -80,10 +77,29 @@ func NewImageProcessingRequestedEvent(imageID, originPath string) ImageProcessin
 	}
 }
 
-type ImageProcessingFailedEvent struct {
-	// Unique identifier for the event
+// YENİ: İşleme tamamlandı eventi
+type ImageProcessingCompletedEvent struct {
 	BaseEvent
-	// Details about the failed image processing
+	ImageID       string `json:"image-id"`
+	ProcessedPath string `json:"processed-path"` // DZI, tiles, thumbnail root path
+	Width         int    `json:"width"`
+	Height        int    `json:"height"`
+	Size          int64  `json:"size"`
+}
+
+func NewImageProcessingCompletedEvent(imageID, processedPath string, width int, height int, size int64) ImageProcessingCompletedEvent {
+	return ImageProcessingCompletedEvent{
+		BaseEvent:     NewBaseEvent(EventTypeImageProcessingCompleted),
+		ImageID:       imageID,
+		ProcessedPath: processedPath,
+		Width:         width,
+		Height:        height,
+		Size:          size,
+	}
+}
+
+type ImageProcessingFailedEvent struct {
+	BaseEvent
 	ImageID       string `json:"image-id"`
 	FailureReason string `json:"failure-reason"`
 }
