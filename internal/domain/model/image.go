@@ -6,7 +6,7 @@ type ImageStatus string
 
 const (
 	StatusUploaded   ImageStatus = "UPLOADED"
-	StatusProcessing ImageStatus = "PENDING"
+	StatusProcessing ImageStatus = "PROCESSING"
 	StatusProcessed  ImageStatus = "PROCESSED"
 	StatusFailed     ImageStatus = "FAILED"
 )
@@ -23,6 +23,25 @@ type Image struct {
 	OriginPath    string
 	ProcessedPath *string
 	Status        ImageStatus
-	CreatedAt     time.Time
-	UpdatedAt     time.Time
+
+	FailureReason   *string
+	RetryCount      int
+	LastProcessedAt *time.Time
+
+	CreatedAt time.Time
+	UpdatedAt time.Time
+}
+
+func (i *Image) IsRetryable(maxRetries int) bool {
+	if i.Status == StatusFailed && i.RetryCount < maxRetries {
+		return true
+	}
+	return false
+}
+
+func (i *Image) MarkForRetry() {
+	i.Status = StatusProcessing
+	i.RetryCount++
+	now := time.Now()
+	i.LastProcessedAt = &now
 }
