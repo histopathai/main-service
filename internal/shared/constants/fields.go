@@ -24,16 +24,19 @@ const (
 )
 
 const (
-	ImagePatientIDField     = "PatientID"
-	ImageCreatorIDField     = "CreatorID"
-	ImageFileNameField      = "FileName"
-	ImageFormatField        = "Format"
-	ImageWidthField         = "Width"
-	ImageHeightField        = "Height"
-	ImageSizeField          = "Size"
-	ImageOriginPathField    = "OriginPath"
-	ImageProcessedPathField = "ProcessedPath"
-	ImageStatusField        = "Status"
+	ImagePatientIDField       = "PatientID"
+	ImageCreatorIDField       = "CreatorID"
+	ImageFileNameField        = "FileName"
+	ImageFormatField          = "Format"
+	ImageWidthField           = "Width"
+	ImageHeightField          = "Height"
+	ImageSizeField            = "Size"
+	ImageOriginPathField      = "OriginPath"
+	ImageProcessedPathField   = "ProcessedPath"
+	ImageStatusField          = "Status"
+	ImageFailureReasonField   = "FailureReason"
+	ImageRetryCountField      = "RetryCount"
+	ImageLastProcessedAtField = "LastProcessedAt"
 )
 
 const (

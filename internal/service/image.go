@@ -99,7 +99,7 @@ func (is *ImageService) UploadImage(ctx context.Context, input *UploadImageInput
 type ConfirmUploadInput struct {
 	ImageID    string
 	PatientID  string
-	CreattorID string
+	CreatorID  string
 	FileName   string
 	Format     string
 	Width      *int
@@ -113,7 +113,7 @@ func (is *ImageService) ConfirmUpload(ctx context.Context, input *ConfirmUploadI
 	image := &model.Image{
 		ID:         input.ImageID,
 		PatientID:  input.PatientID,
-		CreatorID:  input.CreattorID,
+		CreatorID:  input.CreatorID,
 		FileName:   input.FileName,
 		Format:     input.Format,
 		Width:      input.Width,
