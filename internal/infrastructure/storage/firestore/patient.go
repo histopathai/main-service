@@ -46,7 +46,8 @@ func (pr *PatientRepositoryImpl) toFirestoreMap(p *model.Patient) map[string]int
 		m["subtype"] = *p.Subtype
 	}
 	if p.Grade != nil {
-		m["grade"] = *p.Grade
+		grade := int(*p.Grade)
+		m["grade"] = grade
 	}
 	if p.History != nil {
 		m["history"] = *p.History
@@ -85,8 +86,9 @@ func (pr *PatientRepositoryImpl) fromFirestoreDoc(doc *firestore.DocumentSnapsho
 		p.Subtype = &v
 	}
 
-	if v, ok := data["grade"].(string); ok {
-		p.Grade = &v
+	if v, ok := data["grade"].(int64); ok {
+		grade := int(v)
+		p.Grade = &grade
 	}
 
 	if v, ok := data["history"].(string); ok {
