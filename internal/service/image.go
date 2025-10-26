@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/histopathai/main-service-refactor/internal/domain/events"
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	"github.com/histopathai/main-service-refactor/internal/domain/repository"
 	"github.com/histopathai/main-service-refactor/internal/domain/storage"
@@ -19,6 +20,7 @@ type ImageService struct {
 	storage     storage.ObjectStorage
 	bucketName  string
 	logger      *slog.Logger
+	publisher   *EventPublisher
 }
 
 func NewImageService(
@@ -27,6 +29,7 @@ func NewImageService(
 	storage storage.ObjectStorage,
 	bucketName string,
 	logger *slog.Logger,
+	publisher *EventPublisher,
 ) *ImageService {
 	return &ImageService{
 		imageRepo:   imageRepo,
@@ -34,6 +37,7 @@ func NewImageService(
 		storage:     storage,
 		bucketName:  bucketName,
 		logger:      logger,
+		publisher:   publisher,
 	}
 }
 
@@ -121,9 +125,17 @@ func (is *ImageService) ConfirmUpload(ctx context.Context, input *ConfirmUploadI
 		UpdatedAt:  time.Now(),
 	}
 
-	_, err := is.imageRepo.Create(ctx, image)
+	createdImage, err := is.imageRepo.Create(ctx, image)
 	if err != nil {
 		return errors.NewInternalError("Failed to create image record: %v", err)
+	}
+
+	processingEvent := events.NewImageProcessingRequestedEvent(
+		createdImage.ID,
+		createdImage.OriginPath,
+	)
+	if err := is.publisher.PublishImageProcessingRequested(ctx, &processingEvent); err != nil {
+		return errors.NewInternalError("Failed to publish image processing event: %v", err)
 	}
 
 	return nil
