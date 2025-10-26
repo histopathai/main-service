@@ -6,7 +6,7 @@ import (
 	"log/slog"
 
 	"cloud.google.com/go/pubsub"
-	"github.com/histopathai/main-service-refactor/internal/domain/messaging"
+	"github.com/histopathai/main-service-refactor/internal/domain/events"
 )
 
 type GooglePubSubClient struct {
@@ -44,7 +44,7 @@ func (g *GooglePubSubClient) Publish(ctx context.Context, topicID string, data [
 	return nil
 }
 
-func (g *GooglePubSubClient) Subscribe(ctx context.Context, subscriptionID string, handler messaging.MessageHandler) error {
+func (g *GooglePubSubClient) Subscribe(ctx context.Context, subscriptionID string, handler events.EventHandler) error {
 	sub := g.client.Subscription(subscriptionID)
 
 	return sub.Receive(ctx, func(ctx context.Context, msg *pubsub.Message) {
