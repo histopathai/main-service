@@ -11,7 +11,7 @@ type Patient struct {
 	Race        *string
 	Disease     *string
 	Subtype     *string
-	Grade       *string
+	Grade       *int
 	History     *string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
