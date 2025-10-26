@@ -202,3 +202,64 @@ func (ws *WorkspaceService) GetAllWorkspaces(ctx context.Context, paginationOpts
 	}
 	return workspaces, nil
 }
+
+func (ws *WorkspaceService) DeleteWorkspace(ctx context.Context, id string) error {
+	ws.logger.Info("Attempting to delete workspace", "workspaceID", id)
+
+	err := ws.workspaceRepo.WithTx(ctx, func(ctx context.Context, tx repository.Transaction) error {
+
+		patientFilter := []sharedQuery.Filter{
+			{
+				Field:    constants.PatientWorkspaceIDField,
+				Operator: sharedQuery.OpEqual,
+				Value:    id,
+			},
+		}
+
+		pagination := &sharedQuery.Pagination{
+			Limit:  1,
+			Offset: 0,
+		}
+
+		var existingPatients []interface{}
+
+		count, err := tx.FindByFilters(
+			ctx,
+			constants.PatientsCollection,
+			patientFilter,
+			pagination,
+			&existingPatients,
+		)
+
+		if err != nil {
+			ws.logger.Error("Failed to check associated patients before deleting workspace", "error", err, "workspaceID", id)
+			return err
+		}
+
+		if count > 0 {
+			ws.logger.Warn("Workspace deletion blocked, associated patients found", "workspaceID", id, "patient_count", count)
+			details := map[string]interface{}{
+				"workspace_id":  id,
+				"patient_count": count,
+			}
+			return errors.NewConflictError("Workspace has associated patients. Please delete the patients first.", details) //
+		}
+
+		ws.logger.Info("No associated patients found, deleting workspace", "workspaceID", id)
+		err = tx.Delete(ctx, constants.WorkspaceCollection, id)
+		if err != nil {
+			ws.logger.Error("Failed to delete workspace during tx", "error", err, "workspaceID", id)
+			return err
+		}
+
+		return nil
+	})
+
+	if err != nil {
+
+		return err
+	}
+
+	ws.logger.Info("Workspace deleted successfully", "workspaceID", id)
+	return nil
+}
