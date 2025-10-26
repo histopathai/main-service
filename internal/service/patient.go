@@ -59,7 +59,7 @@ type CreatePatientInput struct {
 	Race        *string
 	Disease     *string
 	Subtype     *string
-	Grade       *string
+	Grade       *int
 	History     *string
 }
 
@@ -110,7 +110,7 @@ type UpdatePatientInput struct {
 	Race        *string
 	Disease     *string
 	Subtype     *string
-	Grade       *string
+	Grade       *int
 	History     *string
 }
 
