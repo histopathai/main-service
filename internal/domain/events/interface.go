@@ -1,3 +1,4 @@
+package events
 
 import "context"
 
@@ -6,11 +7,11 @@ type Publisher interface {
 }
 
 type Subscriber interface {
-	Subscribe(ctx context.Context, subscription string, handler MessageHandler) error
+	Subscribe(ctx context.Context, subscription string, handler EventHandler) error
 	Stop() error
 }
 
-type MessageHandler func(ctx context.Context, data []byte, attributes map[string]string) error
+type EventHandler func(ctx context.Context, data []byte, attributes map[string]string) error
 
 type PubSubClient interface {
 	Publisher
