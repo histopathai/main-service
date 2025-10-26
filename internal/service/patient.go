@@ -29,6 +29,7 @@ func NewPatientService(
 	}
 }
 
+// Handle in Transaction later
 func (ps *PatientService) validatePatientCreation(ctx context.Context, workspaceID string) error {
 
 	workspace, err := ps.workspaceRepo.GetByID(ctx, workspaceID)
@@ -183,4 +184,78 @@ func (ps *PatientService) GetAllPatients(ctx context.Context, paginationOpts *sh
 
 	ps.logger.Info("All patients retrieved successfully", "count", patients.Total)
 	return patients, nil
+}
+
+func (ps *PatientService) DeletePatient(ctx context.Context, patientID string) error {
+
+	err := ps.patientRepo.WithTx(ctx, func(ctx context.Context, tx repository.Transaction) error {
+
+		imageFilter := []sharedQuery.Filter{
+			{
+				Field:    constants.ImagePatientIDField,
+				Operator: sharedQuery.OpEqual,
+				Value:    patientID,
+			},
+		}
+		pagination := &sharedQuery.Pagination{
+			Limit:  1,
+			Offset: 0,
+		}
+
+		var existingPatients []interface{}
+
+		count, err := tx.FindByFilters(
+			ctx,
+			constants.ImagesCollection,
+			imageFilter,
+			pagination,
+			&existingPatients,
+		)
+
+		if err != nil {
+			ps.logger.Error("Failed to check associated images before deleting patient", "error", err, "patientID", patientID)
+			return err
+		}
+
+		if count > 0 {
+			ps.logger.Warn("Cannot delete patient with associated images", "patientID", patientID)
+			details := map[string]interface{}{"patient_id": "Cannot delete patient with associated images."}
+			return errors.NewConflictError("patient has associated images", details)
+		}
+
+		ps.logger.Info("No associated images found, deleting patient", "patientID", patientID)
+		err = tx.Delete(ctx, constants.PatientsCollection, patientID)
+		if err != nil {
+			ps.logger.Error("Failed to delete patient during tx", "error", err, "patientID", patientID)
+			return err
+		}
+
+		return nil
+
+	})
+	if err != nil {
+		return err
+	}
+
+	ps.logger.Info("Patient deleted successfully", "patientID", patientID)
+	return nil
+}
+
+// Handle in Transaction later
+func (ps *PatientService) MovePatientToWorkspace(ctx context.Context, patientID string, newWorkspaceID string) error {
+
+	if err := ps.validatePatientCreation(ctx, newWorkspaceID); err != nil {
+		return err
+	}
+
+	updates := map[string]interface{}{
+		constants.PatientWorkspaceIDField: newWorkspaceID,
+	}
+	if err := ps.patientRepo.Update(ctx, patientID, updates); err != nil {
+		ps.logger.Error("Failed to move patient to new workspace", "error", err, "patientID", patientID, "newWorkspaceID", newWorkspaceID)
+		return errors.NewInternalError("failed to move patient to new workspace", err)
+	}
+
+	ps.logger.Info("Patient moved to new workspace successfully", "patientID", patientID, "newWorkspaceID", newWorkspaceID)
+	return nil
 }
