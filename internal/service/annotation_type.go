@@ -84,26 +84,11 @@ func (ats *AnnotationTypeService) CreateAnnotationType(ctx context.Context, inpu
 		newAnnotationType.ScoreRange = &[2]float64{*input.ScoreMin, *input.ScoreMax}
 	}
 
-	created, err := ats.annotationTypeRepo.Create(ctx, newAnnotationType)
-	if err != nil {
-		ats.logger.Error("Failed to create annotation type", "error", err, "annotationTypeName", input.Name)
-		return nil, errors.NewInternalError("failed to create annotation type", err)
-	}
-
-	return created, nil
+	return ats.annotationTypeRepo.Create(ctx, newAnnotationType)
 }
 
 func (ats *AnnotationTypeService) GetAnnotationTypeByID(ctx context.Context, id string) (*model.AnnotationType, error) {
-	annotationType, err := ats.annotationTypeRepo.GetByID(ctx, id)
-	if err != nil {
-		ats.logger.Error("Failed to retrieve annotation type", "error", err, "annotationTypeID", id)
-		return nil, errors.NewInternalError("failed to retrieve annotation type", err)
-	}
-	if annotationType == nil {
-		details := map[string]interface{}{"annotation_type_id": "Annotation type not found."}
-		return nil, errors.NewValidationError("annotation type not found", details)
-	}
-	return annotationType, nil
+	return ats.annotationTypeRepo.GetByID(ctx, id)
 }
 
 type UpdateAnnotationTypeInput struct {
@@ -125,22 +110,11 @@ func (ats *AnnotationTypeService) UpdateAnnotationType(ctx context.Context, id s
 		return nil
 	}
 
-	err := ats.annotationTypeRepo.Update(ctx, id, updates)
-	if err != nil {
-		ats.logger.Error("Failed to update annotation type", "error", err, "annotationTypeID", id)
-		return errors.NewInternalError("failed to update annotation type", err)
-	}
-
-	return nil
+	return ats.annotationTypeRepo.Update(ctx, id, updates)
 }
 
 func (ats *AnnotationTypeService) GetAllAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.AnnotationType], error) {
-	annotationTypes, err := ats.annotationTypeRepo.GetByCriteria(ctx, []sharedQuery.Filter{}, paginationOpts)
-	if err != nil {
-		ats.logger.Error("Failed to retrieve annotation types", "error", err)
-		return nil, errors.NewInternalError("failed to retrieve annotation types", err)
-	}
-	return annotationTypes, nil
+	return ats.annotationTypeRepo.GetByCriteria(ctx, []sharedQuery.Filter{}, paginationOpts)
 }
 
 func (ats *AnnotationTypeService) GetClassificationAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.AnnotationType], error) {
@@ -152,12 +126,8 @@ func (ats *AnnotationTypeService) GetClassificationAnnotationTypes(ctx context.C
 		},
 	}
 
-	annotationTypes, err := ats.annotationTypeRepo.GetByCriteria(ctx, filters, paginationOpts)
-	if err != nil {
-		ats.logger.Error("Failed to retrieve classification annotation types", "error", err)
-		return nil, errors.NewInternalError("failed to retrieve classification annotation types", err)
-	}
-	return annotationTypes, nil
+	return ats.annotationTypeRepo.GetByCriteria(ctx, filters, paginationOpts)
+
 }
 
 func (ats *AnnotationTypeService) GetScoreAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.AnnotationType], error) {
@@ -169,59 +139,9 @@ func (ats *AnnotationTypeService) GetScoreAnnotationTypes(ctx context.Context, p
 		},
 	}
 
-	annotationTypes, err := ats.annotationTypeRepo.GetByCriteria(ctx, filters, paginationOpts)
-	if err != nil {
-		ats.logger.Error("Failed to retrieve score annotation types", "error", err)
-		return nil, errors.NewInternalError("failed to retrieve score annotation types", err)
-	}
-	return annotationTypes, nil
+	return ats.annotationTypeRepo.GetByCriteria(ctx, filters, paginationOpts)
 }
 
-func (ats *AnnotationTypeService) DeleteAnnotationType(ctx context.Context, id string) error {
-
-	err := ats.annotationTypeRepo.WithTx(ctx, func(ctx context.Context, tx repository.Transaction) error {
-
-		workspaceFilter := []sharedQuery.Filter{
-			{
-				Field:    constants.WorkspaceAnnotationTypeIDField,
-				Operator: sharedQuery.OpEqual,
-				Value:    id,
-			},
-		}
-		pagination := &sharedQuery.Pagination{
-			Limit:  1,
-			Offset: 0,
-		}
-
-		var existingWorkspaces []interface{}
-
-		count, err := tx.FindByFilters(
-			ctx,
-			constants.WorkspaceCollection,
-			workspaceFilter,
-			pagination,
-			&existingWorkspaces,
-		)
-		if err != nil {
-			ats.logger.Error("Failed to check workspaces for annotation type", "error", err, "annotationTypeID", id)
-			return errors.NewInternalError("failed to check workspaces for annotation type", err)
-		}
-		if count > 0 {
-			details := map[string]interface{}{"annotation_type_id": "Cannot delete annotation type associated with existing workspaces."}
-			return errors.NewValidationError("annotation type is in use", details)
-		}
-
-		if err := tx.Delete(ctx, constants.AnnotationTypesCollection, id); err != nil {
-			ats.logger.Error("Failed to delete annotation type during tx", "error", err, "annotationTypeID", id)
-			return errors.NewInternalError("failed to delete annotation type", err)
-		}
-
-		return nil
-	})
-
-	if err != nil {
-		return err
-	}
-
-	return nil
+func (ats *AnnotationTypeService) Delete(ctx context.Context, id string) error {
+	return ats.annotationTypeRepo.DeleteWithValidation(ctx, id)
 }
