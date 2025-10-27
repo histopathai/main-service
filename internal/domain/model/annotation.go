@@ -17,3 +17,19 @@ type Annotation struct {
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
+
+func (a Annotation) GetID() string {
+	return a.ID
+}
+
+func (a *Annotation) SetID(id string) {
+	a.ID = id
+}
+
+func (a *Annotation) SetCreatedAt(t time.Time) {
+	a.CreatedAt = t
+}
+
+func (a *Annotation) SetUpdatedAt(t time.Time) {
+	a.UpdatedAt = t
+}
