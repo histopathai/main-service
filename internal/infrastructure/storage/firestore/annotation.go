@@ -8,10 +8,8 @@ import (
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	"github.com/histopathai/main-service-refactor/internal/shared/constants"
 	errors "github.com/histopathai/main-service-refactor/internal/shared/errors"
-	sharedQuery "github.com/histopathai/main-service-refactor/internal/shared/query"
 
 	"cloud.google.com/go/firestore"
-	"google.golang.org/api/iterator"
 )
 
 type AnnotationRepositoryImpl struct {
@@ -93,7 +91,7 @@ func (ar *AnnotationRepositoryImpl) Create(ctx context.Context, entity *model.An
 	return entity.ID, nil
 }
 
-func (ar *AnnotationRepositoryImpl) GetByID(ctx context.Context, id string) (*model.Annotation, error) {
+func (ar *AnnotationRepositoryImpl) Read(ctx context.Context, id string) (*model.Annotation, error) {
 	docSnap, err := ar.client.Collection(ar.collection).Doc(id).Get(ctx)
 	if err != nil {
 		return nil, errors.FromExternalError(err, "firestore")
@@ -140,47 +138,7 @@ func (ar *AnnotationRepositoryImpl) Delete(ctx context.Context, id string) error
 	return nil
 }
 
-func (ar *AnnotationRepositoryImpl) GetByImageID(ctx context.Context, imageID string, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.Annotation], error) {
-
-	filters := []sharedQuery.Filter{
-		{
-			Field:    "image_id",
-			Operator: sharedQuery.OpEqual,
-			Value:    imageID,
-		},
-	}
-
-	query := ar.client.Collection(ar.collection).Query
-	for _, f := range filters {
-		query = query.Where(f.Field, string(f.Operator), f.Value)
-	}
-
-	iter := query.Documents(ctx)
-	defer iter.Stop()
-
-	annotations := []*model.Annotation{}
-	for {
-		doc, err := iter.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			return nil, errors.FromExternalError(err, "firestore")
-		}
-		annotation, err := ar.fromFirestoreDoc(doc)
-		if err != nil {
-			continue
-		}
-		annotations = append(annotations, annotation)
-	}
-
-	total := len(annotations)
-
-	return &sharedQuery.Result[model.Annotation]{
-		Data:    annotations,
-		Total:   total,
-		Limit:   0,
-		Offset:  0,
-		HasMore: false,
-	}, nil
+func (ar *AnnotationRepositoryImpl) Transfer(ctx context.Context, id string, newOwnerID string) error {
+	// Annotations typically do not have an owner field to transfer.
+	return nil
 }
