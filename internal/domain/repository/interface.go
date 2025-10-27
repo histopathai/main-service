@@ -29,14 +29,18 @@ type TransactionProvider interface {
 type WorkspaceRepository interface {
 	Repository[model.Workspace]
 	TransactionProvider
+	CreateWithNameValidation(ctx context.Context, entity *model.Workspace) (*model.Workspace, error)
 	GetByCreatorID(ctx context.Context, creatorID string) (*query.Result[model.Workspace], error)
 	GetByeOrganType(ctx context.Context, organType string) (*query.Result[model.Workspace], error)
+	DeleteWithValidation(ctx context.Context, id string) error
 }
 
 type PatientRepository interface {
 	Repository[model.Patient]
 	TransactionProvider
+	CreateWithValidation(ctx context.Context, entity *model.Patient) (*model.Patient, error)
 	GetByWorkSpaceID(ctx context.Context, workspaceID string, paginationOpts *query.Pagination) (*query.Result[model.Patient], error)
+	DeleteWithValidation(ctx context.Context, id string) error
 }
 
 type ImageRepository interface {
@@ -54,4 +58,5 @@ type AnnotationRepository interface {
 type AnnotationTypeRepository interface {
 	Repository[model.AnnotationType]
 	TransactionProvider
+	DeleteWithValidation(ctx context.Context, id string) error
 }
