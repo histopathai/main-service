@@ -45,3 +45,19 @@ func (i *Image) MarkForRetry() {
 	now := time.Now()
 	i.LastProcessedAt = &now
 }
+
+func (i Image) GetID() string {
+	return i.ID
+}
+
+func (i *Image) SetID(id string) {
+	i.ID = id
+}
+
+func (i *Image) SetCreatedAt(t time.Time) {
+	i.CreatedAt = t
+}
+
+func (i *Image) SetUpdatedAt(t time.Time) {
+	i.UpdatedAt = t
+}
