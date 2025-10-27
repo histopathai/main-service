@@ -101,7 +101,7 @@ func (ir *ImageRepositoryImpl) Create(ctx context.Context, entity *model.Image) 
 
 	_, err := ir.client.Collection(ir.collection).Doc(entity.ID).Set(ctx, data)
 	if err != nil {
-		return nil, errors.NewInternalError("failed to create image", err)
+		return nil, errors.FromExternalError(err, "firestore")
 	}
 
 	return entity, nil
@@ -109,8 +109,9 @@ func (ir *ImageRepositoryImpl) Create(ctx context.Context, entity *model.Image) 
 
 func (ir *ImageRepositoryImpl) GetByID(ctx context.Context, id string) (*model.Image, error) {
 	docSnap, err := ir.client.Collection(ir.collection).Doc(id).Get(ctx)
+
 	if err != nil {
-		return nil, errors.NewInternalError("failed to retrieve image", err)
+		return nil, errors.FromExternalError(err, "firestore")
 	}
 	image, err := ir.fromFirestoreDoc(docSnap)
 	if err != nil {
@@ -146,7 +147,7 @@ func (ir *ImageRepositoryImpl) Update(ctx context.Context, id string, updates ma
 
 	_, err := ir.client.Collection(ir.collection).Doc(id).Set(ctx, firestoreUpdates, firestore.MergeAll)
 	if err != nil {
-		return errors.NewInternalError("failed to update image", err)
+		return errors.FromExternalError(err, "firestore")
 	}
 
 	return nil
@@ -161,7 +162,7 @@ func (ir *ImageRepositoryImpl) WithTx(ctx context.Context, fn func(ctx context.C
 	})
 
 	if err != nil {
-		return errors.NewInternalError("firestore transaction failed", err)
+		return errors.FromExternalError(err, "firestore")
 	}
 
 	return nil
@@ -194,7 +195,7 @@ func (ir *ImageRepositoryImpl) GetByCriteria(ctx context.Context, filter []share
 			break
 		}
 		if err != nil {
-			return nil, errors.NewInternalError("failed to retrieve images", err)
+			return nil, errors.FromExternalError(err, "firestore")
 		}
 
 		img, err := ir.fromFirestoreDoc(doc)
