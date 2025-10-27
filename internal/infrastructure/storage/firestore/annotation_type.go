@@ -104,7 +104,7 @@ func (atr *AnnotationTypeRepositoryImpl) Create(ctx context.Context, entity *mod
 	_, err := atr.client.Collection(atr.collection).Doc(entity.ID).Set(ctx, data)
 
 	if err != nil {
-		return nil, errors.NewInternalError("failed to create annotation type", err)
+		return nil, errors.FromExternalError(err, "firestore")
 	}
 
 	return entity, nil
@@ -112,7 +112,7 @@ func (atr *AnnotationTypeRepositoryImpl) Create(ctx context.Context, entity *mod
 func (atr *AnnotationTypeRepositoryImpl) GetByID(ctx context.Context, id string) (*model.AnnotationType, error) {
 	docSnap, err := atr.client.Collection(atr.collection).Doc(id).Get(ctx)
 	if err != nil {
-		return nil, errors.NewNotFoundError("annotation type not found")
+		return nil, errors.FromExternalError(err, "firestore")
 	}
 	annotationType, err := atr.fromFirestoreDoc(docSnap)
 	if err != nil {
@@ -144,7 +144,7 @@ func (atr *AnnotationTypeRepositoryImpl) Update(ctx context.Context, id string, 
 
 	_, err := atr.client.Collection(atr.collection).Doc(id).Set(ctx, firestoreUpdates, firestore.MergeAll)
 	if err != nil {
-		return errors.NewInternalError("failed to update annotation type", err)
+		return errors.FromExternalError(err, "firestore")
 	}
 	return nil
 }
@@ -158,7 +158,7 @@ func (atr *AnnotationTypeRepositoryImpl) WithTx(ctx context.Context, fn func(ctx
 	})
 
 	if err != nil {
-		return errors.NewInternalError("firestore transaction failed", err)
+		return errors.FromExternalError(err, "firestore")
 	}
 
 	return nil
@@ -192,7 +192,7 @@ func (atr *AnnotationTypeRepositoryImpl) GetByCriteria(ctx context.Context, filt
 			break
 		}
 		if err != nil {
-			return nil, errors.NewInternalError("failed to iterate annotation types", err)
+			return nil, errors.FromExternalError(err, "firestore")
 		}
 		at, err := atr.fromFirestoreDoc(doc)
 		if err != nil {
@@ -214,4 +214,30 @@ func (atr *AnnotationTypeRepositoryImpl) GetByCriteria(ctx context.Context, filt
 		Offset:  paginationOpts.Offset,
 		HasMore: hasMore,
 	}, nil
+}
+
+func (atr *AnnotationTypeRepositoryImpl) DeleteWithValidation(ctx context.Context, id string) error {
+
+	return atr.WithTx(ctx, func(ctx context.Context, tx repository.Transaction) error {
+
+		filter := []sharedQuery.Filter{
+			{
+				Field:    "annotation_type_id",
+				Operator: sharedQuery.OpEqual,
+				Value:    id,
+			},
+		}
+
+		var workspaces []interface{}
+		count, err := tx.FindByFilters(ctx, constants.WorkspaceCollection, filter, nil, &workspaces)
+		if err != nil {
+			return errors.FromExternalError(err, "firestore")
+		}
+		if count > 0 {
+			return errors.NewConflictError("annotation_type in use by workspaces, cannot delete",
+				map[string]interface{}{"annotation_type_id": id})
+		}
+
+		return tx.Delete(ctx, atr.collection, id)
+	})
 }
