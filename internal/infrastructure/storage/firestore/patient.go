@@ -104,22 +104,67 @@ func (pr *PatientRepositoryImpl) fromFirestoreDoc(doc *firestore.DocumentSnapsho
 
 func (pr *PatientRepositoryImpl) Create(ctx context.Context, entity *model.Patient) (*model.Patient, error) {
 
+	message := "Use CreateWithValidation method for creating patient with validation"
+	return nil, errors.NewValidationError(message, nil)
+}
+
+func (pr *PatientRepositoryImpl) CreateWithValidation(ctx context.Context, entity *model.Patient) (*model.Patient, error) {
 	if entity == nil {
 		return nil, errors.NewValidationError("patient entity cannot be nil", nil)
 	}
 
-	if entity.ID == "" {
-		entity.ID = pr.client.Collection(pr.collection).NewDoc().ID
-	}
+	err := pr.WithTx(ctx, func(ctx context.Context, tx repository.Transaction) error {
+		// 1. Check unique anonym_name
+		filter := []sharedQuery.Filter{
+			{Field: "anonym_name", Operator: sharedQuery.OpEqual, Value: entity.AnonymName},
+		}
+		var patients []interface{}
+		count, err := tx.FindByFilters(ctx, pr.collection, filter, nil, &patients)
+		if err != nil {
+			return errors.FromExternalError(err, "firestore")
+		}
+		if count > 0 {
+			return errors.NewConflictError(
+				"Patient anonym name already exists in the workspace",
+				map[string]interface{}{
+					"workspace_id": entity.WorkspaceID,
+					"anonym_name":  entity.AnonymName,
+				},
+			)
+		}
 
-	entity.CreatedAt = time.Now()
-	entity.UpdatedAt = time.Now()
+		// 2. Check workspace existence
+		var workspace []interface{}
+		err = tx.Get(ctx, constants.WorkspaceCollection, entity.WorkspaceID, &workspace)
+		if err != nil {
+			return errors.NewNotFoundError("workspace does not exist for the patient")
+		}
 
-	data := pr.toFirestoreMap(entity)
+		// 3. Check annotation type presence
+		annotationTypeID := workspace[0].(map[string]interface{})["annotation_type_id"].(string)
+		if annotationTypeID == "" {
+			return errors.NewValidationError("workspace does not have an annotation type assigned",
+				map[string]interface{}{"workspace_id": entity.WorkspaceID})
+		}
 
-	_, err := pr.client.Collection(pr.collection).Doc(entity.ID).Set(ctx, data)
+		// 4. Assign ID and timestamps
+		if entity.ID == "" {
+			entity.ID = pr.client.Collection(pr.collection).NewDoc().ID
+		}
+		entity.CreatedAt = time.Now()
+		entity.UpdatedAt = time.Now()
+
+		// 5. Create document
+		_, err = tx.Create(ctx, pr.collection, pr.toFirestoreMap(entity))
+		if err != nil {
+			return errors.FromExternalError(err, "firestore")
+		}
+
+		return nil
+	})
+
 	if err != nil {
-		return nil, errors.NewInternalError("failed to create patient", err)
+		return nil, err
 	}
 
 	return entity, nil
@@ -129,7 +174,7 @@ func (pr *PatientRepositoryImpl) GetByID(ctx context.Context, id string) (*model
 	docSnap, err := pr.client.Collection(pr.collection).Doc(id).Get(ctx)
 
 	if err != nil {
-		return nil, errors.NewNotFoundError("patient not found")
+		return nil, errors.FromExternalError(err, "firestore")
 	}
 
 	patient, err := pr.fromFirestoreDoc(docSnap)
@@ -172,10 +217,41 @@ func (pr *PatientRepositoryImpl) Update(ctx context.Context, id string, updates 
 
 	_, err := pr.client.Collection(pr.collection).Doc(id).Set(ctx, firestoreUpdates, firestore.MergeAll)
 	if err != nil {
-		return errors.NewInternalError("failed to update patient", err)
+		return errors.FromExternalError(err, "firestore")
 	}
 
 	return nil
+}
+
+func (pr *PatientRepositoryImpl) Delete(ctx context.Context, id string) error {
+	message := "Use DeleteWithValidation method for deleting patient with validation"
+	return errors.NewValidationError(message, nil)
+}
+
+func (pr *PatientRepositoryImpl) DeleteWithValidation(ctx context.Context, id string) error {
+
+	return pr.WithTx(ctx, func(ctx context.Context, tx repository.Transaction) error {
+
+		filter := []sharedQuery.Filter{
+			{
+				Field:    "patient_id",
+				Operator: "==",
+				Value:    id,
+			},
+		}
+		var images []interface{}
+		count, err := tx.FindByFilters(ctx, constants.ImagesCollection, filter, nil, &images)
+		if err != nil {
+			return errors.FromExternalError(err, "firestore")
+		}
+
+		if count > 0 {
+			return errors.NewConflictError("Patient has associated images",
+				map[string]interface{}{"patient_id": id})
+		}
+
+		return tx.Delete(ctx, pr.collection, id)
+	})
 }
 
 func (pr *PatientRepositoryImpl) WithTx(ctx context.Context, fn func(ctx context.Context, tx repository.Transaction) error) error {
@@ -187,7 +263,7 @@ func (pr *PatientRepositoryImpl) WithTx(ctx context.Context, fn func(ctx context
 	})
 
 	if err != nil {
-		return errors.NewInternalError("firestore transaction failed", err)
+		return errors.FromExternalError(err, "firestore")
 	}
 
 	return nil
@@ -222,7 +298,7 @@ func (pr *PatientRepositoryImpl) GetByCriteria(ctx context.Context, filters []sh
 			break
 		}
 		if err != nil {
-			return nil, errors.NewInternalError("failed to retrieve patients", err)
+			return nil, errors.FromExternalError(err, "firestore")
 		}
 
 		p, err := pr.fromFirestoreDoc(doc)
