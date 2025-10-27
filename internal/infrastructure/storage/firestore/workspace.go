@@ -1,32 +1,33 @@
 package firestore
 
 import (
-	"context"
 	"time"
 
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	"github.com/histopathai/main-service-refactor/internal/domain/repository"
 	"github.com/histopathai/main-service-refactor/internal/shared/constants"
-	"github.com/histopathai/main-service-refactor/internal/shared/errors"
-	sharedQuery "github.com/histopathai/main-service-refactor/internal/shared/query"
 
 	"cloud.google.com/go/firestore"
-	"google.golang.org/api/iterator"
 )
 
 type WorkspaceRepositoryImpl struct {
-	client     *firestore.Client
-	collection string
+	*GenericRepositoryImpl[*model.Workspace]
+	_ repository.WorkspaceRepository // ensure interface compliance
 }
 
 func NewWorkspaceRepositoryImpl(client *firestore.Client) *WorkspaceRepositoryImpl {
 	return &WorkspaceRepositoryImpl{
-		client:     client,
-		collection: constants.WorkspaceCollection,
+		GenericRepositoryImpl: NewGenericRepositoryImpl(
+			client,
+			constants.WorkspaceCollection,
+			workspaceFromFirestoreDoc,
+			workspaceToFirestoreMap,
+			workspaceMapUpdates,
+		),
 	}
 }
 
-func (r *WorkspaceRepositoryImpl) toFirestoreMap(w *model.Workspace) map[string]interface{} {
+func workspaceToFirestoreMap(w *model.Workspace) map[string]interface{} {
 	m := map[string]interface{}{
 		"creator_id":         w.CreatorID,
 		"annotation_type_id": w.AnnotationTypeID,
@@ -43,7 +44,7 @@ func (r *WorkspaceRepositoryImpl) toFirestoreMap(w *model.Workspace) map[string]
 	return m
 }
 
-func (r *WorkspaceRepositoryImpl) fromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Workspace, error) {
+func workspaceFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Workspace, error) {
 	w := &model.Workspace{}
 	data := doc.Data()
 
@@ -75,71 +76,7 @@ func (r *WorkspaceRepositoryImpl) fromFirestoreDoc(doc *firestore.DocumentSnapsh
 	return w, nil
 }
 
-func (r *WorkspaceRepositoryImpl) Create(ctx context.Context, entity *model.Workspace) (*model.Workspace, error) {
-
-	message := "Use CreateWithNameValidation method for creating workspace with validation"
-	return nil, errors.NewValidationError(message, nil)
-}
-
-func (r *WorkspaceRepositoryImpl) CreateWithNameValidation(ctx context.Context, entity *model.Workspace) (*model.Workspace, error) {
-	if entity == nil {
-		return nil, errors.NewValidationError("workspace entity cannot be nil", nil)
-	}
-
-	err := r.WithTx(ctx, func(ctx context.Context, tx repository.Transaction) error {
-
-		filters := []sharedQuery.Filter{
-			{
-				Field:    "name",
-				Operator: sharedQuery.OpEqual,
-				Value:    entity.Name,
-			},
-		}
-
-		var workspaces []interface{}
-		count, err := tx.FindByFilters(ctx, r.collection, filters, &sharedQuery.Pagination{Limit: 1, Offset: 0}, &workspaces)
-		if err != nil {
-			return errors.FromExternalError(err, "firestore")
-		}
-
-		if count > 0 {
-			return errors.NewConflictError("Workspace name already exists",
-				map[string]interface{}{"name": entity.Name})
-		}
-
-		docRef, err := tx.Create(ctx, r.collection, r.toFirestoreMap(entity))
-		if err != nil {
-			return errors.FromExternalError(err, "firestore")
-		}
-
-		entity.ID = docRef
-		return nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	return entity, nil
-}
-
-func (r *WorkspaceRepositoryImpl) GetByID(ctx context.Context, id string) (*model.Workspace, error) {
-	docSnap, err := r.client.Collection(r.collection).Doc(id).Get(ctx)
-
-	if err != nil {
-		return nil, errors.NewNotFoundError("workspace not found")
-	}
-
-	workspace, err := r.fromFirestoreDoc(docSnap)
-	if err != nil {
-		return nil, errors.FromExternalError(err, "firestore")
-	}
-
-	return workspace, nil
-}
-
-func (r *WorkspaceRepositoryImpl) Update(ctx context.Context, id string, updates map[string]interface{}) error {
-
+func workspaceMapUpdates(updates map[string]interface{}) map[string]interface{} {
 	firestoreUpdates := make(map[string]interface{})
 	for key, value := range updates {
 		switch key {
@@ -159,144 +96,7 @@ func (r *WorkspaceRepositoryImpl) Update(ctx context.Context, id string, updates
 			firestoreUpdates["release_year"] = value
 		case constants.WorkspaceAnnotationTypeIDField:
 			firestoreUpdates["annotation_type_id"] = value
-		default:
-			return errors.NewValidationError("invalid field for update: "+key, nil)
 		}
 	}
-
-	if len(firestoreUpdates) == 0 {
-		return errors.NewValidationError("no valid fields provided for update", nil)
-	}
-
-	firestoreUpdates["updated_at"] = time.Now()
-
-	_, err := r.client.Collection(r.collection).Doc(id).Set(ctx, firestoreUpdates, firestore.MergeAll)
-	if err != nil {
-		return errors.FromExternalError(err, "firestore")
-	}
-
-	return nil
-}
-
-func (r *WorkspaceRepositoryImpl) Delete(ctx context.Context, id string) error {
-	message := "Use DeleteWithValidation method for deleting workspace with validation"
-	return errors.NewValidationError(message, nil)
-}
-
-func (r *WorkspaceRepositoryImpl) DeleteWithValidation(ctx context.Context, id string) error {
-
-	return r.WithTx(ctx, func(ctx context.Context, tx repository.Transaction) error {
-
-		filters := []sharedQuery.Filter{
-			{
-				Field:    "workspace_id",
-				Operator: sharedQuery.OpEqual,
-				Value:    id,
-			},
-		}
-
-		var patients []interface{}
-		count, err := tx.FindByFilters(ctx, "patients", filters, &sharedQuery.Pagination{Limit: 1, Offset: 0}, &patients)
-		if err != nil {
-			return errors.FromExternalError(err, "firestore")
-		}
-
-		if count > 0 {
-			return errors.NewConflictError("Workspace has patients",
-				map[string]interface{}{"workspace_id": id})
-		}
-
-		return tx.Delete(ctx, r.collection, id)
-	})
-}
-
-func (r *WorkspaceRepositoryImpl) WithTx(ctx context.Context, fn func(ctx context.Context, tx repository.Transaction) error) error {
-	err := r.client.RunTransaction(ctx, func(ctx context.Context, fstx *firestore.Transaction) error {
-
-		tx := NewFirestoreTransaction(r.client, fstx)
-
-		return fn(ctx, tx)
-	})
-
-	if err != nil {
-		return errors.FromExternalError(err, "firestore")
-	}
-
-	return nil
-}
-
-func (r *WorkspaceRepositoryImpl) GetByCriteria(ctx context.Context, filters []sharedQuery.Filter, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.Workspace], error) {
-	query := r.client.Collection(r.collection).Query
-
-	for _, f := range filters {
-		query = query.Where(f.Field, string(f.Operator), f.Value)
-	}
-
-	if paginationOpts == nil {
-		paginationOpts = &sharedQuery.Pagination{
-			Limit:  10,
-			Offset: 0,
-		}
-	}
-	query = query.Offset(paginationOpts.Offset).Limit(paginationOpts.Limit + 1)
-
-	iter := query.Documents(ctx)
-	defer iter.Stop()
-
-	workspaces := []*model.Workspace{}
-
-	for {
-		doc, err := iter.Next()
-		if err == iterator.Done {
-			break
-		}
-		if err != nil {
-			return nil, errors.FromExternalError(err, "firestore")
-		}
-
-		ws, err := r.fromFirestoreDoc(doc)
-		if err != nil {
-			continue
-		}
-
-		workspaces = append(workspaces, ws)
-	}
-
-	hasmore := false
-	if len(workspaces) > paginationOpts.Limit {
-		hasmore = true
-		workspaces = workspaces[:len(workspaces)-1]
-	}
-
-	return &sharedQuery.Result[model.Workspace]{
-		Data:    workspaces,
-		Total:   0, // Total count can be implemented if needed
-		Limit:   paginationOpts.Limit,
-		Offset:  paginationOpts.Offset,
-		HasMore: hasmore,
-	}, nil
-}
-
-func (r *WorkspaceRepositoryImpl) GetByCreatorID(ctx context.Context, creatorID string) (*sharedQuery.Result[model.Workspace], error) {
-	filters := []sharedQuery.Filter{
-		{
-			Field:    "creator_id",
-			Operator: sharedQuery.OpEqual,
-			Value:    creatorID,
-		},
-	}
-
-	return r.GetByCriteria(ctx, filters, nil)
-}
-
-func (r *WorkspaceRepositoryImpl) GetByeOrganType(ctx context.Context, organType string) (*sharedQuery.Result[model.Workspace], error) {
-	filters := []sharedQuery.Filter{
-		{
-			Field:    "organ_type",
-			Operator: sharedQuery.OpEqual,
-			Value:    organType,
-		},
-	}
-
-	return r.GetByCriteria(ctx, filters, nil)
+	return firestoreUpdates
 }
