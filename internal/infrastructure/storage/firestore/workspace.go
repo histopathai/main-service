@@ -77,26 +77,50 @@ func (r *WorkspaceRepositoryImpl) fromFirestoreDoc(doc *firestore.DocumentSnapsh
 
 func (r *WorkspaceRepositoryImpl) Create(ctx context.Context, entity *model.Workspace) (*model.Workspace, error) {
 
+	message := "Use CreateWithNameValidation method for creating workspace with validation"
+	return nil, errors.NewValidationError(message, nil)
+}
+
+func (r *WorkspaceRepositoryImpl) CreateWithNameValidation(ctx context.Context, entity *model.Workspace) (*model.Workspace, error) {
 	if entity == nil {
 		return nil, errors.NewValidationError("workspace entity cannot be nil", nil)
 	}
 
-	if entity.ID == "" {
-		entity.ID = r.client.Collection(r.collection).NewDoc().ID
-	}
+	err := r.WithTx(ctx, func(ctx context.Context, tx repository.Transaction) error {
 
-	entity.CreatedAt = time.Now()
-	entity.UpdatedAt = time.Now()
+		filters := []sharedQuery.Filter{
+			{
+				Field:    "name",
+				Operator: sharedQuery.OpEqual,
+				Value:    entity.Name,
+			},
+		}
 
-	data := r.toFirestoreMap(entity)
+		var workspaces []interface{}
+		count, err := tx.FindByFilters(ctx, r.collection, filters, &sharedQuery.Pagination{Limit: 1, Offset: 0}, &workspaces)
+		if err != nil {
+			return errors.FromExternalError(err, "firestore")
+		}
 
-	_, err := r.client.Collection(r.collection).Doc(entity.ID).Set(ctx, data)
+		if count > 0 {
+			return errors.NewConflictError("Workspace name already exists",
+				map[string]interface{}{"name": entity.Name})
+		}
+
+		docRef, err := tx.Create(ctx, r.collection, r.toFirestoreMap(entity))
+		if err != nil {
+			return errors.FromExternalError(err, "firestore")
+		}
+
+		entity.ID = docRef
+		return nil
+	})
+
 	if err != nil {
-		return nil, errors.NewInternalError("failed to create workspace", err)
+		return nil, err
 	}
 
 	return entity, nil
-
 }
 
 func (r *WorkspaceRepositoryImpl) GetByID(ctx context.Context, id string) (*model.Workspace, error) {
@@ -108,7 +132,7 @@ func (r *WorkspaceRepositoryImpl) GetByID(ctx context.Context, id string) (*mode
 
 	workspace, err := r.fromFirestoreDoc(docSnap)
 	if err != nil {
-		return nil, errors.NewInternalError("failed to parse workspace data", err)
+		return nil, errors.FromExternalError(err, "firestore")
 	}
 
 	return workspace, nil
@@ -148,10 +172,42 @@ func (r *WorkspaceRepositoryImpl) Update(ctx context.Context, id string, updates
 
 	_, err := r.client.Collection(r.collection).Doc(id).Set(ctx, firestoreUpdates, firestore.MergeAll)
 	if err != nil {
-		return errors.NewInternalError("failed to update workspace", err)
+		return errors.FromExternalError(err, "firestore")
 	}
 
 	return nil
+}
+
+func (r *WorkspaceRepositoryImpl) Delete(ctx context.Context, id string) error {
+	message := "Use DeleteWithValidation method for deleting workspace with validation"
+	return errors.NewValidationError(message, nil)
+}
+
+func (r *WorkspaceRepositoryImpl) DeleteWithValidation(ctx context.Context, id string) error {
+
+	return r.WithTx(ctx, func(ctx context.Context, tx repository.Transaction) error {
+
+		filters := []sharedQuery.Filter{
+			{
+				Field:    "workspace_id",
+				Operator: sharedQuery.OpEqual,
+				Value:    id,
+			},
+		}
+
+		var patients []interface{}
+		count, err := tx.FindByFilters(ctx, "patients", filters, &sharedQuery.Pagination{Limit: 1, Offset: 0}, &patients)
+		if err != nil {
+			return errors.FromExternalError(err, "firestore")
+		}
+
+		if count > 0 {
+			return errors.NewConflictError("Workspace has patients",
+				map[string]interface{}{"workspace_id": id})
+		}
+
+		return tx.Delete(ctx, r.collection, id)
+	})
 }
 
 func (r *WorkspaceRepositoryImpl) WithTx(ctx context.Context, fn func(ctx context.Context, tx repository.Transaction) error) error {
@@ -163,7 +219,7 @@ func (r *WorkspaceRepositoryImpl) WithTx(ctx context.Context, fn func(ctx contex
 	})
 
 	if err != nil {
-		return errors.NewInternalError("firestore transaction failed", err)
+		return errors.FromExternalError(err, "firestore")
 	}
 
 	return nil
@@ -195,7 +251,7 @@ func (r *WorkspaceRepositoryImpl) GetByCriteria(ctx context.Context, filters []s
 			break
 		}
 		if err != nil {
-			return nil, errors.NewInternalError("failed to retrieve workspaces", err)
+			return nil, errors.FromExternalError(err, "firestore")
 		}
 
 		ws, err := r.fromFirestoreDoc(doc)
