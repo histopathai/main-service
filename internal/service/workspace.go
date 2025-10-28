@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	"github.com/histopathai/main-service-refactor/internal/domain/repository"
@@ -12,59 +11,18 @@ import (
 )
 
 type WorkspaceService struct {
-	workspaceRepo      repository.WorkspaceRepository
-	annotationTypeRepo repository.AnnotationTypeRepository
-	logger             *slog.Logger
+	workspaceRepo repository.WorkspaceRepository
+	uow           repository.UnitOfWorkFactory
 }
 
 func NewWorkspaceService(
 	workspaceRepo repository.WorkspaceRepository,
-	annotationTypeRepo repository.AnnotationTypeRepository,
-	logger *slog.Logger,
+	uow repository.UnitOfWorkFactory,
 ) *WorkspaceService {
 	return &WorkspaceService{
-		workspaceRepo:      workspaceRepo,
-		annotationTypeRepo: annotationTypeRepo,
-		logger:             logger,
+		workspaceRepo: workspaceRepo,
+		uow:           uow,
 	}
-}
-
-func (ws *WorkspaceService) validateWorkspaceCreation(ctx context.Context, workspaceName string, annotationTypeID *string) error {
-
-	pagination := &sharedQuery.Pagination{
-		Limit:  1,
-		Offset: 0,
-	}
-
-	filters := []sharedQuery.Filter{
-		{
-			Field:    constants.WorkspaceNameField,
-			Operator: sharedQuery.OpEqual,
-			Value:    workspaceName,
-		},
-	}
-
-	existingWorkspaces, err := ws.workspaceRepo.GetByCriteria(ctx, filters, pagination)
-	if err != nil {
-		ws.logger.Error("Failed to query existing workspaces during validation", "error", err, "workspaceName", workspaceName)
-		details := map[string]interface{}{"name": "Failed to validate workspace name."}
-		return errors.NewValidationError("failed to validate workspace name", details)
-	}
-
-	if existingWorkspaces != nil && len(existingWorkspaces.Data) > 0 {
-		details := map[string]interface{}{"name": "Workspace name already exists."}
-		return errors.NewValidationError("workspace name already exists", details)
-	}
-	if annotationTypeID != nil {
-		_, err := ws.annotationTypeRepo.GetByID(ctx, *annotationTypeID)
-		if err != nil {
-			ws.logger.Error("Failed to read annotation type during workspace validation", "error", err, "annotationTypeID", *annotationTypeID)
-			details := map[string]interface{}{"annotation_type_id": "Failed to read annotation type."}
-			return errors.NewValidationError("failed to read annotation type", details)
-		}
-	}
-
-	return nil
 }
 
 type CreateWorkspaceInput struct {
@@ -79,9 +37,38 @@ type CreateWorkspaceInput struct {
 	ReleaseYear      *int
 }
 
-func (ws *WorkspaceService) CreateWorkspace(ctx context.Context, input CreateWorkspaceInput) (*model.Workspace, error) {
+func (ws *WorkspaceService) validateWorkspaceInput(ctx context.Context, input *CreateWorkspaceInput) error {
 
-	if err := ws.validateWorkspaceCreation(ctx, input.Name, input.AnnotationTypeID); err != nil {
+	filter := []sharedQuery.Filter{
+		{
+			Field:    "name",
+			Operator: sharedQuery.OpEqual,
+			Value:    input.Name,
+		},
+	}
+
+	pagination := &sharedQuery.Pagination{
+		Limit:  1,
+		Offset: 0,
+	}
+
+	existingWorkspaces, err := ws.workspaceRepo.FindByFilters(ctx, filter, pagination)
+	if err != nil {
+		return err
+	}
+
+	if len(existingWorkspaces.Data) > 0 {
+		details := map[string]interface{}{"name": "Workspace with this name already exists."}
+		return errors.NewConflictError("workspace name already exists", details)
+	}
+
+	return nil
+
+}
+
+func (ws *WorkspaceService) CreateNewWorkspace(ctx context.Context, input CreateWorkspaceInput) (*model.Workspace, error) {
+
+	if err := ws.validateWorkspaceInput(ctx, &input); err != nil {
 		return nil, err
 	}
 
@@ -99,7 +86,6 @@ func (ws *WorkspaceService) CreateWorkspace(ctx context.Context, input CreateWor
 
 	created, err := ws.workspaceRepo.Create(ctx, newWorkspace)
 	if err != nil {
-		ws.logger.Error("Failed to create workspace", "error", err, "workspaceName", input.Name)
 		return nil, errors.NewInternalError("failed to create workspace", err)
 	}
 
@@ -156,7 +142,6 @@ func (ws *WorkspaceService) UpdateWorkspace(ctx context.Context, id string, inpu
 
 	err := ws.workspaceRepo.Update(ctx, id, updates)
 	if err != nil {
-		ws.logger.Error("Failed to update workspace", "error", err, "workspaceID", id)
 		return errors.NewInternalError("failed to update workspace", err)
 	}
 
@@ -164,9 +149,8 @@ func (ws *WorkspaceService) UpdateWorkspace(ctx context.Context, id string, inpu
 }
 
 func (ws *WorkspaceService) GetWorkspaceByID(ctx context.Context, id string) (*model.Workspace, error) {
-	workspace, err := ws.workspaceRepo.GetByID(ctx, id)
+	workspace, err := ws.workspaceRepo.Read(ctx, id)
 	if err != nil {
-		ws.logger.Error("Failed to retrieve workspace", "error", err, "workspaceID", id)
 		return nil, errors.NewInternalError("failed to retrieve workspace", err)
 	}
 	if workspace == nil {
@@ -176,37 +160,12 @@ func (ws *WorkspaceService) GetWorkspaceByID(ctx context.Context, id string) (*m
 	return workspace, nil
 }
 
-func (ws *WorkspaceService) GetWorkspacesByCreatorID(ctx context.Context, creatorID string, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.Workspace], error) {
-	workspaces, err := ws.workspaceRepo.GetByCreatorID(ctx, creatorID)
-	if err != nil {
-		ws.logger.Error("Failed to retrieve workspaces by creator ID", "error", err, "creatorID", creatorID)
-		return nil, errors.NewInternalError("failed to retrieve workspaces", err)
-	}
-	return workspaces, nil
-}
-
-func (ws *WorkspaceService) GetWorkspacesByOrganType(ctx context.Context, organType string, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.Workspace], error) {
-	workspaces, err := ws.workspaceRepo.GetByeOrganType(ctx, organType)
-	if err != nil {
-		ws.logger.Error("Failed to retrieve workspaces by organ type", "error", err, "organType", organType)
-		return nil, errors.NewInternalError("failed to retrieve workspaces", err)
-	}
-	return workspaces, nil
-}
-
-func (ws *WorkspaceService) GetAllWorkspaces(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.Workspace], error) {
-	workspaces, err := ws.workspaceRepo.GetByCriteria(ctx, []sharedQuery.Filter{}, paginationOpts)
-	if err != nil {
-		ws.logger.Error("Failed to retrieve all workspaces", "error", err)
-		return nil, errors.NewInternalError("failed to retrieve workspaces", err)
-	}
-	return workspaces, nil
-}
-
 func (ws *WorkspaceService) DeleteWorkspace(ctx context.Context, id string) error {
-	ws.logger.Info("Attempting to delete workspace", "workspaceID", id)
 
-	err := ws.workspaceRepo.WithTx(ctx, func(ctx context.Context, tx repository.Transaction) error {
+	uowerr := ws.uow.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+		patientRepo := repos.PatientRepo
+
+		pagination := &sharedQuery.Pagination{Limit: 1, Offset: 0}
 
 		patientFilter := []sharedQuery.Filter{
 			{
@@ -215,51 +174,22 @@ func (ws *WorkspaceService) DeleteWorkspace(ctx context.Context, id string) erro
 				Value:    id,
 			},
 		}
-
-		pagination := &sharedQuery.Pagination{
-			Limit:  1,
-			Offset: 0,
-		}
-
-		var existingPatients []interface{}
-
-		count, err := tx.FindByFilters(
-			ctx,
-			constants.PatientsCollection,
-			patientFilter,
-			pagination,
-			&existingPatients,
-		)
-
+		patientResult, err := patientRepo.FindByFilters(txCtx, patientFilter, pagination)
 		if err != nil {
-			ws.logger.Error("Failed to check associated patients before deleting workspace", "error", err, "workspaceID", id)
 			return err
 		}
-
-		if count > 0 {
-			ws.logger.Warn("Workspace deletion blocked, associated patients found", "workspaceID", id, "patient_count", count)
-			details := map[string]interface{}{
-				"workspace_id":  id,
-				"patient_count": count,
-			}
-			return errors.NewConflictError("Workspace has associated patients. Please delete the patients first.", details) //
+		if len(patientResult.Data) > 0 {
+			details := map[string]interface{}{"workspace_id": "Workspace is in use by one or more patients."}
+			return errors.NewConflictError("workspace in use", details)
 		}
 
-		ws.logger.Info("No associated patients found, deleting workspace", "workspaceID", id)
-		err = tx.Delete(ctx, constants.WorkspaceCollection, id)
-		if err != nil {
-			ws.logger.Error("Failed to delete workspace during tx", "error", err, "workspaceID", id)
+		if err := repos.WorkspaceRepo.Delete(txCtx, id); err != nil {
 			return err
 		}
-
 		return nil
 	})
-
-	if err != nil {
-
-		return err
+	if uowerr != nil {
+		return errors.NewInternalError("failed to delete workspace", uowerr)
 	}
-
-	ws.logger.Info("Workspace deleted successfully", "workspaceID", id)
 	return nil
 }
