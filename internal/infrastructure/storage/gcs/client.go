@@ -21,7 +21,7 @@ type GCSClient struct {
 func NewGCSClient(ctx context.Context, logger *slog.Logger) (*GCSClient, error) {
 	client, err := storage.NewClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create GCS client: %w", mapGCSError(err))
+		return nil, mapGCSError(err, "failed to create GCS client")
 	}
 
 	return &GCSClient{
@@ -90,7 +90,7 @@ func (g *GCSClient) GenerateSignedURL(
 
 	url, err := g.client.Bucket(bucketName).SignedURL(metadata.Name, opts)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate signed URL: %w", mapGCSError(err))
+		return "", fmt.Errorf("failed to generate signed URL: %w", mapGCSError(err, "generating signed URL"))
 	}
 
 	return url, nil
@@ -103,10 +103,10 @@ func (g *GCSClient) GetObjectMetadata(ctx context.Context,
 	attrs, err := g.client.Bucket(bucketName).Object(objectKey).Attrs(ctx)
 
 	if err != nil {
-		if errors.Is(mapGCSError(err), ErrNotFound) {
+		if errors.Is(err, storage.ErrObjectNotExist) {
 			return nil, ErrNotFound
 		}
-		return nil, mapGCSError(err)
+		return nil, mapGCSError(err, "retrieving object metadata")
 	}
 
 	metadata := domainStorage.ObjectMetadata{
@@ -131,7 +131,7 @@ func (g *GCSClient) ObjectExists(ctx context.Context,
 	objectKey string,
 ) (bool, error) {
 	_, err := g.client.Bucket(bucketName).Object(objectKey).Attrs(ctx)
-	mappedErr := mapGCSError(err)
+	mappedErr := mapGCSError(err, "checking object existence")
 	if errors.Is(mappedErr, ErrNotFound) {
 		return false, nil
 	}
@@ -158,7 +158,7 @@ func (g *GCSClient) ListObjects(ctx context.Context, bucketName, prefix string) 
 				"bucket", bucketName,
 				"prefix", prefix,
 			)
-			return nil, mapGCSError(err)
+			return nil, mapGCSError(err, message)
 		}
 		objects = append(objects, attr.Name)
 	}

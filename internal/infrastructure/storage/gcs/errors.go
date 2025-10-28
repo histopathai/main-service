@@ -2,6 +2,7 @@ package gcs
 
 import (
 	"errors"
+	"fmt"
 	"net/http"
 
 	"cloud.google.com/go/storage"
@@ -17,7 +18,7 @@ var (
 	ErrConflict     = errors.New("conflict in gcs operation")
 )
 
-func mapGCSError(err error) error {
+func mapGCSError(err error, context string) error {
 	if err == nil || errors.Is(err, iterator.Done) {
 		return nil
 	}
@@ -30,19 +31,19 @@ func mapGCSError(err error) error {
 	if errors.As(err, &gErr) {
 		switch gErr.Code {
 		case http.StatusNotFound:
-			return ErrNotFound
+			return fmt.Errorf("%s: %w: %v", context, ErrNotFound, err)
 		case http.StatusForbidden:
-			return ErrForbidden
+			return fmt.Errorf("%s: %w: %v", context, ErrForbidden, err)
 		case http.StatusUnauthorized:
-			return ErrUnauthorized
+			return fmt.Errorf("%s: %w: %v", context, ErrUnauthorized, err)
 		case http.StatusConflict:
-			return ErrConflict
+			return fmt.Errorf("%s: %w: %v", context, ErrConflict, err)
 		case http.StatusServiceUnavailable, http.StatusInternalServerError:
-			return errors.Join(ErrInternal, errors.New("service unavailable"))
+			return fmt.Errorf("%s: %w: %v", context, ErrInternal, errors.New("service unavailable"))
 		default:
-			return errors.Join(ErrInternal, err)
+			return fmt.Errorf("%s: %w: %v", context, ErrInternal, err)
 		}
 	}
 
-	return errors.Join(ErrInternal, err)
+	return fmt.Errorf("%s: %w: %v", context, ErrInternal, err)
 }

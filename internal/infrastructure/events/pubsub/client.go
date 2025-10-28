@@ -2,7 +2,6 @@ package pubsub
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"cloud.google.com/go/pubsub"
@@ -23,7 +22,7 @@ type GooglePubSubClient struct {
 func NewGooglePubSubClient(ctx context.Context, projectID string) (*GooglePubSubClient, error) {
 	client, err := pubsub.NewClient(ctx, projectID)
 	if err != nil {
-		return nil, mapPubSubError(err)
+		return nil, mapPubSubError(err, "failed to create pubsub client")
 	}
 
 	return &GooglePubSubClient{
@@ -35,7 +34,7 @@ func NewGooglePubSubClient(ctx context.Context, projectID string) (*GooglePubSub
 func (g *GooglePubSubClient) PublishEvent(ctx context.Context, topicID string, event events.Event) error {
 	data, err := g.serializer.Serialize(event)
 	if err != nil {
-		return fmt.Errorf("failed to serialize event: %w", err)
+		return mapPubSubError(err, "failed to serialize event")
 	}
 
 	attributes := map[string]string{
@@ -46,7 +45,7 @@ func (g *GooglePubSubClient) PublishEvent(ctx context.Context, topicID string, e
 
 	err = g.Publish(ctx, topicID, data, attributes)
 	if err != nil {
-		return mapPubSubError(err)
+		return mapPubSubError(err, "failed to publish event")
 	}
 	return nil
 }
@@ -67,7 +66,7 @@ func (g *GooglePubSubClient) Publish(ctx context.Context, topicID string, data [
 
 	_, err := result.Get(ctx)
 	if err != nil {
-		return mapPubSubError(err)
+		return mapPubSubError(err, "failed to publish message")
 	}
 
 	return nil

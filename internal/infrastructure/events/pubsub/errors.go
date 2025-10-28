@@ -3,6 +3,7 @@ package pubsub
 
 import (
 	"errors"
+	"fmt"
 
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -15,7 +16,7 @@ var (
 	ErrTopicNotFound = errors.New("topic not found for event")
 )
 
-func mapPubSubError(err error) error {
+func mapPubSubError(err error, context string) error {
 	if err == nil {
 		return nil
 	}
@@ -24,13 +25,13 @@ func mapPubSubError(err error) error {
 	if ok {
 		switch st.Code() {
 		case codes.NotFound:
-			return errors.Join(ErrTopicNotFound, err)
+			return fmt.Errorf("%s: %w: %v", context, ErrTopicNotFound, err)
 		case codes.Unavailable, codes.DeadlineExceeded, codes.Internal, codes.Unknown:
-			return errors.Join(ErrInternal, err)
+			return fmt.Errorf("%s: %w: %v", context, ErrInternal, err)
 		default:
-			return errors.Join(ErrPublishFailed, err)
+			return fmt.Errorf("%s: %w: %v", context, ErrPublishFailed, err)
 		}
 	}
 
-	return errors.Join(ErrInternal, err)
+	return fmt.Errorf("%s: %w: %v", context, ErrInternal, err)
 }
