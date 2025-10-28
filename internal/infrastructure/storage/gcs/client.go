@@ -2,6 +2,7 @@ package gcs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -9,7 +10,6 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	domainStorage "github.com/histopathai/main-service-refactor/internal/domain/storage"
-	"github.com/histopathai/main-service-refactor/internal/shared/errors"
 	"google.golang.org/api/iterator"
 )
 
@@ -21,7 +21,7 @@ type GCSClient struct {
 func NewGCSClient(ctx context.Context, logger *slog.Logger) (*GCSClient, error) {
 	client, err := storage.NewClient(ctx)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create GCS client: %w", err)
+		return nil, fmt.Errorf("failed to create GCS client: %w", mapGCSError(err))
 	}
 
 	return &GCSClient{
@@ -90,7 +90,7 @@ func (g *GCSClient) GenerateSignedURL(
 
 	url, err := g.client.Bucket(bucketName).SignedURL(metadata.Name, opts)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate signed URL: %w", err)
+		return "", fmt.Errorf("failed to generate signed URL: %w", mapGCSError(err))
 	}
 
 	return url, nil
@@ -101,18 +101,12 @@ func (g *GCSClient) GetObjectMetadata(ctx context.Context,
 	objectKey string,
 ) (*domainStorage.ObjectMetadata, error) {
 	attrs, err := g.client.Bucket(bucketName).Object(objectKey).Attrs(ctx)
-	if err == storage.ErrObjectNotExist {
-		return nil, errors.NewNotFoundError("object not found")
-	}
 
 	if err != nil {
-		message := "Failed to get object metadata"
-		g.logger.Error(message,
-			"error", err,
-			"bucket", bucketName,
-			"objectKey", objectKey,
-		)
-		return nil, errors.NewNotFoundError(message)
+		if errors.Is(mapGCSError(err), ErrNotFound) {
+			return nil, ErrNotFound
+		}
+		return nil, mapGCSError(err)
 	}
 
 	metadata := domainStorage.ObjectMetadata{
@@ -137,17 +131,12 @@ func (g *GCSClient) ObjectExists(ctx context.Context,
 	objectKey string,
 ) (bool, error) {
 	_, err := g.client.Bucket(bucketName).Object(objectKey).Attrs(ctx)
-	if err == storage.ErrObjectNotExist {
+	mappedErr := mapGCSError(err)
+	if errors.Is(mappedErr, ErrNotFound) {
 		return false, nil
 	}
-	if err != nil {
-		message := "Failed to check if object exists"
-		g.logger.Error(message,
-			"error", err,
-			"bucket", bucketName,
-			"objectKey", objectKey,
-		)
-		return false, errors.NewInternalError(message, err)
+	if mappedErr != nil {
+		return false, mappedErr
 	}
 	return true, nil
 }
@@ -169,7 +158,7 @@ func (g *GCSClient) ListObjects(ctx context.Context, bucketName, prefix string) 
 				"bucket", bucketName,
 				"prefix", prefix,
 			)
-			return nil, errors.NewInternalError(message, err)
+			return nil, mapGCSError(err)
 		}
 		objects = append(objects, attr.Name)
 	}
