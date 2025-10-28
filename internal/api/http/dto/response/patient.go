@@ -40,7 +40,7 @@ func NewPatientListResponse(result *query.Result[model.Patient]) *ListResponse[P
 
 	data := make([]PatientResponse, len(result.Data))
 	for i, p := range result.Data {
-		dto := NewPatientResponse(p)
+		dto := NewPatientResponse(&p)
 		data[i] = *dto
 	}
 
