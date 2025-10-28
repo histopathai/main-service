@@ -8,7 +8,6 @@ import (
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	"github.com/histopathai/main-service-refactor/internal/domain/repository"
 	"github.com/histopathai/main-service-refactor/internal/shared/constants"
-	"github.com/histopathai/main-service-refactor/internal/shared/errors"
 
 	"cloud.google.com/go/firestore"
 )
@@ -110,7 +109,7 @@ func imageFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Image, error
 func (ir *ImageRepositoryImpl) Create(ctx context.Context, entity *model.Image) (*model.Image, error) {
 
 	if entity == nil {
-		return nil, errors.NewValidationError("image entity cannot be nil", nil)
+		return nil, ErrInvalidInput
 	}
 
 	if entity.ID == "" {
