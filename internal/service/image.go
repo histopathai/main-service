@@ -18,7 +18,7 @@ type ImageService struct {
 	patientRepo repository.PatientRepository
 	storage     storage.ObjectStorage
 	bucketName  string
-	publisher   *EventPublisher
+	publisher   events.ImageEventPublisher
 }
 
 func NewImageService(
@@ -26,7 +26,7 @@ func NewImageService(
 	uow repository.UnitOfWorkFactory,
 	storage storage.ObjectStorage,
 	bucketName string,
-	publisher *EventPublisher,
+	publisher events.ImageEventPublisher,
 	patientRepo repository.PatientRepository,
 ) *ImageService {
 	return &ImageService{
