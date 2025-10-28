@@ -14,6 +14,7 @@ type Repository[T any] interface {
 	Delete(ctx context.Context, id string) error
 	Transfer(ctx context.Context, id string, newOwnerID string) error
 	FindByFilters(ctx context.Context, filters []query.Filter, paginationOpts *query.Pagination) (*query.Result[T], error)
+	FindByName(ctx context.Context, name string) (T, error)
 }
 
 type WorkspaceRepository interface {
