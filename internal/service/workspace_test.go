@@ -107,7 +107,7 @@ func TestCreateNewWorkspace_Conflict(t *testing.T) {
 	var conflictErr *errors.Err
 	require.True(t, stderrors.As(err, &conflictErr))
 	assert.Equal(t, errors.ErrorTypeConflict, conflictErr.Type)
-	assert.Equal(t, errors.ErrorTypeConflict, conflictErr.Type)
+
 }
 
 func TestDeleteWorkspace_Success_NoPatients(t *testing.T) {
