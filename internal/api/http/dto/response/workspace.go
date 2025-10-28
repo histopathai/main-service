@@ -43,7 +43,7 @@ func NewWorkspaceListResponse(result *query.Result[model.Workspace]) *ListRespon
 
 	data := make([]WorkspaceResponse, len(result.Data))
 	for i, ws := range result.Data {
-		dto := NewWorkspaceResponse(ws)
+		dto := NewWorkspaceResponse(&ws)
 		data[i] = *dto
 	}
 
