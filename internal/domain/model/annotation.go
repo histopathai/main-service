@@ -14,6 +14,7 @@ type Annotation struct {
 	Polygon     []Point
 	Score       *float64
 	Class       *string
+	Description *string
 	CreatedAt   time.Time
 	UpdatedAt   time.Time
 }
