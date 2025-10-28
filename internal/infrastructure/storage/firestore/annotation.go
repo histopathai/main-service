@@ -2,29 +2,34 @@ package firestore
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
+	"github.com/histopathai/main-service-refactor/internal/domain/repository"
 	"github.com/histopathai/main-service-refactor/internal/shared/constants"
-	errors "github.com/histopathai/main-service-refactor/internal/shared/errors"
 
 	"cloud.google.com/go/firestore"
 )
 
 type AnnotationRepositoryImpl struct {
-	client     *firestore.Client
-	collection string
+	*GenericRepositoryImpl[*model.Annotation]
+
+	_ repository.AnnotationTypeRepository // ensure interface compliance
 }
 
 func NewAnnotationRepositoryImpl(client *firestore.Client) *AnnotationRepositoryImpl {
 	return &AnnotationRepositoryImpl{
-		client:     client,
-		collection: constants.AnnotationsCollection,
+		GenericRepositoryImpl: NewGenericRepositoryImpl(
+			client,
+			constants.AnnotationsCollection,
+			annotationFromFirestoreDoc,
+			annotationToFirestoreMap,
+			annotationMapUpdate,
+		),
 	}
 }
 
-func (ar *AnnotationRepositoryImpl) toFirestoreMap(a *model.Annotation) map[string]interface{} {
+func annotationToFirestoreMap(a *model.Annotation) map[string]interface{} {
 	m := map[string]interface{}{
 		"image_id":     a.ImageID,
 		"annotator_id": a.AnnotatorID,
@@ -42,7 +47,7 @@ func (ar *AnnotationRepositoryImpl) toFirestoreMap(a *model.Annotation) map[stri
 	return m
 }
 
-func (ar *AnnotationRepositoryImpl) fromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Annotation, error) {
+func annotationFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Annotation, error) {
 	var a model.Annotation
 	data := doc.Data()
 
@@ -74,37 +79,7 @@ func (ar *AnnotationRepositoryImpl) fromFirestoreDoc(doc *firestore.DocumentSnap
 	return &a, nil
 }
 
-func (ar *AnnotationRepositoryImpl) Create(ctx context.Context, entity *model.Annotation) (string, error) {
-	if entity == nil {
-		return "", errors.NewInternalError("annotation entity is nil", nil)
-	}
-
-	if entity.ID == "" {
-		newDocRef := ar.client.Collection(ar.collection).NewDoc()
-		entity.ID = newDocRef.ID
-	}
-
-	_, err := ar.client.Collection(ar.collection).Doc(entity.ID).Set(ctx, ar.toFirestoreMap(entity))
-	if err != nil {
-		return "", errors.FromExternalError(err, "firestore")
-	}
-	return entity.ID, nil
-}
-
-func (ar *AnnotationRepositoryImpl) Read(ctx context.Context, id string) (*model.Annotation, error) {
-	docSnap, err := ar.client.Collection(ar.collection).Doc(id).Get(ctx)
-	if err != nil {
-		return nil, errors.FromExternalError(err, "firestore")
-	}
-
-	annotation, err := ar.fromFirestoreDoc(docSnap)
-	if err != nil {
-		return nil, errors.NewInternalError("failed to parse annotation data", err)
-	}
-	return annotation, nil
-}
-
-func (ar *AnnotationRepositoryImpl) Update(ctx context.Context, id string, updates map[string]interface{}) error {
+func annotationMapUpdate(updates map[string]interface{}) map[string]interface{} {
 
 	firestoreUpdates := make(map[string]interface{})
 	for key, value := range updates {
@@ -117,25 +92,11 @@ func (ar *AnnotationRepositoryImpl) Update(ctx context.Context, id string, updat
 			firestoreUpdates["score"] = value
 		case constants.AnnotationClassField:
 			firestoreUpdates["class"] = value
-		default:
-			return errors.NewValidationError(fmt.Sprintf("unknown field %s for annotation update", key), nil)
+
 		}
 
 	}
-	firestoreUpdates["updated_at"] = time.Now()
-	_, err := ar.client.Collection(ar.collection).Doc(id).Set(ctx, firestoreUpdates, firestore.MergeAll)
-	if err != nil {
-		return errors.FromExternalError(err, "firestore")
-	}
-	return nil
-}
-
-func (ar *AnnotationRepositoryImpl) Delete(ctx context.Context, id string) error {
-	_, err := ar.client.Collection(ar.collection).Doc(id).Delete(ctx)
-	if err != nil {
-		return errors.FromExternalError(err, "firestore")
-	}
-	return nil
+	return firestoreUpdates
 }
 
 func (ar *AnnotationRepositoryImpl) Transfer(ctx context.Context, id string, newOwnerID string) error {
