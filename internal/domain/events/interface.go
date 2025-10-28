@@ -17,3 +17,7 @@ type PubSubClient interface {
 	Publisher
 	Subscriber
 }
+
+type ImageEventPublisher interface {
+	PublishImageProcessingRequested(ctx context.Context, event *ImageProcessingRequestedEvent) error
+}
