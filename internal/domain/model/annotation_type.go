@@ -5,7 +5,7 @@ import "time"
 type AnnotationType struct {
 	ID                    string
 	Name                  string
-	Desc                  *string
+	Description           *string
 	ScoreEnabled          bool
 	ScoreName             *string
 	ScoreRange            *[2]float64
