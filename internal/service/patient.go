@@ -12,18 +12,21 @@ import (
 )
 
 type PatientService struct {
-	patientRepo repository.PatientRepository
-	uow         repository.UnitOfWorkFactory
+	patientRepo   repository.PatientRepository
+	workspaceRepo repository.WorkspaceRepository
+	uow           repository.UnitOfWorkFactory
 }
 
 func NewPatientService(
 	patientRepo repository.PatientRepository,
+	workspaceRepo repository.WorkspaceRepository,
 	uow repository.UnitOfWorkFactory,
 	logger *slog.Logger,
 ) *PatientService {
 	return &PatientService{
-		patientRepo: patientRepo,
-		uow:         uow,
+		patientRepo:   patientRepo,
+		workspaceRepo: workspaceRepo,
+		uow:           uow,
 	}
 }
 
@@ -41,6 +44,11 @@ type CreatePatientInput struct {
 
 func (ps *PatientService) CreateNewPatient(ctx context.Context, input CreatePatientInput) (*model.Patient, error) {
 
+	_, err := ps.workspaceRepo.Read(ctx, input.WorkspaceID)
+	if err != nil {
+		return nil, errors.NewValidationError("invalid workspace_id",
+			map[string]interface{}{"workspace_id": "Workspace does not exist"})
+	}
 	createdPatient, err := ps.patientRepo.Create(ctx, &model.Patient{
 		WorkspaceID: input.WorkspaceID,
 		AnonymName:  input.AnonymName,
