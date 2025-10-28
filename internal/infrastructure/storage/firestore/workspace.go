@@ -15,11 +15,12 @@ type WorkspaceRepositoryImpl struct {
 	_ repository.WorkspaceRepository // ensure interface compliance
 }
 
-func NewWorkspaceRepositoryImpl(client *firestore.Client) *WorkspaceRepositoryImpl {
+func NewWorkspaceRepositoryImpl(client *firestore.Client, hasUniqueName bool) *WorkspaceRepositoryImpl {
 	return &WorkspaceRepositoryImpl{
 		GenericRepositoryImpl: NewGenericRepositoryImpl[*model.Workspace](
 			client,
 			constants.WorkspaceCollection,
+			hasUniqueName,
 			workspaceFromFirestoreDoc,
 			workspaceToFirestoreMap,
 			workspaceMapUpdates,
