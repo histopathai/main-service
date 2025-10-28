@@ -16,7 +16,7 @@ type EventPublisher struct {
 func NewEventPublisher(
 	pubsub events.Publisher,
 	topic map[events.EventType]string,
-) *EventPublisher {
+) events.ImageEventPublisher {
 	return &EventPublisher{
 		pubsub: pubsub,
 		topic:  topic,
