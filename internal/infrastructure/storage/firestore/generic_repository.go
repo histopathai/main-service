@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
-	"github.com/histopathai/main-service-refactor/internal/shared/errors"
 	"github.com/histopathai/main-service-refactor/internal/shared/query"
 	"google.golang.org/api/iterator"
 
@@ -41,7 +40,7 @@ func (gr *GenericRepositoryImpl[T]) Create(ctx context.Context, entity T) (T, er
 
 	if reflect.ValueOf(entity).IsNil() {
 		var zero T
-		return zero, errors.NewInternalError("entity is nil", nil)
+		return zero, ErrInvalidInput
 	}
 
 	if entity.GetID() == "" {
@@ -56,10 +55,11 @@ func (gr *GenericRepositoryImpl[T]) Create(ctx context.Context, entity T) (T, er
 	entityMap := gr.fnToFirestoreMap(entity)
 
 	_, err := gr.client.Collection(gr.collection).Doc(entity.GetID()).Set(ctx, entityMap)
+
 	if err != nil {
 
 		var zero T
-		return zero, errors.NewInternalError("failed to create entity in Firestore", err)
+		return zero, mapFirestoreError(err)
 	}
 
 	return entity, nil
@@ -69,13 +69,13 @@ func (gr *GenericRepositoryImpl[T]) Read(ctx context.Context, id string) (T, err
 	doc, err := gr.client.Collection(gr.collection).Doc(id).Get(ctx)
 	if err != nil {
 		var zero T
-		return zero, errors.NewInternalError("failed to read entity from Firestore", err)
+		return zero, mapFirestoreError(err)
 	}
 
 	entity, err := gr.fnFromFirestoreDoc(doc)
 	if err != nil {
 		var zero T
-		return zero, errors.NewInternalError("failed to unmarshal entity from Firestore", err)
+		return zero, mapFirestoreError(err)
 	}
 
 	return entity, nil
@@ -87,7 +87,7 @@ func (gr *GenericRepositoryImpl[T]) Update(ctx context.Context, id string, updat
 
 	_, err := gr.client.Collection(gr.collection).Doc(id).Set(ctx, updates, firestore.MergeAll)
 	if err != nil {
-		return errors.NewInternalError("failed to update entity in Firestore", err)
+		return mapFirestoreError(err)
 	}
 
 	return nil
@@ -96,7 +96,7 @@ func (gr *GenericRepositoryImpl[T]) Update(ctx context.Context, id string, updat
 func (gr *GenericRepositoryImpl[T]) Delete(ctx context.Context, id string) error {
 	_, err := gr.client.Collection(gr.collection).Doc(id).Delete(ctx)
 	if err != nil {
-		return errors.NewInternalError("failed to delete entity from Firestore", err)
+		return mapFirestoreError(err)
 	}
 
 	return nil
@@ -115,13 +115,13 @@ func (gr *GenericRepositoryImpl[T]) FindByFilters(ctx context.Context, filters [
 	}
 
 	if paginationOpts == nil {
-		paginationOpts = &query.Pagination{
-			Limit:  10,
-			Offset: 0,
-		}
+		paginationOpts = &query.Pagination{Limit: 10, Offset: 0}
 	}
+	isLimited := paginationOpts.Limit >= 0
 
-	fQuery = fQuery.Limit(paginationOpts.Limit + 1).Offset(paginationOpts.Offset)
+	if isLimited {
+		fQuery = fQuery.Limit(paginationOpts.Limit + 1).Offset(paginationOpts.Offset)
+	}
 
 	iter := fQuery.Documents(ctx)
 	defer iter.Stop()
@@ -134,19 +134,19 @@ func (gr *GenericRepositoryImpl[T]) FindByFilters(ctx context.Context, filters [
 			break
 		}
 		if err != nil {
-			return nil, errors.NewInternalError("failed to iterate documents from Firestore", err)
+			return nil, mapFirestoreError(err)
 		}
 
 		entity, err := gr.fnFromFirestoreDoc(doc)
 		if err != nil {
-			return nil, errors.NewInternalError("failed to unmarshal entity from Firestore", err)
+			return nil, mapFirestoreError(err)
 		}
 
 		results = append(results, entity)
 	}
 
 	hasMore := false
-	if len(results) > paginationOpts.Limit {
+	if isLimited && len(results) > paginationOpts.Limit {
 		hasMore = true
 		results = results[:paginationOpts.Limit]
 	}
