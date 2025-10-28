@@ -1,7 +1,7 @@
 package query
 
 type Result[T any] struct {
-	Data    []*T
+	Data    []T
 	Total   int
 	Limit   int
 	Offset  int
