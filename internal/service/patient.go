@@ -12,44 +12,19 @@ import (
 )
 
 type PatientService struct {
-	patientRepo   repository.PatientRepository
-	workspaceRepo repository.WorkspaceRepository
-	logger        *slog.Logger
+	patientRepo repository.PatientRepository
+	uow         repository.UnitOfWorkFactory
 }
 
 func NewPatientService(
 	patientRepo repository.PatientRepository,
-	workspaceRepo repository.WorkspaceRepository,
+	uow repository.UnitOfWorkFactory,
 	logger *slog.Logger,
 ) *PatientService {
 	return &PatientService{
-		patientRepo:   patientRepo,
-		workspaceRepo: workspaceRepo,
-		logger:        logger,
+		patientRepo: patientRepo,
+		uow:         uow,
 	}
-}
-
-// Handle in Transaction later
-func (ps *PatientService) validatePatientCreation(ctx context.Context, workspaceID string) error {
-
-	workspace, err := ps.workspaceRepo.GetByID(ctx, workspaceID)
-	if err != nil {
-		ps.logger.Error("Failed to read workspace during patient validation", "error", err, "workspaceID", workspaceID)
-		details := map[string]interface{}{"workspace_id": "Failed to read workspace."}
-		return errors.NewValidationError("failed to read workspace", details)
-	}
-	if workspace == nil {
-		ps.logger.Error("Workspace not found during patient validation", "workspaceID", workspaceID)
-		details := map[string]interface{}{"workspace_id": "Workspace not found."}
-		return errors.NewValidationError("workspace not found", details)
-	}
-
-	if workspace.AnnotationTypeID == nil || *workspace.AnnotationTypeID == "" {
-		details := map[string]interface{}{"workspace_id": "Workspace must have an annotation type assigned."}
-		return errors.NewValidationError("workspace must have an annotation type", details)
-	}
-
-	return nil
 }
 
 type CreatePatientInput struct {
@@ -64,13 +39,9 @@ type CreatePatientInput struct {
 	History     *string
 }
 
-func (ps *PatientService) CreatePatient(ctx context.Context, input CreatePatientInput) (*model.Patient, error) {
+func (ps *PatientService) CreateNewPatient(ctx context.Context, input CreatePatientInput) (*model.Patient, error) {
 
-	if err := ps.validatePatientCreation(ctx, input.WorkspaceID); err != nil {
-		return nil, err
-	}
-
-	newPatient := &model.Patient{
+	createdPatient, err := ps.patientRepo.Create(ctx, &model.Patient{
 		WorkspaceID: input.WorkspaceID,
 		AnonymName:  input.AnonymName,
 		Age:         input.Age,
@@ -80,27 +51,74 @@ func (ps *PatientService) CreatePatient(ctx context.Context, input CreatePatient
 		Subtype:     input.Subtype,
 		Grade:       input.Grade,
 		History:     input.History,
-	}
+	})
 
-	created, err := ps.patientRepo.Create(ctx, newPatient)
 	if err != nil {
-		ps.logger.Error("Failed to create patient", "error", err, "workspaceID", input.WorkspaceID)
-		return nil, errors.NewInternalError("failed to create patient", err)
+		return nil, err
 	}
-	ps.logger.Info("Patient created successfully", "patientID", created.ID, "workspaceID", input.WorkspaceID)
 
-	return created, nil
+	return createdPatient, nil
 }
 
 func (ps *PatientService) GetPatientByID(ctx context.Context, patientID string) (*model.Patient, error) {
-	patient, err := ps.patientRepo.GetByID(ctx, patientID)
+	patient, err := ps.patientRepo.Read(ctx, patientID)
 	if err != nil {
-		ps.logger.Error("Failed to retrieve patient", "error", err, "patientID", patientID)
-		return nil, errors.NewInternalError("failed to retrieve patient", err)
+		return nil, err
+	}
+	return patient, nil
+}
+
+func (ps *PatientService) GetPatientsByWorkspaceID(ctx context.Context, workspaceID string, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.Patient], error) {
+	filters := []sharedQuery.Filter{
+		{
+			Field:    constants.PatientWorkspaceIDField,
+			Operator: sharedQuery.OpEqual,
+			Value:    workspaceID,
+		},
 	}
 
-	ps.logger.Info("Patient retrieved successfully", "patientID", patientID)
-	return patient, nil
+	return ps.patientRepo.FindByFilters(ctx, filters, paginationOpts)
+}
+
+func (ps *PatientService) GetAllPatients(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.Patient], error) {
+	return ps.patientRepo.FindByFilters(ctx, []sharedQuery.Filter{}, paginationOpts)
+}
+
+func (ps *PatientService) DeletePatientByID(ctx context.Context, patientId string) error {
+	uowerr := ps.uow.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+		filter := []sharedQuery.Filter{
+			{
+				Field:    constants.ImagePatientIDField,
+				Operator: sharedQuery.OpEqual,
+				Value:    patientId,
+			},
+		}
+		pagination := &sharedQuery.Pagination{
+			Limit:  1,
+			Offset: 0,
+		}
+
+		existingImages, err := repos.ImageRepo.FindByFilters(
+			txCtx,
+			filter,
+			pagination,
+		)
+		if err != nil {
+			return err
+		}
+
+		if len(existingImages.Data) > 0 {
+			return errors.NewConflictError("cannot delete patient with associated images", nil)
+		}
+
+		return repos.PatientRepo.Delete(txCtx, patientId)
+	})
+
+	if uowerr != nil {
+		return uowerr
+	}
+
+	return nil
 }
 
 type UpdatePatientInput struct {
@@ -119,9 +137,6 @@ func (ps *PatientService) UpdatePatient(ctx context.Context, patientID string, i
 	updates := make(map[string]interface{})
 
 	if input.WorkspaceID != nil {
-		if err := ps.validatePatientCreation(ctx, *input.WorkspaceID); err != nil {
-			return err
-		}
 		updates[constants.PatientWorkspaceIDField] = *input.WorkspaceID
 	}
 
@@ -151,111 +166,30 @@ func (ps *PatientService) UpdatePatient(ctx context.Context, patientID string, i
 	}
 
 	if len(updates) == 0 {
-		ps.logger.Info("No updates provided for patient", "patientID", patientID)
 		return nil
 	}
 
 	if err := ps.patientRepo.Update(ctx, patientID, updates); err != nil {
-		ps.logger.Error("Failed to update patient", "error", err, "patientID", patientID)
-		return errors.NewInternalError("failed to update patient", err)
+		return err
 	}
 
-	ps.logger.Info("Patient updated successfully", "patientID", patientID)
 	return nil
 }
 
-func (ps *PatientService) GetPatientsByWorkspaceID(ctx context.Context, workspaceID string, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.Patient], error) {
-	patients, err := ps.patientRepo.GetByWorkSpaceID(ctx, workspaceID, paginationOpts)
-	if err != nil {
-		ps.logger.Error("Failed to retrieve patients by workspace ID", "error", err, "workspaceID", workspaceID)
-		return nil, errors.NewInternalError("failed to retrieve patients", err)
-	}
+func (ps *PatientService) TransferPatientWorkspace(ctx context.Context, patientID string, newWorkspaceID string) error {
 
-	ps.logger.Info("Patients retrieved successfully", "workspaceID", workspaceID, "count", patients.Total)
-	return patients, nil
-}
-
-func (ps *PatientService) GetAllPatients(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.Patient], error) {
-	patients, err := ps.patientRepo.GetByCriteria(ctx, []sharedQuery.Filter{}, paginationOpts)
-	if err != nil {
-		ps.logger.Error("Failed to retrieve all patients", "error", err)
-		return nil, errors.NewInternalError("failed to retrieve patients", err)
-	}
-
-	ps.logger.Info("All patients retrieved successfully", "count", patients.Total)
-	return patients, nil
-}
-
-func (ps *PatientService) DeletePatient(ctx context.Context, patientID string) error {
-
-	err := ps.patientRepo.WithTx(ctx, func(ctx context.Context, tx repository.Transaction) error {
-
-		imageFilter := []sharedQuery.Filter{
-			{
-				Field:    constants.ImagePatientIDField,
-				Operator: sharedQuery.OpEqual,
-				Value:    patientID,
-			},
-		}
-		pagination := &sharedQuery.Pagination{
-			Limit:  1,
-			Offset: 0,
-		}
-
-		var existingPatients []interface{}
-
-		count, err := tx.FindByFilters(
-			ctx,
-			constants.ImagesCollection,
-			imageFilter,
-			pagination,
-			&existingPatients,
-		)
-
+	uowerr := ps.uow.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+		_, err := repos.WorkspaceRepo.Read(txCtx, newWorkspaceID)
 		if err != nil {
-			ps.logger.Error("Failed to check associated images before deleting patient", "error", err, "patientID", patientID)
-			return err
+			return errors.NewConflictError("new workspace does not exist", nil)
 		}
 
-		if count > 0 {
-			ps.logger.Warn("Cannot delete patient with associated images", "patientID", patientID)
-			details := map[string]interface{}{"patient_id": "Cannot delete patient with associated images."}
-			return errors.NewConflictError("patient has associated images", details)
-		}
-
-		ps.logger.Info("No associated images found, deleting patient", "patientID", patientID)
-		err = tx.Delete(ctx, constants.PatientsCollection, patientID)
-		if err != nil {
-			ps.logger.Error("Failed to delete patient during tx", "error", err, "patientID", patientID)
-			return err
-		}
-
-		return nil
-
+		return repos.PatientRepo.Transfer(txCtx, patientID, newWorkspaceID)
 	})
-	if err != nil {
-		return err
+
+	if uowerr != nil {
+		return uowerr
 	}
 
-	ps.logger.Info("Patient deleted successfully", "patientID", patientID)
-	return nil
-}
-
-// Handle in Transaction later
-func (ps *PatientService) MovePatientToWorkspace(ctx context.Context, patientID string, newWorkspaceID string) error {
-
-	if err := ps.validatePatientCreation(ctx, newWorkspaceID); err != nil {
-		return err
-	}
-
-	updates := map[string]interface{}{
-		constants.PatientWorkspaceIDField: newWorkspaceID,
-	}
-	if err := ps.patientRepo.Update(ctx, patientID, updates); err != nil {
-		ps.logger.Error("Failed to move patient to new workspace", "error", err, "patientID", patientID, "newWorkspaceID", newWorkspaceID)
-		return errors.NewInternalError("failed to move patient to new workspace", err)
-	}
-
-	ps.logger.Info("Patient moved to new workspace successfully", "patientID", patientID, "newWorkspaceID", newWorkspaceID)
 	return nil
 }
