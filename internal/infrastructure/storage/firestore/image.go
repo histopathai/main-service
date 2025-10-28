@@ -17,11 +17,12 @@ type ImageRepositoryImpl struct {
 	_ repository.ImageRepository // ensure interface compliance
 }
 
-func NewImageRepositoryImpl(client *firestore.Client) *ImageRepositoryImpl {
+func NewImageRepositoryImpl(client *firestore.Client, hasUniqueName bool) *ImageRepositoryImpl {
 	return &ImageRepositoryImpl{
 		GenericRepositoryImpl: NewGenericRepositoryImpl[*model.Image](
 			client,
 			constants.ImagesCollection,
+			hasUniqueName,
 			imageFromFirestoreDoc,
 			imageToFirestoreMap,
 			imageMapUpdates,
