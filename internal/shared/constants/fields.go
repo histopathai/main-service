@@ -56,6 +56,7 @@ const (
 	AnnotationScoreField            = "Score"
 	AnnotationClassField            = "Class"
 	AnnotationPolygonField          = "Polygon"
+	AnnotationDescriptionField      = "Description"
 )
 
 const (
