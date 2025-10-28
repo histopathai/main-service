@@ -16,6 +16,10 @@ import (
 	"go.uber.org/mock/gomock"
 )
 
+func ptrString(s string) *string {
+	return &s
+}
+
 func setupWorkspaceService(t *testing.T) (
 	*service.WorkspaceService,
 	*mocks.MockWorkspaceRepository,
@@ -143,6 +147,89 @@ func TestDeleteWorkspace_Failure_HasPatients(t *testing.T) {
 
 	// --- Act ---
 	err := wsService.DeleteWorkspace(ctx, workspaceID)
+
+	// --- Assert ---
+	require.Error(t, err)
+	var conflictErr *errors.Err
+	require.True(t, stderrors.As(err, &conflictErr))
+	assert.Equal(t, errors.ErrorTypeConflict, conflictErr.Type)
+}
+
+func TestUpdateWorkspace_Success(t *testing.T) {
+
+	wsService, mockWorkspaceRepo, _, _ := setupWorkspaceService(t)
+	ctx := context.Background()
+	workspaceID := "workspace-123"
+
+	mockWorkspaceRepo.EXPECT().
+		FindByFilters(ctx, gomock.Any(), gomock.Any()).
+		Return(&sharedQuery.Result[*model.Workspace]{Data: []*model.Workspace{}}, nil)
+
+	mockWorkspaceRepo.EXPECT().
+		Read(ctx, workspaceID).
+		Return(&model.Workspace{}, nil)
+
+	mockWorkspaceRepo.EXPECT().
+		Update(ctx, workspaceID, gomock.Any()).
+		Return(nil)
+
+	input := service.UpdateWorkspaceInput{
+		Name:        ptrString("Updated Workspace"),
+		OrganType:   ptrString("Heart"),
+		Description: ptrString("Updated description"),
+	}
+
+	// --- Act ---
+	err := wsService.UpdateWorkspace(ctx, workspaceID, input)
+
+	// --- Assert ---
+	assert.NoError(t, err)
+}
+
+func TestUpdateWorkspace_Failure_IDNotFound(t *testing.T) {
+
+	wsService, mockWorkspaceRepo, _, _ := setupWorkspaceService(t)
+	ctx := context.Background()
+	workspaceID := "nonexistent-workspace"
+
+	mockWorkspaceRepo.EXPECT().
+		Read(ctx, workspaceID).
+		Return(nil, errors.NewNotFoundError("workspace not found"))
+
+	input := service.UpdateWorkspaceInput{
+		Name: ptrString("Updated Workspace"),
+	}
+
+	// --- Act ---
+	err := wsService.UpdateWorkspace(ctx, workspaceID, input)
+	// --- Assert ---
+	require.Error(t, err)
+	var notFoundErr *errors.Err
+	require.True(t, stderrors.As(err, &notFoundErr))
+	assert.Equal(t, errors.ErrorTypeNotFound, notFoundErr.Type)
+}
+
+func TestUpdateWorkspace_Failure_NameConflict(t *testing.T) {
+
+	wsService, mockWorkspaceRepo, _, _ := setupWorkspaceService(t)
+	ctx := context.Background()
+	workspaceID := "workspace-123"
+
+	mockWorkspaceRepo.EXPECT().
+		FindByFilters(ctx, gomock.Any(), gomock.Any()).
+		Return(&sharedQuery.Result[*model.Workspace]{Data: []*model.Workspace{
+			{Name: "Conflicting Name"},
+		}}, nil)
+
+	mockWorkspaceRepo.EXPECT().
+		Read(ctx, workspaceID).
+		Return(&model.Workspace{}, nil)
+
+	input := service.UpdateWorkspaceInput{
+		Name: ptrString("Conflicting Name"),
+	}
+	// --- Act ---
+	err := wsService.UpdateWorkspace(ctx, workspaceID, input)
 
 	// --- Assert ---
 	require.Error(t, err)
