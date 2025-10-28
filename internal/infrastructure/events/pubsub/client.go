@@ -3,7 +3,6 @@ package pubsub
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"cloud.google.com/go/pubsub"
@@ -18,19 +17,17 @@ type PublishOptions struct {
 
 type GooglePubSubClient struct {
 	client     *pubsub.Client
-	logger     *slog.Logger
 	serializer events.EventSerializer
 }
 
-func NewGooglePubSubClient(ctx context.Context, projectID string, logger *slog.Logger) (*GooglePubSubClient, error) {
+func NewGooglePubSubClient(ctx context.Context, projectID string) (*GooglePubSubClient, error) {
 	client, err := pubsub.NewClient(ctx, projectID)
 	if err != nil {
-		return nil, fmt.Errorf("failed to create pubsub client: %w", err)
+		return nil, mapPubSubError(err)
 	}
 
 	return &GooglePubSubClient{
 		client:     client,
-		logger:     logger,
 		serializer: events.NewJSONEventSerializer(),
 	}, nil
 }
@@ -38,7 +35,6 @@ func NewGooglePubSubClient(ctx context.Context, projectID string, logger *slog.L
 func (g *GooglePubSubClient) PublishEvent(ctx context.Context, topicID string, event events.Event) error {
 	data, err := g.serializer.Serialize(event)
 	if err != nil {
-		g.logger.Error("Failed to serialize event", "error", err, "eventType", event.GetEventType())
 		return fmt.Errorf("failed to serialize event: %w", err)
 	}
 
@@ -48,7 +44,11 @@ func (g *GooglePubSubClient) PublishEvent(ctx context.Context, topicID string, e
 		"timestamp":  event.GetTimestamp().Format(time.RFC3339),
 	}
 
-	return g.Publish(ctx, topicID, data, attributes)
+	err = g.Publish(ctx, topicID, data, attributes)
+	if err != nil {
+		return mapPubSubError(err)
+	}
+	return nil
 }
 
 func (g *GooglePubSubClient) Publish(ctx context.Context, topicID string, data []byte, attributes map[string]string) error {
@@ -67,17 +67,9 @@ func (g *GooglePubSubClient) Publish(ctx context.Context, topicID string, data [
 
 	_, err := result.Get(ctx)
 	if err != nil {
-		g.logger.Error("Failed to publish message",
-			"error", err,
-			"topic", topicID,
-			"eventType", attributes["event_type"])
-		return fmt.Errorf("failed to publish message: %w", err)
+		return mapPubSubError(err)
 	}
 
-	g.logger.Info("Message published successfully",
-		"topic", topicID,
-		"eventType", attributes["event_type"],
-		"eventID", attributes["event_id"])
 	return nil
 }
 
@@ -89,36 +81,15 @@ func (g *GooglePubSubClient) Subscribe(ctx context.Context, subscriptionID strin
 	sub.ReceiveSettings.NumGoroutines = 10
 	sub.ReceiveSettings.MaxExtension = 10 * time.Minute
 
-	g.logger.Info("Starting subscription", "subscription", subscriptionID)
-
 	return sub.Receive(ctx, func(ctx context.Context, msg *pubsub.Message) {
-		startTime := time.Now()
-
-		g.logger.Debug("Received message",
-			"subscription", subscriptionID,
-			"messageID", msg.ID,
-			"eventType", msg.Attributes["event_type"])
 
 		err := handler(ctx, msg.Data, msg.Attributes)
 
-		duration := time.Since(startTime)
-
 		if err != nil {
-			g.logger.Error("Message handler error",
-				"error", err,
-				"subscription", subscriptionID,
-				"messageID", msg.ID,
-				"eventType", msg.Attributes["event_type"],
-				"duration", duration)
 			msg.Nack()
 			return
 		}
 
-		g.logger.Info("Message processed successfully",
-			"subscription", subscriptionID,
-			"messageID", msg.ID,
-			"eventType", msg.Attributes["event_type"],
-			"duration", duration)
 		msg.Ack()
 	})
 }
