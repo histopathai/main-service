@@ -8,8 +8,8 @@ import (
 )
 
 type Repository[T any] interface {
-	Create(ctx context.Context, entity *T) (*T, error)
-	Read(ctx context.Context, id string) (*T, error)
+	Create(ctx context.Context, entity T) (T, error)
+	Read(ctx context.Context, id string) (T, error)
 	Update(ctx context.Context, id string, updates map[string]interface{}) error
 	Delete(ctx context.Context, id string) error
 	Transfer(ctx context.Context, id string, newOwnerID string) error
@@ -17,19 +17,19 @@ type Repository[T any] interface {
 }
 
 type WorkspaceRepository interface {
-	Repository[model.Workspace]
+	Repository[*model.Workspace]
 }
 type PatientRepository interface {
-	Repository[model.Patient]
+	Repository[*model.Patient]
 }
 type ImageRepository interface {
-	Repository[model.Image]
+	Repository[*model.Image]
 }
 type AnnotationRepository interface {
-	Repository[model.Annotation]
+	Repository[*model.Annotation]
 }
 type AnnotationTypeRepository interface {
-	Repository[model.AnnotationType]
+	Repository[*model.AnnotationType]
 }
 
 type Repositories struct {

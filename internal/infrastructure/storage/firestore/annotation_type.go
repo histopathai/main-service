@@ -19,7 +19,7 @@ type AnnotationTypeRepositoryImpl struct {
 
 func NewAnnotationTypeRepositoryImpl(client *firestore.Client) *AnnotationTypeRepositoryImpl {
 	return &AnnotationTypeRepositoryImpl{
-		GenericRepositoryImpl: NewGenericRepositoryImpl(
+		GenericRepositoryImpl: NewGenericRepositoryImpl[*model.AnnotationType](
 			client,
 			constants.AnnotationTypesCollection,
 			annotationTypeToFirestoreDoc,

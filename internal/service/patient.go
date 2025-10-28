@@ -68,7 +68,7 @@ func (ps *PatientService) GetPatientByID(ctx context.Context, patientID string) 
 	return patient, nil
 }
 
-func (ps *PatientService) GetPatientsByWorkspaceID(ctx context.Context, workspaceID string, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.Patient], error) {
+func (ps *PatientService) GetPatientsByWorkspaceID(ctx context.Context, workspaceID string, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[*model.Patient], error) {
 	filters := []sharedQuery.Filter{
 		{
 			Field:    constants.PatientWorkspaceIDField,
@@ -80,7 +80,7 @@ func (ps *PatientService) GetPatientsByWorkspaceID(ctx context.Context, workspac
 	return ps.patientRepo.FindByFilters(ctx, filters, paginationOpts)
 }
 
-func (ps *PatientService) GetAllPatients(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.Patient], error) {
+func (ps *PatientService) GetAllPatients(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[*model.Patient], error) {
 	return ps.patientRepo.FindByFilters(ctx, []sharedQuery.Filter{}, paginationOpts)
 }
 

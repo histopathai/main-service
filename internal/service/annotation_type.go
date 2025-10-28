@@ -99,11 +99,11 @@ func (ats *AnnotationTypeService) GetAnnotationTypeByID(ctx context.Context, id 
 	return ats.annotationTypeRepo.Read(ctx, id)
 }
 
-func (ats *AnnotationTypeService) GetAllAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.AnnotationType], error) {
+func (ats *AnnotationTypeService) GetAllAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[*model.AnnotationType], error) {
 	return ats.annotationTypeRepo.FindByFilters(ctx, []sharedQuery.Filter{}, paginationOpts)
 }
 
-func (ats *AnnotationTypeService) GetClassificationAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.AnnotationType], error) {
+func (ats *AnnotationTypeService) GetClassificationAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[*model.AnnotationType], error) {
 	filters := []sharedQuery.Filter{
 		{
 			Field:    constants.AnnotationTypeClassificationEnabledField,
@@ -116,7 +116,7 @@ func (ats *AnnotationTypeService) GetClassificationAnnotationTypes(ctx context.C
 
 }
 
-func (ats *AnnotationTypeService) GetScoreAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.AnnotationType], error) {
+func (ats *AnnotationTypeService) GetScoreAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[*model.AnnotationType], error) {
 	filters := []sharedQuery.Filter{
 		{
 			Field:    constants.AnnotationTypeScoreEnabledField,

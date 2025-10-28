@@ -19,7 +19,7 @@ type ImageRepositoryImpl struct {
 
 func NewImageRepositoryImpl(client *firestore.Client) *ImageRepositoryImpl {
 	return &ImageRepositoryImpl{
-		GenericRepositoryImpl: NewGenericRepositoryImpl(
+		GenericRepositoryImpl: NewGenericRepositoryImpl[*model.Image](
 			client,
 			constants.ImagesCollection,
 			imageFromFirestoreDoc,
@@ -111,13 +111,13 @@ func (ir *ImageRepositoryImpl) Create(ctx context.Context, entity *model.Image) 
 	if entity == nil {
 		return nil, ErrInvalidInput
 	}
-
-	if entity.ID == "" {
-		entity.ID = ir.client.Collection(ir.collection).NewDoc().ID
+	imageCopy := *entity
+	if imageCopy.ID == "" {
+		imageCopy.ID = ir.client.Collection(ir.collection).NewDoc().ID
 	}
-	entity.FileName = fmt.Sprintf("%s-%s", entity.ID, entity.FileName)
+	imageCopy.FileName = fmt.Sprintf("%s-%s", imageCopy.ID, imageCopy.FileName)
 
-	return ir.GenericRepositoryImpl.Create(ctx, entity)
+	return ir.GenericRepositoryImpl.Create(ctx, &imageCopy)
 }
 
 func (ir *ImageRepositoryImpl) Transfer(ctx context.Context, imageID string, newPatientID string) error {

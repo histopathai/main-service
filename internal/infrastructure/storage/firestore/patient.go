@@ -17,7 +17,7 @@ type PatientRepositoryImpl struct {
 
 func NewPatientRepositoryImpl(client *firestore.Client) *PatientRepositoryImpl {
 	return &PatientRepositoryImpl{
-		GenericRepositoryImpl: NewGenericRepositoryImpl(
+		GenericRepositoryImpl: NewGenericRepositoryImpl[*model.Patient](
 			client,
 			constants.PatientsCollection,
 			patientFromFirestoreDoc,

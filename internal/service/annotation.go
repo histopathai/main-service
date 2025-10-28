@@ -65,7 +65,7 @@ func (as *AnnotationService) GetAnnotationByID(ctx context.Context, id string) (
 	return as.annotationRepo.Read(ctx, id)
 }
 
-func (as *AnnotationService) GetAnnotationsByImageID(ctx context.Context, imageID string) (*sharedQuery.Result[model.Annotation], error) {
+func (as *AnnotationService) GetAnnotationsByImageID(ctx context.Context, imageID string) (*sharedQuery.Result[*model.Annotation], error) {
 	filters := []sharedQuery.Filter{
 		{
 			Field:    "image_id",

@@ -36,6 +36,7 @@ func NewGenericRepositoryImpl[T model.Entity](
 		fnMapUpdates:       fnMapUpdates,
 	}
 }
+
 func (gr *GenericRepositoryImpl[T]) Create(ctx context.Context, entity T) (T, error) {
 
 	if reflect.ValueOf(entity).IsNil() {

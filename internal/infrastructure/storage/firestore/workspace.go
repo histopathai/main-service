@@ -17,7 +17,7 @@ type WorkspaceRepositoryImpl struct {
 
 func NewWorkspaceRepositoryImpl(client *firestore.Client) *WorkspaceRepositoryImpl {
 	return &WorkspaceRepositoryImpl{
-		GenericRepositoryImpl: NewGenericRepositoryImpl(
+		GenericRepositoryImpl: NewGenericRepositoryImpl[*model.Workspace](
 			client,
 			constants.WorkspaceCollection,
 			workspaceFromFirestoreDoc,
@@ -65,7 +65,7 @@ func workspaceFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Workspac
 		w.ResourceURL = &v
 	}
 
-	if v, ok := data["release_year"].(int); ok {
+	if v, ok := data["release_year"].(int64); ok {
 		year := int(v)
 		w.ReleaseYear = &year
 	}
