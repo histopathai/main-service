@@ -104,10 +104,20 @@ type UpdateWorkspaceInput struct {
 }
 
 func (ws *WorkspaceService) UpdateWorkspace(ctx context.Context, id string, input UpdateWorkspaceInput) error {
-	updates := make(map[string]interface{})
 
+	//check ID existence
+	_, err := ws.workspaceRepo.Read(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	updates := make(map[string]interface{})
 	if input.Name != nil {
 		updates[constants.WorkspaceNameField] = *input.Name
+		validateerr := ws.validateWorkspaceInput(ctx, &CreateWorkspaceInput{Name: *input.Name})
+		if validateerr != nil {
+			return validateerr
+		}
 	}
 	if input.OrganType != nil {
 		updates[constants.WorkspaceOrganTypeField] = *input.OrganType
@@ -140,7 +150,7 @@ func (ws *WorkspaceService) UpdateWorkspace(ctx context.Context, id string, inpu
 		return nil // No updates to apply
 	}
 
-	err := ws.workspaceRepo.Update(ctx, id, updates)
+	err = ws.workspaceRepo.Update(ctx, id, updates)
 	if err != nil {
 		return errors.NewInternalError("failed to update workspace", err)
 	}
