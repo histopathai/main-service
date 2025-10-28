@@ -13,8 +13,9 @@ import (
 )
 
 type GenericRepositoryImpl[T model.Entity] struct {
-	client     *firestore.Client
-	collection string
+	client        *firestore.Client
+	collection    string
+	hasUniqueName bool
 
 	fnFromFirestoreDoc func(doc *firestore.DocumentSnapshot) (T, error)
 	fnToFirestoreMap   func(entity T) map[string]interface{}
@@ -24,6 +25,7 @@ type GenericRepositoryImpl[T model.Entity] struct {
 func NewGenericRepositoryImpl[T model.Entity](
 	client *firestore.Client,
 	collection string,
+	hasUniqueName bool,
 	fnFromFirestoreDoc func(doc *firestore.DocumentSnapshot) (T, error),
 	fnToFirestoreMap func(entity T) map[string]interface{},
 	fnMapUpdates func(updates map[string]interface{}) map[string]interface{},
@@ -31,6 +33,7 @@ func NewGenericRepositoryImpl[T model.Entity](
 	return &GenericRepositoryImpl[T]{
 		client:             client,
 		collection:         collection,
+		hasUniqueName:      hasUniqueName,
 		fnFromFirestoreDoc: fnFromFirestoreDoc,
 		fnToFirestoreMap:   fnToFirestoreMap,
 		fnMapUpdates:       fnMapUpdates,
@@ -160,4 +163,31 @@ func (gr *GenericRepositoryImpl[T]) FindByFilters(ctx context.Context, filters [
 		Total:   0, // Total count can be implemented if needed
 	}, nil
 
+}
+
+func (gr *GenericRepositoryImpl[T]) FindByName(ctx context.Context, name string) (*T, error) {
+	if !gr.hasUniqueName {
+		var zero T
+		return &zero, ErrInvalidInput
+	}
+
+	filters := []query.Filter{
+		{
+			Field:    "name",
+			Operator: query.OpEqual,
+			Value:    name,
+		},
+	}
+
+	result, err := gr.FindByFilters(ctx, filters, &query.Pagination{Limit: 1, Offset: 0})
+	if err != nil {
+		return nil, err
+	}
+
+	if len(result.Data) == 0 {
+		var zero T
+		return &zero, nil
+	}
+
+	return &result.Data[0], nil
 }
