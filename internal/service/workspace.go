@@ -189,7 +189,7 @@ func (ws *WorkspaceService) DeleteWorkspace(ctx context.Context, id string) erro
 		return nil
 	})
 	if uowerr != nil {
-		return errors.NewInternalError("failed to delete workspace", uowerr)
+		return uowerr
 	}
 	return nil
 }
