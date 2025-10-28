@@ -10,7 +10,7 @@ type AnnotationType struct {
 	ScoreName             *string
 	ScoreRange            *[2]float64
 	ClassificationEnabled bool
-	ClassList             *[]string
+	ClassList             []string
 	CreatedAt             time.Time
 	UpdatedAt             time.Time
 }
