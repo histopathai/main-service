@@ -25,7 +25,12 @@ func NewAnnotationTypeService(
 	}
 }
 
-func (ats *AnnotationTypeService) validateAnnotationTypeCreation(ctx context.Context, input *CreateAnnotationTypeInput) error {
+func (ats *AnnotationTypeService) ValidateAnnotationTypeCreation(ctx context.Context, input *CreateAnnotationTypeInput) error {
+
+	if input.ScoreEnabled && input.ClassificationEnabled {
+		details := map[string]interface{}{"annotation_type": "An annotation type cannot have both score and classification enabled."}
+		return errors.NewValidationError("invalid annotation type configuration", details)
+	}
 
 	if input.ScoreEnabled {
 		if input.ScoreName == nil || *input.ScoreName == "" {
@@ -43,7 +48,7 @@ func (ats *AnnotationTypeService) validateAnnotationTypeCreation(ctx context.Con
 	}
 
 	if input.ClassificationEnabled {
-		if input.ClassList == nil || len(*input.ClassList) == 0 {
+		if len(input.ClassList) == 0 {
 			details := map[string]interface{}{"class_list": "Class list must be provided when classification is enabled."}
 			return errors.NewValidationError("class list is required", details)
 		}
@@ -60,12 +65,35 @@ type CreateAnnotationTypeInput struct {
 	ScoreMin              *float64
 	ScoreMax              *float64
 	ClassificationEnabled bool
-	ClassList             *[]string
+	ClassList             []string
 }
 
 func (ats *AnnotationTypeService) CreateNewAnnotationType(ctx context.Context, input *CreateAnnotationTypeInput) (*model.AnnotationType, error) {
-	if err := ats.validateAnnotationTypeCreation(ctx, input); err != nil {
+
+	_, err := ats.annotationTypeRepo.FindByName(ctx, input.Name)
+	if err == nil {
+		details := map[string]interface{}{"name": "An annotation type with the same name already exists."}
+		return nil, errors.NewConflictError("annotation type name already exists", details)
+	}
+
+	if err := ats.ValidateAnnotationTypeCreation(ctx, input); err != nil {
 		return nil, err
+	}
+
+	filter := []sharedQuery.Filter{
+		{
+			Field:    constants.AnnotationTypeNameField,
+			Operator: sharedQuery.OpEqual,
+			Value:    input.Name,
+		},
+	}
+	existing, err := ats.annotationTypeRepo.FindByFilters(ctx, filter, &sharedQuery.Pagination{Limit: 1, Offset: 0})
+	if err != nil {
+		return nil, err
+	}
+	if len(existing.Data) > 0 {
+		details := map[string]interface{}{"name": "An annotation type with the same name already exists."}
+		return nil, errors.NewConflictError("annotation type name already exists", details)
 	}
 
 	atModel := &model.AnnotationType{
