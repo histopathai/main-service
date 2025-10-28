@@ -27,12 +27,14 @@ func NewImageService(
 	storage storage.ObjectStorage,
 	bucketName string,
 	publisher *EventPublisher,
+	patientRepo repository.PatientRepository,
 ) *ImageService {
 	return &ImageService{
-		imgRepo:    imageRepo,
-		storage:    storage,
-		bucketName: bucketName,
-		publisher:  publisher,
+		imgRepo:     imageRepo,
+		patientRepo: patientRepo,
+		storage:     storage,
+		bucketName:  bucketName,
+		publisher:   publisher,
 	}
 }
 
