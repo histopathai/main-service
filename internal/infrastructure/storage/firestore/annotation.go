@@ -64,7 +64,10 @@ func annotationFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Annotat
 			Y: pointMap["Y"].(float64),
 		}
 	}
-
+	if description, ok := data["description"]; ok {
+		desc := description.(string)
+		a.Description = &desc
+	}
 	if score, ok := data["score"]; ok {
 		s := score.(float64)
 		a.Score = &s
@@ -92,9 +95,9 @@ func annotationMapUpdate(updates map[string]interface{}) map[string]interface{} 
 			firestoreUpdates["score"] = value
 		case constants.AnnotationClassField:
 			firestoreUpdates["class"] = value
-
+		case constants.AnnotationDescriptionField:
+			firestoreUpdates["description"] = value
 		}
-
 	}
 	return firestoreUpdates
 }
