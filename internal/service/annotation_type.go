@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	"github.com/histopathai/main-service-refactor/internal/domain/repository"
@@ -13,28 +12,17 @@ import (
 
 type AnnotationTypeService struct {
 	annotationTypeRepo repository.AnnotationTypeRepository
-	logger             *slog.Logger
+	uow                repository.UnitOfWorkFactory
 }
 
 func NewAnnotationTypeService(
 	annotationTypeRepo repository.AnnotationTypeRepository,
-	logger *slog.Logger,
+	uow repository.UnitOfWorkFactory,
 ) *AnnotationTypeService {
 	return &AnnotationTypeService{
 		annotationTypeRepo: annotationTypeRepo,
-		logger:             logger,
+		uow:                uow,
 	}
-}
-
-type CreateAnnotationTypeInput struct {
-	Name                  string
-	Description           *string
-	ScoreEnabled          bool
-	ScoreName             *string
-	ScoreMin              *float64
-	ScoreMax              *float64
-	ClassificationEnabled bool
-	ClassList             *[]string
 }
 
 func (ats *AnnotationTypeService) validateAnnotationTypeCreation(ctx context.Context, input *CreateAnnotationTypeInput) error {
@@ -64,31 +52,80 @@ func (ats *AnnotationTypeService) validateAnnotationTypeCreation(ctx context.Con
 	return nil
 }
 
-func (ats *AnnotationTypeService) CreateAnnotationType(ctx context.Context, input *CreateAnnotationTypeInput) (*model.AnnotationType, error) {
+type CreateAnnotationTypeInput struct {
+	Name                  string
+	Description           *string
+	ScoreEnabled          bool
+	ScoreName             *string
+	ScoreMin              *float64
+	ScoreMax              *float64
+	ClassificationEnabled bool
+	ClassList             *[]string
+}
 
-	err := ats.validateAnnotationTypeCreation(ctx, input)
+func (ats *AnnotationTypeService) CreateNewAnnotationType(ctx context.Context, input *CreateAnnotationTypeInput) (*model.AnnotationType, error) {
+	if err := ats.validateAnnotationTypeCreation(ctx, input); err != nil {
+		return nil, err
+	}
+
+	atModel := &model.AnnotationType{
+		Name:                  input.Name,
+		ScoreEnabled:          input.ScoreEnabled,
+		ClassificationEnabled: input.ClassificationEnabled,
+	}
+	if input.Description != nil {
+		atModel.Description = input.Description
+	}
+
+	if input.ScoreEnabled {
+		scoreRange := [2]float64{*input.ScoreMin, *input.ScoreMax}
+		atModel.ScoreRange = &scoreRange
+		atModel.ScoreName = input.ScoreName
+	}
+
+	if input.ClassificationEnabled {
+		atModel.ClassList = input.ClassList
+	}
+
+	created, err := ats.annotationTypeRepo.Create(ctx, atModel)
 	if err != nil {
 		return nil, err
 	}
 
-	newAnnotationType := &model.AnnotationType{
-		Name:                  input.Name,
-		Desc:                  input.Description,
-		ScoreEnabled:          input.ScoreEnabled,
-		ScoreName:             input.ScoreName,
-		ClassificationEnabled: input.ClassificationEnabled,
-		ClassList:             input.ClassList,
-	}
-
-	if input.ScoreEnabled {
-		newAnnotationType.ScoreRange = &[2]float64{*input.ScoreMin, *input.ScoreMax}
-	}
-
-	return ats.annotationTypeRepo.Create(ctx, newAnnotationType)
+	return created, nil
 }
 
 func (ats *AnnotationTypeService) GetAnnotationTypeByID(ctx context.Context, id string) (*model.AnnotationType, error) {
-	return ats.annotationTypeRepo.GetByID(ctx, id)
+	return ats.annotationTypeRepo.Read(ctx, id)
+}
+
+func (ats *AnnotationTypeService) GetAllAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.AnnotationType], error) {
+	return ats.annotationTypeRepo.FindByFilters(ctx, []sharedQuery.Filter{}, paginationOpts)
+}
+
+func (ats *AnnotationTypeService) GetClassificationAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.AnnotationType], error) {
+	filters := []sharedQuery.Filter{
+		{
+			Field:    constants.AnnotationTypeClassificationEnabledField,
+			Operator: sharedQuery.OpEqual,
+			Value:    true,
+		},
+	}
+
+	return ats.annotationTypeRepo.FindByFilters(ctx, filters, paginationOpts)
+
+}
+
+func (ats *AnnotationTypeService) GetScoreAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.AnnotationType], error) {
+	filters := []sharedQuery.Filter{
+		{
+			Field:    constants.AnnotationTypeScoreEnabledField,
+			Operator: sharedQuery.OpEqual,
+			Value:    true,
+		},
+	}
+
+	return ats.annotationTypeRepo.FindByFilters(ctx, filters, paginationOpts)
 }
 
 type UpdateAnnotationTypeInput struct {
@@ -113,35 +150,35 @@ func (ats *AnnotationTypeService) UpdateAnnotationType(ctx context.Context, id s
 	return ats.annotationTypeRepo.Update(ctx, id, updates)
 }
 
-func (ats *AnnotationTypeService) GetAllAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.AnnotationType], error) {
-	return ats.annotationTypeRepo.GetByCriteria(ctx, []sharedQuery.Filter{}, paginationOpts)
-}
-
-func (ats *AnnotationTypeService) GetClassificationAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.AnnotationType], error) {
-	filters := []sharedQuery.Filter{
-		{
-			Field:    constants.AnnotationTypeClassificationEnabledField,
-			Operator: sharedQuery.OpEqual,
-			Value:    true,
-		},
-	}
-
-	return ats.annotationTypeRepo.GetByCriteria(ctx, filters, paginationOpts)
-
-}
-
-func (ats *AnnotationTypeService) GetScoreAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[model.AnnotationType], error) {
-	filters := []sharedQuery.Filter{
-		{
-			Field:    constants.AnnotationTypeScoreEnabledField,
-			Operator: sharedQuery.OpEqual,
-			Value:    true,
-		},
-	}
-
-	return ats.annotationTypeRepo.GetByCriteria(ctx, filters, paginationOpts)
-}
-
 func (ats *AnnotationTypeService) Delete(ctx context.Context, id string) error {
-	return ats.annotationTypeRepo.DeleteWithValidation(ctx, id)
+
+	uowErr := ats.uow.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+		wsRepo := repos.WorkspaceRepo
+		annotationTypeRepo := repos.AnnotationTypeRepo
+
+		pagination := &sharedQuery.Pagination{Limit: 1, Offset: 0}
+
+		wsfilter := []sharedQuery.Filter{
+			{
+				Field:    constants.WorkspaceAnnotationTypeIDField,
+				Operator: sharedQuery.OpEqual,
+				Value:    id,
+			},
+		}
+		result, err := wsRepo.FindByFilters(txCtx, wsfilter, pagination)
+		if err != nil {
+			return err
+		}
+		if len(result.Data) > 0 {
+			details := map[string]interface{}{"annotation_type_id": "Annotation type is in use by one or more workspaces."}
+			return errors.NewConflictError("annotation type in use", details)
+		}
+
+		if err := annotationTypeRepo.Delete(txCtx, id); err != nil {
+			return err
+		}
+		return nil
+	})
+
+	return uowErr
 }
