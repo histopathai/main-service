@@ -32,7 +32,7 @@ func NewPatientService(
 
 type CreatePatientInput struct {
 	WorkspaceID string
-	AnonymName  string
+	Name        string
 	Age         *int
 	Gender      *string
 	Race        *string
@@ -44,14 +44,21 @@ type CreatePatientInput struct {
 
 func (ps *PatientService) CreateNewPatient(ctx context.Context, input CreatePatientInput) (*model.Patient, error) {
 
-	_, err := ps.workspaceRepo.Read(ctx, input.WorkspaceID)
+	_, err := ps.patientRepo.FindByName(ctx, input.Name)
+	if err == nil {
+		return nil, errors.NewConflictError("patient with the same name already exists", map[string]interface{}{
+			"name": "Name must be unique",
+		})
+	}
+
+	_, err = ps.workspaceRepo.Read(ctx, input.WorkspaceID)
 	if err != nil {
 		return nil, errors.NewValidationError("invalid workspace_id",
 			map[string]interface{}{"workspace_id": "Workspace does not exist"})
 	}
 	createdPatient, err := ps.patientRepo.Create(ctx, &model.Patient{
 		WorkspaceID: input.WorkspaceID,
-		AnonymName:  input.AnonymName,
+		Name:        input.Name,
 		Age:         input.Age,
 		Gender:      input.Gender,
 		Race:        input.Race,
@@ -131,7 +138,7 @@ func (ps *PatientService) DeletePatientByID(ctx context.Context, patientId strin
 
 type UpdatePatientInput struct {
 	WorkspaceID *string
-	AnonymName  *string
+	Name        *string
 	Age         *int
 	Gender      *string
 	Race        *string
@@ -148,8 +155,8 @@ func (ps *PatientService) UpdatePatient(ctx context.Context, patientID string, i
 		updates[constants.PatientWorkspaceIDField] = *input.WorkspaceID
 	}
 
-	if input.AnonymName != nil {
-		updates[constants.PatientAnonymNameField] = *input.AnonymName
+	if input.Name != nil {
+		updates[constants.PatientNameField] = *input.Name
 	}
 	if input.Age != nil {
 		updates[constants.PatientAgeField] = *input.Age

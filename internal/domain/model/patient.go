@@ -5,7 +5,7 @@ import "time"
 type Patient struct {
 	ID          string
 	WorkspaceID string
-	AnonymName  string
+	Name        string
 	Age         *int
 	Gender      *string
 	Race        *string

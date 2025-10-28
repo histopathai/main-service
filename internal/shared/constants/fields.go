@@ -13,7 +13,7 @@ const (
 
 const (
 	PatientWorkspaceIDField = "WorkspaceID"
-	PatientAnonymNameField  = "AnonymName"
+	PatientNameField        = "Name"
 	PatientAgeField         = "Age"
 	PatientGenderField      = "Gender"
 	PatientRaceField        = "Race"

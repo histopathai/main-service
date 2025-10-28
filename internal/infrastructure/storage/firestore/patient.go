@@ -15,11 +15,12 @@ type PatientRepositoryImpl struct {
 	_ repository.PatientRepository // ensure interface compliance
 }
 
-func NewPatientRepositoryImpl(client *firestore.Client) *PatientRepositoryImpl {
+func NewPatientRepositoryImpl(client *firestore.Client, hasUniqueName bool) *PatientRepositoryImpl {
 	return &PatientRepositoryImpl{
 		GenericRepositoryImpl: NewGenericRepositoryImpl[*model.Patient](
 			client,
 			constants.PatientsCollection,
+			hasUniqueName,
 			patientFromFirestoreDoc,
 			patientToFirestoreMap,
 			patientMapUpdates,
@@ -31,7 +32,7 @@ func patientToFirestoreMap(p *model.Patient) map[string]interface{} {
 	m := map[string]interface{}{
 
 		"workspace_id": p.WorkspaceID,
-		"anonym_name":  p.AnonymName,
+		"name":         p.Name,
 	}
 	if p.Age != nil {
 		m["age"] = *p.Age
@@ -66,7 +67,7 @@ func patientFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Patient, e
 
 	p.ID = doc.Ref.ID
 	p.WorkspaceID = data["workspace_id"].(string)
-	p.AnonymName = data["anonym_name"].(string)
+	p.Name = data["name"].(string)
 
 	if v, ok := data["age"].(int64); ok {
 		age := int(v)
@@ -110,8 +111,8 @@ func patientMapUpdates(updates map[string]interface{}) map[string]interface{} {
 		switch key {
 		case constants.PatientWorkspaceIDField:
 			firestoreUpdates["workspace_id"] = value
-		case constants.PatientAnonymNameField:
-			firestoreUpdates["anonym_name"] = value
+		case constants.PatientNameField:
+			firestoreUpdates["name"] = value
 		case constants.PatientAgeField:
 			firestoreUpdates["age"] = value
 		case constants.PatientGenderField:
