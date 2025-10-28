@@ -17,11 +17,12 @@ type AnnotationRepositoryImpl struct {
 	_ repository.AnnotationTypeRepository // ensure interface compliance
 }
 
-func NewAnnotationRepositoryImpl(client *firestore.Client) *AnnotationRepositoryImpl {
+func NewAnnotationRepositoryImpl(client *firestore.Client, hasUniqueName bool) *AnnotationRepositoryImpl {
 	return &AnnotationRepositoryImpl{
 		GenericRepositoryImpl: NewGenericRepositoryImpl[*model.Annotation](
 			client,
 			constants.AnnotationsCollection,
+			hasUniqueName,
 			annotationFromFirestoreDoc,
 			annotationToFirestoreMap,
 			annotationMapUpdate,
