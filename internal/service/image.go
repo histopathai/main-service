@@ -3,7 +3,6 @@ package service
 import (
 	"context"
 	"fmt"
-	"log/slog"
 	"time"
 
 	"github.com/google/uuid"
@@ -15,29 +14,25 @@ import (
 )
 
 type ImageService struct {
-	imageRepo   repository.ImageRepository
+	imgRepo     repository.ImageRepository
 	patientRepo repository.PatientRepository
 	storage     storage.ObjectStorage
 	bucketName  string
-	logger      *slog.Logger
 	publisher   *EventPublisher
 }
 
 func NewImageService(
 	imageRepo repository.ImageRepository,
-	patientRepo repository.PatientRepository,
+	uow repository.UnitOfWorkFactory,
 	storage storage.ObjectStorage,
 	bucketName string,
-	logger *slog.Logger,
 	publisher *EventPublisher,
 ) *ImageService {
 	return &ImageService{
-		imageRepo:   imageRepo,
-		patientRepo: patientRepo,
-		storage:     storage,
-		bucketName:  bucketName,
-		logger:      logger,
-		publisher:   publisher,
+		imgRepo:    imageRepo,
+		storage:    storage,
+		bucketName: bucketName,
+		publisher:  publisher,
 	}
 }
 
@@ -53,12 +48,10 @@ type UploadImageInput struct {
 }
 
 func (is *ImageService) validateImageInput(ctx context.Context, input *UploadImageInput) error {
-	patient, err := is.patientRepo.GetByID(ctx, input.PatientID)
+	patientID := input.PatientID
+	_, err := is.patientRepo.Read(ctx, patientID)
 	if err != nil {
-		return errors.NewInternalError("Failed to fetch patient: %v", err)
-	}
-	if patient == nil {
-		return errors.NewNotFoundError(fmt.Sprintf("Patient not found with ID: %s", input.PatientID))
+		return err
 	}
 	return nil
 }
@@ -88,11 +81,9 @@ func (is *ImageService) UploadImage(ctx context.Context, input *UploadImageInput
 	expr_time := time.Minute * 30
 	url, err := is.storage.GenerateSignedURL(ctx, is.bucketName, storage.MethodPut, image, input.ContentType, expr_time)
 	if err != nil {
-		return nil, errors.NewInternalError("Failed to generate signed URL: %v", err)
+		return nil, err
 	}
-	if url == "" {
-		return nil, errors.NewInternalError("Generated signed URL is empty", err)
-	}
+
 	return &url, nil
 }
 
@@ -125,15 +116,15 @@ func (is *ImageService) ConfirmUpload(ctx context.Context, input *ConfirmUploadI
 		UpdatedAt:  time.Now(),
 	}
 
-	createdImage, err := is.imageRepo.Create(ctx, image)
+	createdImage, err := is.imgRepo.Create(ctx, image)
 	if err != nil {
-		return errors.NewInternalError("Failed to create image record: %v", err)
+		return err
 	}
-
 	processingEvent := events.NewImageProcessingRequestedEvent(
 		createdImage.ID,
 		createdImage.OriginPath,
 	)
+
 	if err := is.publisher.PublishImageProcessingRequested(ctx, &processingEvent); err != nil {
 		return errors.NewInternalError("Failed to publish image processing event: %v", err)
 	}
