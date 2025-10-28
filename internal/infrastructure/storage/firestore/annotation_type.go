@@ -17,11 +17,12 @@ type AnnotationTypeRepositoryImpl struct {
 	_ repository.AnnotationTypeRepository // ensure interface compliance
 }
 
-func NewAnnotationTypeRepositoryImpl(client *firestore.Client) *AnnotationTypeRepositoryImpl {
+func NewAnnotationTypeRepositoryImpl(client *firestore.Client, hasUniqueName bool) *AnnotationTypeRepositoryImpl {
 	return &AnnotationTypeRepositoryImpl{
 		GenericRepositoryImpl: NewGenericRepositoryImpl[*model.AnnotationType](
 			client,
 			constants.AnnotationTypesCollection,
+			hasUniqueName,
 			annotationTypeToFirestoreDoc,
 			annotatationTypeFirestoreToMap,
 			annotationTypeMapUpdates,
@@ -59,7 +60,7 @@ func annotationTypeToFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Annot
 		for i, v := range classListInterface {
 			classList[i] = v.(string)
 		}
-		atModel.ClassList = &classList
+		atModel.ClassList = classList
 	}
 
 	atModel.CreatedAt = data["created_at"].(time.Time)
@@ -82,8 +83,8 @@ func annotatationTypeFirestoreToMap(at *model.AnnotationType) map[string]interfa
 	if at.ScoreName != nil {
 		m["score_name"] = *at.ScoreName
 	}
-	if at.ClassList != nil {
-		m["class_list"] = *at.ClassList
+	if len(at.ClassList) > 0 {
+		m["class_list"] = at.ClassList
 	}
 	return m
 }
