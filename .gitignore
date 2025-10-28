@@ -1,2 +1,3 @@
 # Generated mocks
 **/mocks/
+!mocks/generate.go
