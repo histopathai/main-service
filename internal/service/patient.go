@@ -135,23 +135,18 @@ func (ps *PatientService) DeletePatientByID(ctx context.Context, patientId strin
 }
 
 type UpdatePatientInput struct {
-	WorkspaceID *string
-	Name        *string
-	Age         *int
-	Gender      *string
-	Race        *string
-	Disease     *string
-	Subtype     *string
-	Grade       *int
-	History     *string
+	Name    *string
+	Age     *int
+	Gender  *string
+	Race    *string
+	Disease *string
+	Subtype *string
+	Grade   *int
+	History *string
 }
 
 func (ps *PatientService) UpdatePatient(ctx context.Context, patientID string, input UpdatePatientInput) error {
 	updates := make(map[string]interface{})
-
-	if input.WorkspaceID != nil {
-		updates[constants.PatientWorkspaceIDField] = *input.WorkspaceID
-	}
 
 	if input.Name != nil {
 		updates[constants.PatientNameField] = *input.Name
