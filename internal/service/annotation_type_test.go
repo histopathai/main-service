@@ -10,6 +10,7 @@ import (
 	"github.com/histopathai/main-service-refactor/internal/mocks"
 	"github.com/histopathai/main-service-refactor/internal/service"
 	"github.com/histopathai/main-service-refactor/internal/shared/errors"
+	"github.com/histopathai/main-service-refactor/internal/shared/query"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -53,6 +54,13 @@ func TestCreateNewAnnotationType_Success(t *testing.T) {
 		ClassificationEnabled: true,
 		ClassList:             []string{"Class A", "Class B"},
 	}
+	mockAnnotationTypeRepo.EXPECT().
+		FindByName(gomock.Any(), input.Name).
+		Return(nil, stderrors.New("not found"))
+
+	mockAnnotationTypeRepo.EXPECT().
+		FindByFilters(gomock.Any(), gomock.Any(), gomock.Any()).
+		Return(&query.Result[*model.AnnotationType]{Data: []*model.AnnotationType{}}, nil)
 
 	classList := []string{"Class A", "Class B"}
 	mockAnnotationTypeRepo.EXPECT().
