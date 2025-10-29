@@ -2,7 +2,6 @@ package service
 
 import (
 	"context"
-	"log/slog"
 
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	"github.com/histopathai/main-service-refactor/internal/domain/repository"
@@ -21,7 +20,6 @@ func NewPatientService(
 	patientRepo repository.PatientRepository,
 	workspaceRepo repository.WorkspaceRepository,
 	uow repository.UnitOfWorkFactory,
-	logger *slog.Logger,
 ) *PatientService {
 	return &PatientService{
 		patientRepo:   patientRepo,
@@ -44,13 +42,13 @@ type CreatePatientInput struct {
 
 func (ps *PatientService) CreateNewPatient(ctx context.Context, input CreatePatientInput) (*model.Patient, error) {
 
-	_, err := ps.patientRepo.FindByName(ctx, input.Name)
-	if err == nil {
-		return nil, errors.NewConflictError("patient with the same name already exists", map[string]interface{}{
-			"name": "Name must be unique",
-		})
+	patient, err := ps.patientRepo.FindByName(ctx, input.Name)
+	if err != nil {
+		return nil, errors.NewInternalError("failed to check existing patient name", err)
 	}
-
+	if patient != nil {
+		return nil, errors.NewConflictError("patient with the same name already exists", map[string]interface{}{"name": "Patient name must be unique"})
+	}
 	_, err = ps.workspaceRepo.Read(ctx, input.WorkspaceID)
 	if err != nil {
 		return nil, errors.NewValidationError("invalid workspace_id",
