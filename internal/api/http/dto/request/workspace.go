@@ -23,7 +23,7 @@ type UpdateWorkspaceRequest struct {
 	AnnotationTypeID *string `json:"annotation_type_id,omitempty" binding:"omitempty,uuid4" example:"550e8400-e29b-41d4-a716-446655440000"`
 }
 
-type ListWorkspacesByCriteriaRequest struct {
+type ListWorkspacesRequest struct {
 	Filters    []JSONFilterRequest   `json:"filters,omitempty" binding:"omitempty,dive"`
 	Pagination JSONPaginationRequest `json:"pagination"`
 }

@@ -24,7 +24,7 @@ type UpdatePatientRequest struct {
 	History     *string `json:"history,omitempty" example:"No prior history of cancer."`
 }
 
-type ListPatientsByCriteriaRequest struct {
+type ListPatientsRequest struct {
 	Filters    []JSONFilterRequest   `json:"filters,omitempty" binding:"omitempty,dive"`
 	Pagination JSONPaginationRequest `json:"pagination"`
 }

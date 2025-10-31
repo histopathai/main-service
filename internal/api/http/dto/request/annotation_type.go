@@ -16,7 +16,7 @@ type UpdateAnnotationTypeRequest struct {
 	Description *string `json:"description,omitempty" example:"Annotation type for tumor regions."`
 }
 
-type ListAnnotationTypeByCriteriaRequest struct {
+type ListAnnotationTypeByFiltersRequest struct {
 	Filters    []JSONFilterRequest   `json:"filters,omitempty"`
 	Pagination JSONPaginationRequest `json:"pagination"`
 }
