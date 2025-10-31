@@ -201,3 +201,11 @@ func (ps *PatientService) TransferPatientWorkspace(ctx context.Context, patientI
 
 	return nil
 }
+
+func (ps *PatientService) ListPatients(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[*model.Patient], error) {
+	patients, err := ps.patientRepo.FindByFilters(ctx, nil, paginationOpts)
+	if err != nil {
+		return nil, errors.NewInternalError("failed to list patients", err)
+	}
+	return patients, nil
+}

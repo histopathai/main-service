@@ -203,3 +203,11 @@ func (ws *WorkspaceService) DeleteWorkspace(ctx context.Context, id string) erro
 	}
 	return nil
 }
+
+func (ws *WorkspaceService) ListWorkspaces(ctx context.Context, pagination *sharedQuery.Pagination) (*sharedQuery.Result[*model.Workspace], error) {
+	workspaces, err := ws.workspaceRepo.FindByFilters(ctx, []sharedQuery.Filter{}, pagination)
+	if err != nil {
+		return nil, errors.NewInternalError("failed to list workspaces", err)
+	}
+	return workspaces, nil
+}

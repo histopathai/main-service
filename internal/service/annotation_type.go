@@ -178,7 +178,7 @@ func (ats *AnnotationTypeService) UpdateAnnotationType(ctx context.Context, id s
 	return ats.annotationTypeRepo.Update(ctx, id, updates)
 }
 
-func (ats *AnnotationTypeService) Delete(ctx context.Context, id string) error {
+func (ats *AnnotationTypeService) DeleteAnnotationType(ctx context.Context, id string) error {
 
 	uowErr := ats.uow.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
 		wsRepo := repos.WorkspaceRepo
@@ -209,4 +209,8 @@ func (ats *AnnotationTypeService) Delete(ctx context.Context, id string) error {
 	})
 
 	return uowErr
+}
+
+func (ats *AnnotationTypeService) ListAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[*model.AnnotationType], error) {
+	return ats.annotationTypeRepo.FindByFilters(ctx, []sharedQuery.Filter{}, paginationOpts)
 }

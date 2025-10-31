@@ -10,6 +10,7 @@ import (
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	"github.com/histopathai/main-service-refactor/internal/domain/repository"
 	"github.com/histopathai/main-service-refactor/internal/domain/storage"
+	"github.com/histopathai/main-service-refactor/internal/shared/constants"
 	"github.com/histopathai/main-service-refactor/internal/shared/errors"
 	sharedQuery "github.com/histopathai/main-service-refactor/internal/shared/query"
 )
@@ -147,7 +148,7 @@ func (is *ImageService) ListImageByPatientID(ctx context.Context, patientID stri
 
 	filters := []sharedQuery.Filter{
 		{
-			Field:    "patient_id",
+			Field:    constants.ImagePatientIDField,
 			Operator: sharedQuery.OpEqual,
 			Value:    patientID,
 		},

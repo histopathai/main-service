@@ -5,6 +5,7 @@ import (
 
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	"github.com/histopathai/main-service-refactor/internal/domain/repository"
+	"github.com/histopathai/main-service-refactor/internal/shared/constants"
 	"github.com/histopathai/main-service-refactor/internal/shared/errors"
 	sharedQuery "github.com/histopathai/main-service-refactor/internal/shared/query"
 )
@@ -65,21 +66,16 @@ func (as *AnnotationService) GetAnnotationByID(ctx context.Context, id string) (
 	return as.annotationRepo.Read(ctx, id)
 }
 
-func (as *AnnotationService) GetAnnotationsByImageID(ctx context.Context, imageID string) (*sharedQuery.Result[*model.Annotation], error) {
+func (as *AnnotationService) GetAnnotationsByImageID(ctx context.Context, imageID string, pagination *sharedQuery.Pagination) (*sharedQuery.Result[*model.Annotation], error) {
 	filters := []sharedQuery.Filter{
 		{
-			Field:    "image_id",
+			Field:    constants.AnnotationImageIDField,
 			Operator: sharedQuery.OpEqual,
 			Value:    imageID,
 		},
 	}
 
-	paginationOpts := &sharedQuery.Pagination{
-		Limit:  -1,
-		Offset: 0,
-	}
-
-	result, err := as.annotationRepo.FindByFilters(ctx, filters, paginationOpts)
+	result, err := as.annotationRepo.FindByFilters(ctx, filters, pagination)
 	if err != nil {
 		return nil, err
 	}

@@ -155,7 +155,11 @@ func TestGetAnnotationsByImageID_Success(t *testing.T) {
 			}, nil
 		})
 
-	result, err := aService.GetAnnotationsByImageID(ctx, imageID)
+	pagination := &sharedQuery.Pagination{
+		Limit:  -1,
+		Offset: 0,
+	}
+	result, err := aService.GetAnnotationsByImageID(ctx, imageID, pagination)
 
 	require.NoError(t, err)
 	require.NotNil(t, result)
@@ -175,7 +179,11 @@ func TestGetAnnotationsByImageID_NoResults(t *testing.T) {
 			Data: []*model.Annotation{},
 		}, nil)
 
-	result, err := aService.GetAnnotationsByImageID(ctx, imageID)
+	pagination := &sharedQuery.Pagination{
+		Limit:  -1,
+		Offset: 0,
+	}
+	result, err := aService.GetAnnotationsByImageID(ctx, imageID, pagination)
 
 	require.NoError(t, err)
 	require.Nil(t, result)
