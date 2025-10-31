@@ -31,7 +31,7 @@ type UploadMetadata struct {
 	ImageID    string `json:"image-id"`
 	PatientID  string `json:"patient-id"`
 	CreatorID  string `json:"creator-id"`
-	FileName   string `json:"file-name"`
+	Name       string `json:"name"`
 	Format     string `json:"format"`
 	Width      string `json:"width,omitempty"`
 	Height     string `json:"height,omitempty"`
@@ -83,8 +83,8 @@ func validatateUploadMetadata(metadata *UploadMetadata) error {
 	if metadata.CreatorID == "" {
 		details = append(details, "CreatorID is required")
 	}
-	if metadata.FileName == "" {
-		details = append(details, "FileName is required")
+	if metadata.Name == "" {
+		details = append(details, "Name is required")
 	}
 	if metadata.Format == "" {
 		details = append(details, "Format is required")
@@ -107,7 +107,7 @@ func (h *UploadStatusHandler) buildConfirmInput(metadata *UploadMetadata) *servi
 		ImageID:    metadata.ImageID,
 		PatientID:  metadata.PatientID,
 		CreatorID:  metadata.CreatorID,
-		FileName:   metadata.FileName,
+		Name:       metadata.Name,
 		Format:     metadata.Format,
 		OriginPath: metadata.OriginPath,
 		Status:     model.ImageStatus(metadata.Status),

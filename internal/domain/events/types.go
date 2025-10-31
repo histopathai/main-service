@@ -34,7 +34,7 @@ type ImageUploadedEvent struct {
 	ImageID    string `json:"image-id"`
 	PatientID  string `json:"patient-id"`
 	CreatorID  string `json:"creator-id"`
-	FileName   string `json:"file-name"`
+	Name       string `json:"name"`
 	Format     string `json:"format"`
 	Width      *int   `json:"width,omitempty"`
 	Height     *int   `json:"height,omitempty"`
@@ -44,7 +44,7 @@ type ImageUploadedEvent struct {
 }
 
 func NewImageUploadedEvent(
-	imageID, patientID, creatorID, fileName, format string,
+	imageID, patientID, creatorID, Name, format string,
 	width *int, height *int, size *int64,
 	originPath, status string,
 ) ImageUploadedEvent {
@@ -53,7 +53,7 @@ func NewImageUploadedEvent(
 		ImageID:    imageID,
 		PatientID:  patientID,
 		CreatorID:  creatorID,
-		FileName:   fileName,
+		Name:       Name,
 		Format:     format,
 		Width:      width,
 		Height:     height,
