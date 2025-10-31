@@ -2,11 +2,13 @@ package firestore
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	"github.com/histopathai/main-service-refactor/internal/domain/repository"
 	"github.com/histopathai/main-service-refactor/internal/shared/constants"
+	"github.com/histopathai/main-service-refactor/internal/shared/query"
 
 	"cloud.google.com/go/firestore"
 )
@@ -26,6 +28,7 @@ func NewAnnotationRepositoryImpl(client *firestore.Client, hasUniqueName bool) *
 			annotationFromFirestoreDoc,
 			annotationToFirestoreMap,
 			annotationMapUpdate,
+			annotationMapFilters,
 		),
 	}
 }
@@ -83,7 +86,7 @@ func annotationFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Annotat
 	return &a, nil
 }
 
-func annotationMapUpdate(updates map[string]interface{}) map[string]interface{} {
+func annotationMapUpdate(updates map[string]interface{}) (map[string]interface{}, error) {
 
 	firestoreUpdates := make(map[string]interface{})
 	for key, value := range updates {
@@ -98,9 +101,58 @@ func annotationMapUpdate(updates map[string]interface{}) map[string]interface{} 
 			firestoreUpdates["class"] = value
 		case constants.AnnotationDescriptionField:
 			firestoreUpdates["description"] = value
+		default:
+			return nil, fmt.Errorf("unknown update field: %s", key)
 		}
 	}
-	return firestoreUpdates
+	return firestoreUpdates, nil
+}
+
+func annotationMapFilters(filters []query.Filter) ([]query.Filter, error) {
+	mappedFilters := make([]query.Filter, 0, len(filters))
+	for _, f := range filters {
+		switch f.Field {
+		case constants.AnnotationAnnotatorIDField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "annotator_id",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.AnnotationImageIDField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "image_id",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.AnnotationClassField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "class",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.AnnotationScoreField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "score",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.CreatedAtField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "created_at",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.UpdatedAtField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "updated_at",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		default:
+			return nil, fmt.Errorf("unknown filter field: %s", f.Field)
+		}
+	}
+	return mappedFilters, nil
 }
 
 func (ar *AnnotationRepositoryImpl) Transfer(ctx context.Context, id string, newOwnerID string) error {

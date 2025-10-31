@@ -2,11 +2,13 @@ package firestore
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	"github.com/histopathai/main-service-refactor/internal/domain/repository"
 	"github.com/histopathai/main-service-refactor/internal/shared/constants"
+	"github.com/histopathai/main-service-refactor/internal/shared/query"
 
 	"cloud.google.com/go/firestore"
 )
@@ -26,6 +28,7 @@ func NewAnnotationTypeRepositoryImpl(client *firestore.Client, hasUniqueName boo
 			annotationTypeToFirestoreDoc,
 			annotatationTypeFirestoreToMap,
 			annotationTypeMapUpdates,
+			annotationTypeMapFilters,
 		),
 	}
 }
@@ -89,7 +92,7 @@ func annotatationTypeFirestoreToMap(at *model.AnnotationType) map[string]interfa
 	return m
 }
 
-func annotationTypeMapUpdates(updates map[string]interface{}) map[string]interface{} {
+func annotationTypeMapUpdates(updates map[string]interface{}) (map[string]interface{}, error) {
 	firestoreUpdates := make(map[string]interface{})
 	for key, value := range updates {
 		switch key {
@@ -105,9 +108,53 @@ func annotationTypeMapUpdates(updates map[string]interface{}) map[string]interfa
 			firestoreUpdates["score_name"] = value
 		case constants.AnnotationTypeClassListField:
 			firestoreUpdates["class_list"] = value
+		default:
+			return nil, fmt.Errorf("unknown update field: %s", key)
+		}
+
+	}
+	return firestoreUpdates, nil
+}
+
+func annotationTypeMapFilters(filters []query.Filter) ([]query.Filter, error) {
+	mappedFilters := make([]query.Filter, 0, len(filters))
+	for _, f := range filters {
+		switch f.Field {
+		case constants.AnnotationTypeNameField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "name",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.AnnotationTypeScoreEnabledField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "score_enabled",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.AnnotationTypeClassificationEnabledField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "classification_enabled",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.CreatedAtField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "created_at",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.UpdatedAtField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "updated_at",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		default:
+			return nil, fmt.Errorf("unknown filter field: %s", f.Field)
 		}
 	}
-	return firestoreUpdates
+	return mappedFilters, nil
 }
 
 func (atr *AnnotationTypeRepositoryImpl) Transfer(ctx context.Context, id string, newOwnerID string) error {

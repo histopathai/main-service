@@ -19,7 +19,8 @@ type GenericRepositoryImpl[T model.Entity] struct {
 
 	fnFromFirestoreDoc func(doc *firestore.DocumentSnapshot) (T, error)
 	fnToFirestoreMap   func(entity T) map[string]interface{}
-	fnMapUpdates       func(updates map[string]interface{}) map[string]interface{}
+	fnMapUpdates       func(updates map[string]interface{}) (map[string]interface{}, error)
+	fnMapFilters       func(filters []query.Filter) ([]query.Filter, error)
 }
 
 func NewGenericRepositoryImpl[T model.Entity](
@@ -28,7 +29,8 @@ func NewGenericRepositoryImpl[T model.Entity](
 	hasUniqueName bool,
 	fnFromFirestoreDoc func(doc *firestore.DocumentSnapshot) (T, error),
 	fnToFirestoreMap func(entity T) map[string]interface{},
-	fnMapUpdates func(updates map[string]interface{}) map[string]interface{},
+	fnMapUpdates func(updates map[string]interface{}) (map[string]interface{}, error),
+	fnMapFilters func(filters []query.Filter) ([]query.Filter, error),
 ) *GenericRepositoryImpl[T] {
 	return &GenericRepositoryImpl[T]{
 		client:             client,
@@ -59,9 +61,7 @@ func (gr *GenericRepositoryImpl[T]) Create(ctx context.Context, entity T) (T, er
 	entityMap := gr.fnToFirestoreMap(entity)
 
 	_, err := gr.client.Collection(gr.collection).Doc(entity.GetID()).Set(ctx, entityMap)
-
 	if err != nil {
-
 		var zero T
 		return zero, mapFirestoreError(err)
 	}
@@ -73,7 +73,7 @@ func (gr *GenericRepositoryImpl[T]) Read(ctx context.Context, id string) (T, err
 	doc, err := gr.client.Collection(gr.collection).Doc(id).Get(ctx)
 	if err != nil {
 		var zero T
-		return zero, mapFirestoreError(err)
+		return zero, err
 	}
 
 	entity, err := gr.fnFromFirestoreDoc(doc)
@@ -86,10 +86,13 @@ func (gr *GenericRepositoryImpl[T]) Read(ctx context.Context, id string) (T, err
 }
 
 func (gr *GenericRepositoryImpl[T]) Update(ctx context.Context, id string, updates map[string]interface{}) error {
-	updates = gr.fnMapUpdates(updates)
+	updates, err := gr.fnMapUpdates(updates)
+	if err != nil {
+		return err
+	}
 	updates["updated_at"] = time.Now()
 
-	_, err := gr.client.Collection(gr.collection).Doc(id).Set(ctx, updates, firestore.MergeAll)
+	_, err = gr.client.Collection(gr.collection).Doc(id).Set(ctx, updates, firestore.MergeAll)
 	if err != nil {
 		return mapFirestoreError(err)
 	}
@@ -112,6 +115,13 @@ func (gr *GenericRepositoryImpl[T]) Transfer(ctx context.Context, id string, new
 }
 
 func (gr *GenericRepositoryImpl[T]) FindByFilters(ctx context.Context, filters []query.Filter, paginationOpts *query.Pagination) (*query.Result[T], error) {
+	// Map filters if needed
+	mappedFilters, err := gr.fnMapFilters(filters)
+	if err != nil {
+		return nil, err
+	}
+	filters = mappedFilters
+
 	fQuery := gr.client.Collection(gr.collection).Query
 
 	for _, f := range filters {
@@ -143,7 +153,7 @@ func (gr *GenericRepositoryImpl[T]) FindByFilters(ctx context.Context, filters [
 
 		entity, err := gr.fnFromFirestoreDoc(doc)
 		if err != nil {
-			return nil, mapFirestoreError(err)
+			return nil, err
 		}
 
 		results = append(results, entity)

@@ -8,6 +8,7 @@ import (
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	"github.com/histopathai/main-service-refactor/internal/domain/repository"
 	"github.com/histopathai/main-service-refactor/internal/shared/constants"
+	"github.com/histopathai/main-service-refactor/internal/shared/query"
 
 	"cloud.google.com/go/firestore"
 )
@@ -26,11 +27,12 @@ func NewImageRepositoryImpl(client *firestore.Client, hasUniqueName bool) *Image
 			imageFromFirestoreDoc,
 			imageToFirestoreMap,
 			imageMapUpdates,
+			imageMapFilters,
 		),
 	}
 }
 
-func imageMapUpdates(updates map[string]interface{}) map[string]interface{} {
+func imageMapUpdates(updates map[string]interface{}) (map[string]interface{}, error) {
 	firestoreUpdates := make(map[string]interface{})
 	for key, value := range updates {
 		switch key {
@@ -47,15 +49,17 @@ func imageMapUpdates(updates map[string]interface{}) map[string]interface{} {
 			firestoreUpdates["processed_path"] = value
 		case constants.ImageStatusField:
 			firestoreUpdates["status"] = value
+		default:
+			return nil, fmt.Errorf("unknown update field: %s", key)
 		}
 	}
-	return firestoreUpdates
+	return firestoreUpdates, nil
 }
 func imageToFirestoreMap(i *model.Image) map[string]interface{} {
 	m := map[string]interface{}{
 		"patient_id":  i.PatientID,
 		"creator_id":  i.CreatorID,
-		"file_name":   i.FileName,
+		"name":        i.Name,
 		"format":      i.Format,
 		"width":       i.Width,
 		"height":      i.Height,
@@ -79,7 +83,7 @@ func imageFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Image, error
 	ir.ID = doc.Ref.ID
 	ir.PatientID = data["patient_id"].(string)
 	ir.CreatorID = data["creator_id"].(string)
-	ir.FileName = data["file_name"].(string)
+	ir.Name = data["name"].(string)
 	ir.Format = data["format"].(string)
 	ir.OriginPath = data["origin_path"].(string)
 
@@ -107,6 +111,59 @@ func imageFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Image, error
 	return ir, nil
 }
 
+func imageMapFilters(filters []query.Filter) ([]query.Filter, error) {
+	var firestoreFilters []query.Filter
+	for _, filter := range filters {
+		switch filter.Field {
+		case constants.ImagePatientIDField:
+			firestoreFilters = append(firestoreFilters, query.Filter{
+				Field:    "patient_id",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+		case constants.ImageCreatorIDField:
+			firestoreFilters = append(firestoreFilters, query.Filter{
+				Field:    "creator_id",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+		case constants.ImageNameField:
+			firestoreFilters = append(firestoreFilters, query.Filter{
+				Field:    "name",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+		case constants.ImageStatusField:
+			firestoreFilters = append(firestoreFilters, query.Filter{
+				Field:    "status",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+		case constants.ImageFormatField:
+			firestoreFilters = append(firestoreFilters, query.Filter{
+				Field:    "format",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+		case constants.CreatedAtField:
+			firestoreFilters = append(firestoreFilters, query.Filter{
+				Field:    "created_at",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+		case constants.UpdatedAtField:
+			firestoreFilters = append(firestoreFilters, query.Filter{
+				Field:    "updated_at",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+		default:
+			return nil, fmt.Errorf("unknown filter field: %s", filter.Field)
+		}
+	}
+	return firestoreFilters, nil
+}
+
 func (ir *ImageRepositoryImpl) Create(ctx context.Context, entity *model.Image) (*model.Image, error) {
 
 	if entity == nil {
@@ -116,7 +173,7 @@ func (ir *ImageRepositoryImpl) Create(ctx context.Context, entity *model.Image) 
 	if imageCopy.ID == "" {
 		imageCopy.ID = ir.client.Collection(ir.collection).NewDoc().ID
 	}
-	imageCopy.FileName = fmt.Sprintf("%s-%s", imageCopy.ID, imageCopy.FileName)
+	imageCopy.Name = fmt.Sprintf("%s-%s", imageCopy.ID, imageCopy.Name)
 
 	return ir.GenericRepositoryImpl.Create(ctx, &imageCopy)
 }

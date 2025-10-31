@@ -2,12 +2,14 @@ package firestore
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"cloud.google.com/go/firestore"
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	"github.com/histopathai/main-service-refactor/internal/domain/repository"
 	"github.com/histopathai/main-service-refactor/internal/shared/constants"
+	"github.com/histopathai/main-service-refactor/internal/shared/query"
 )
 
 type PatientRepositoryImpl struct {
@@ -24,6 +26,7 @@ func NewPatientRepositoryImpl(client *firestore.Client, hasUniqueName bool) *Pat
 			patientFromFirestoreDoc,
 			patientToFirestoreMap,
 			patientMapUpdates,
+			patientMapFilters,
 		),
 	}
 }
@@ -105,7 +108,7 @@ func patientFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Patient, e
 	return p, nil
 }
 
-func patientMapUpdates(updates map[string]interface{}) map[string]interface{} {
+func patientMapUpdates(updates map[string]interface{}) (map[string]interface{}, error) {
 	firestoreUpdates := make(map[string]interface{})
 	for key, value := range updates {
 		switch key {
@@ -127,9 +130,82 @@ func patientMapUpdates(updates map[string]interface{}) map[string]interface{} {
 			firestoreUpdates["grade"] = value
 		case constants.PatientHistoryField:
 			firestoreUpdates["history"] = value
+		default:
+			return nil, fmt.Errorf("unknown update field: %s", key)
 		}
 	}
-	return firestoreUpdates
+	return firestoreUpdates, nil
+}
+
+func patientMapFilters(filters []query.Filter) ([]query.Filter, error) {
+	mappedFilters := make([]query.Filter, 0, len(filters))
+	for _, f := range filters {
+		switch f.Field {
+		case constants.PatientWorkspaceIDField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "workspace_id",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.PatientNameField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "name",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.PatientAgeField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "age",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.PatientGenderField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "gender",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.PatientRaceField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "race",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.PatientDiseaseField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "disease",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.PatientSubtypeField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "subtype",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.PatientGradeField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "grade",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.CreatedAtField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "created_at",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.UpdatedAtField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "updated_at",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		default:
+			return nil, fmt.Errorf("unknown filter field: %s", f.Field)
+		}
+	}
+	return mappedFilters, nil
 }
 
 func (pr *PatientRepositoryImpl) Transfer(ctx context.Context, patientID string, newWorkspaceID string) error {
