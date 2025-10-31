@@ -1,6 +1,7 @@
 package constants
 
 const (
+	WorkspaceCreatorIDField        = "CreatorID"
 	WorkspaceNameField             = "Name"
 	WorkspaceDescField             = "Desc"
 	WorkspaceOrganTypeField        = "OrganType"
@@ -26,7 +27,7 @@ const (
 const (
 	ImagePatientIDField       = "PatientID"
 	ImageCreatorIDField       = "CreatorID"
-	ImageFileNameField        = "FileName"
+	ImageNameField            = "Name"
 	ImageFormatField          = "Format"
 	ImageWidthField           = "Width"
 	ImageHeightField          = "Height"
