@@ -36,11 +36,11 @@ func NewPatientResponse(p *model.Patient) *PatientResponse {
 		UpdatedAt: p.UpdatedAt,
 	}
 }
-func NewPatientListResponse(result *query.Result[model.Patient]) *ListResponse[PatientResponse] {
+func NewPatientListResponse(result *query.Result[*model.Patient]) *ListResponse[PatientResponse] {
 
 	data := make([]PatientResponse, len(result.Data))
 	for i, p := range result.Data {
-		dto := NewPatientResponse(&p)
+		dto := NewPatientResponse(p)
 		data[i] = *dto
 	}
 

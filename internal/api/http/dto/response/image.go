@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
+	"github.com/histopathai/main-service-refactor/internal/shared/query"
 )
 
 type ImageResponse struct {
@@ -31,5 +32,25 @@ func NewImageResponse(img *model.Image) *ImageResponse {
 		Size:      img.Size,
 		CreatedAt: img.CreatedAt,
 		UpdatedAt: img.UpdatedAt,
+	}
+}
+
+func NewImageResponses(result query.Result[*model.Image]) *ListResponse[ImageResponse] {
+	data := make([]ImageResponse, len(result.Data))
+	for i, img := range result.Data {
+		dto := NewImageResponse(img)
+		data[i] = *dto
+	}
+
+	pagination := PaginationResponse{
+		Limit:   result.Limit,
+		Offset:  result.Offset,
+		Total:   result.Total,
+		HasMore: result.HasMore,
+	}
+
+	return &ListResponse[ImageResponse]{
+		Data:       data,
+		Pagination: &pagination,
 	}
 }
