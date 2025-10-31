@@ -11,6 +11,7 @@ import (
 	"github.com/histopathai/main-service-refactor/internal/domain/repository"
 	"github.com/histopathai/main-service-refactor/internal/domain/storage"
 	"github.com/histopathai/main-service-refactor/internal/shared/errors"
+	sharedQuery "github.com/histopathai/main-service-refactor/internal/shared/query"
 )
 
 type ImageService struct {
@@ -42,7 +43,7 @@ type UploadImageInput struct {
 	PatientID   string
 	CreatorID   string
 	ContentType string
-	FileName    string
+	Name        string
 	Format      string
 	Width       *int
 	Height      *int
@@ -65,13 +66,13 @@ func (is *ImageService) UploadImage(ctx context.Context, input *UploadImageInput
 		return nil, err
 	}
 	uuid := uuid.New().String()
-	originpath := fmt.Sprintf("gcs://%s/%s-%s", is.bucketName, uuid, input.FileName)
+	originpath := fmt.Sprintf("gcs://%s/%s-%s", is.bucketName, uuid, input.Name)
 
 	image := &model.Image{
 		ID:         uuid,
 		PatientID:  input.PatientID,
 		CreatorID:  input.CreatorID,
-		FileName:   input.FileName,
+		Name:       input.Name,
 		Format:     input.Format,
 		Width:      input.Width,
 		Height:     input.Height,
@@ -93,7 +94,7 @@ type ConfirmUploadInput struct {
 	ImageID    string
 	PatientID  string
 	CreatorID  string
-	FileName   string
+	Name       string
 	Format     string
 	Width      *int
 	Height     *int
@@ -107,7 +108,7 @@ func (is *ImageService) ConfirmUpload(ctx context.Context, input *ConfirmUploadI
 		ID:         input.ImageID,
 		PatientID:  input.PatientID,
 		CreatorID:  input.CreatorID,
-		FileName:   input.FileName,
+		Name:       input.Name,
 		Format:     input.Format,
 		Width:      input.Width,
 		Height:     input.Height,
@@ -132,4 +133,29 @@ func (is *ImageService) ConfirmUpload(ctx context.Context, input *ConfirmUploadI
 	}
 
 	return nil
+}
+
+func (is *ImageService) GetImageByID(ctx context.Context, imageID string) (*model.Image, error) {
+	image, err := is.imgRepo.Read(ctx, imageID)
+	if err != nil {
+		return nil, err
+	}
+	return image, nil
+}
+
+func (is *ImageService) ListImageByPatientID(ctx context.Context, patientID string, pagination *sharedQuery.Pagination) ([]*model.Image, error) {
+
+	filters := []sharedQuery.Filter{
+		{
+			Field:    "patient_id",
+			Operator: sharedQuery.OpEqual,
+			Value:    patientID,
+		},
+	}
+
+	images, err := is.imgRepo.FindByFilters(ctx, filters, pagination)
+	if err != nil {
+		return nil, err
+	}
+	return images.Data, nil
 }

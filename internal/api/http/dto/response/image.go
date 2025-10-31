@@ -10,7 +10,7 @@ type ImageResponse struct {
 	ID        string    `json:"id"`
 	PatientID string    `json:"patient_id"`
 	CreatorID string    `json:"creator_id"`
-	FileName  string    `json:"file_name"`
+	Name      string    `json:"name"`
 	Format    string    `json:"format"`
 	Width     *int      `json:"width,omitempty"`
 	Height    *int      `json:"height,omitempty"`
@@ -24,7 +24,7 @@ func NewImageResponse(img *model.Image) *ImageResponse {
 		ID:        img.ID,
 		PatientID: img.PatientID,
 		CreatorID: img.CreatorID,
-		FileName:  img.FileName,
+		Name:      img.Name,
 		Format:    img.Format,
 		Width:     img.Width,
 		Height:    img.Height,

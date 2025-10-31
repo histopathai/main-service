@@ -50,7 +50,7 @@ func TestUploadImage_Success(t *testing.T) {
 		PatientID:   "patient-123",
 		CreatorID:   "creator-123",
 		ContentType: "image/tiff",
-		FileName:    "test.tiff",
+		Name:        "test.tiff",
 		Format:      "TIFF",
 	}
 
@@ -77,7 +77,7 @@ func TestUploadImage_InvalidPatient(t *testing.T) {
 		PatientID:   "invalid-patient",
 		CreatorID:   "creator-123",
 		ContentType: "image/tiff",
-		FileName:    "test.tiff",
+		Name:        "test.tiff",
 		Format:      "TIFF",
 	}
 
@@ -99,7 +99,7 @@ func TestConfirmUpload_Success(t *testing.T) {
 		ImageID:    "image-123",
 		PatientID:  "patient-123",
 		CreatorID:  "creator-123",
-		FileName:   "test.tiff",
+		Name:       "test.tiff",
 		Format:     "TIFF",
 		Status:     model.StatusUploaded,
 		OriginPath: "gcs://bucket/image-123-test.tiff",
@@ -111,7 +111,7 @@ func TestConfirmUpload_Success(t *testing.T) {
 			ID:         input.ImageID,
 			PatientID:  input.PatientID,
 			CreatorID:  input.CreatorID,
-			FileName:   input.FileName,
+			Name:       input.Name,
 			Format:     input.Format,
 			Status:     input.Status,
 			OriginPath: input.OriginPath,
@@ -134,7 +134,7 @@ func TestConfirmUpload_PublishEventFailure(t *testing.T) {
 		ImageID:    "image-123",
 		PatientID:  "patient-123",
 		CreatorID:  "creator-123",
-		FileName:   "test.tiff",
+		Name:       "test.tiff",
 		Format:     "TIFF",
 		Status:     model.StatusUploaded,
 		OriginPath: "gcs://bucket/image-123-test.tiff",

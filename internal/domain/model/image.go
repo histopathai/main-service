@@ -15,7 +15,7 @@ type Image struct {
 	ID            string
 	PatientID     string
 	CreatorID     string
-	FileName      string
+	Name          string
 	Format        string
 	Width         *int
 	Height        *int
