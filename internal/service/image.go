@@ -160,3 +160,7 @@ func (is *ImageService) ListImageByPatientID(ctx context.Context, patientID stri
 	}
 	return images.Data, nil
 }
+
+func (is *ImageService) DeleteImageByID(ctx context.Context, imageID string) error {
+	return is.imgRepo.Delete(ctx, imageID)
+}
