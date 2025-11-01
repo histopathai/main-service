@@ -7,6 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/histopathai/main-service-refactor/internal/api/http/handler"
 	"github.com/histopathai/main-service-refactor/internal/api/http/middleware"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 type RouterConfig struct {
@@ -64,6 +66,8 @@ func (r *Router) SetupRoutes() *gin.Engine {
 	r.engine.GET("/health", r.healthCheck)
 	r.engine.GET("/ready", r.readinessCheck)
 
+	// Swagger documentation endpoint
+	r.engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	// API v1 routes
 	v1 := r.engine.Group("/api/v1")
 	{
