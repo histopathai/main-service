@@ -121,6 +121,10 @@ func (ath *AnnotationTypeHandler) GetAnnotationType(c *gin.Context) {
 // @Tags Annotation Types
 // @Accept json
 // @Produce json
+// @Param        limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
+// @Param        offset query int false "Number of items to skip" default(0) minimum(0)
+// @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
+// @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
 // @Success 200 {object} response.DataResponse[[]response.AnnotationTypeResponse] "List of annotation types retrieved successfully"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
@@ -148,7 +152,7 @@ func (ath *AnnotationTypeHandler) ListAnnotationTypes(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, response.NewAnnotationListResponse(result))
+	c.JSON(http.StatusOK, response.NewAnnotationTypeListResponse(result))
 }
 
 // UpdateAnnotationType godoc
@@ -240,6 +244,10 @@ func (ath *AnnotationTypeHandler) DeleteAnnotationType(c *gin.Context) {
 // @Tags Annotation Types
 // @Accept json
 // @Produce json
+// @Param        limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
+// @Param        offset query int false "Number of items to skip" default(0) minimum(0)
+// @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
+// @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
 // @Success 200 {object} response.DataResponse[[]response.AnnotationTypeResponse] "List of classification optioned annotation types retrieved successfully"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
@@ -247,9 +255,19 @@ func (ath *AnnotationTypeHandler) DeleteAnnotationType(c *gin.Context) {
 // @Router /annotation-types/classification-enabled [get]
 func (ath *AnnotationTypeHandler) GetClassificationOptionedAnnotationTypes(c *gin.Context) {
 
+	var queryReq request.QueryPaginationRequest
+	if err := c.ShouldBindQuery(&queryReq); err != nil {
+		ath.handleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
+	}
+
 	pagination := &query.Pagination{
-		Limit:  -1, // No limit
-		Offset: 0,
+		Limit:   queryReq.Limit,
+		Offset:  queryReq.Offset,
+		SortBy:  queryReq.SortBy,
+		SortDir: queryReq.SortDir,
 	}
 
 	result, err := ath.annotationTypeService.GetClassificationAnnotationTypes(c.Request.Context(), pagination)
@@ -258,7 +276,7 @@ func (ath *AnnotationTypeHandler) GetClassificationOptionedAnnotationTypes(c *gi
 		return
 	}
 
-	c.JSON(http.StatusOK, response.NewAnnotationListResponse(result))
+	c.JSON(http.StatusOK, response.NewAnnotationTypeListResponse(result))
 }
 
 // Get Score Optionied Annotation Types godoc
@@ -267,6 +285,10 @@ func (ath *AnnotationTypeHandler) GetClassificationOptionedAnnotationTypes(c *gi
 // @Tags Annotation Types
 // @Accept json
 // @Produce json
+// @Param        limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
+// @Param        offset query int false "Number of items to skip" default(0) minimum(0)
+// @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
+// @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
 // @Success 200 {object} response.DataResponse[[]response.AnnotationTypeResponse] "List of score optioned annotation types retrieved successfully"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
@@ -274,9 +296,19 @@ func (ath *AnnotationTypeHandler) GetClassificationOptionedAnnotationTypes(c *gi
 // @Router /annotation-types/score-enabled [get]
 func (ath *AnnotationTypeHandler) GetScoreOptionedAnnotationTypes(c *gin.Context) {
 
+	var queryReq request.QueryPaginationRequest
+	if err := c.ShouldBindQuery(&queryReq); err != nil {
+		ath.handleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
+	}
+
 	pagination := &query.Pagination{
-		Limit:  -1, // No limit
-		Offset: 0,
+		Limit:   queryReq.Limit,
+		Offset:  queryReq.Offset,
+		SortBy:  queryReq.SortBy,
+		SortDir: queryReq.SortDir,
 	}
 
 	result, err := ath.annotationTypeService.GetScoreAnnotationTypes(c.Request.Context(), pagination)
@@ -285,5 +317,5 @@ func (ath *AnnotationTypeHandler) GetScoreOptionedAnnotationTypes(c *gin.Context
 		return
 	}
 
-	c.JSON(http.StatusOK, response.NewAnnotationListResponse(result))
+	c.JSON(http.StatusOK, response.NewAnnotationTypeListResponse(result))
 }
