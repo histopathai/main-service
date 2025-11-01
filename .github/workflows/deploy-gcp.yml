@@ -47,6 +47,23 @@ jobs:
         run: |
           gcloud auth configure-docker ${REGION}-docker.pkg.dev
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.1'
+
+      - name: Generate Mocks
+        run: go generate ./...
+
+      - name: Run Unit Tests
+        run: go test -v ./... 
+
+      - name: Install Swag CLI & Generate Docs
+        run: |
+          go install github.com/swaggo/swag/cmd/swag@latest
+          export PATH=$PATH:$(go env GOPATH)/bin
+          swag init -g cmd/main.go
+
       - name: Build Docker image
         run: |
           docker build -t ${REGION}-docker.pkg.dev/${PROJECT_ID}/histopath-docker-repo/main-service:latest .
