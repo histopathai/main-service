@@ -66,9 +66,9 @@ func (ws *WorkspaceService) validateWorkspaceInput(ctx context.Context, input *C
 
 }
 
-func (ws *WorkspaceService) CreateNewWorkspace(ctx context.Context, input CreateWorkspaceInput) (*model.Workspace, error) {
+func (ws *WorkspaceService) CreateNewWorkspace(ctx context.Context, input *CreateWorkspaceInput) (*model.Workspace, error) {
 
-	if err := ws.validateWorkspaceInput(ctx, &input); err != nil {
+	if err := ws.validateWorkspaceInput(ctx, input); err != nil {
 		return nil, err
 	}
 
