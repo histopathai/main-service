@@ -38,6 +38,7 @@ func annotationTypeToFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Annot
 	data := doc.Data()
 
 	atModel.ID = doc.Ref.ID
+	atModel.CreatorID = data["creator_id"].(string)
 	atModel.Name = data["name"].(string)
 	atModel.ScoreEnabled = data["score_enabled"].(bool)
 	atModel.ClassificationEnabled = data["classification_enabled"].(bool)
@@ -75,6 +76,7 @@ func annotationTypeToFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Annot
 func annotatationTypeFirestoreToMap(at *model.AnnotationType) map[string]interface{} {
 	m := map[string]interface{}{
 		"name":                   at.Name,
+		"creator_id":             at.CreatorID,
 		"score_enabled":          at.ScoreEnabled,
 		"classification_enabled": at.ClassificationEnabled,
 		"created_at":             at.CreatedAt,
@@ -98,6 +100,8 @@ func annotationTypeMapUpdates(updates map[string]interface{}) (map[string]interf
 		switch key {
 		case constants.AnnotationTypeNameField:
 			firestoreUpdates["name"] = value
+		case constants.AnnotationTypeCreatorIDField:
+			firestoreUpdates["creator_id"] = value
 		case constants.AnnotationTypeScoreEnabledField:
 			firestoreUpdates["score_enabled"] = value
 		case constants.AnnotationTypeClassificationEnabledField:
@@ -123,6 +127,12 @@ func annotationTypeMapFilters(filters []query.Filter) ([]query.Filter, error) {
 		case constants.AnnotationTypeNameField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "name",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.AnnotationTypeCreatorIDField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "creator_id",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})

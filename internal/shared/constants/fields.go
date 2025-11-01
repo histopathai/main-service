@@ -43,6 +43,7 @@ const (
 
 const (
 	AnnotationTypeNameField                  = "Name"
+	AnnotationTypeCreatorIDField             = "CreatorID"
 	AnnotationTypeDescField                  = "Desc"
 	AnnotationTypeScoreEnabledField          = "ScoreEnabled"
 	AnnotationTypeScoreNameField             = "ScoreName"
