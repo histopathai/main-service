@@ -7,7 +7,6 @@ import (
 	"github.com/histopathai/main-service-refactor/internal/domain/events"
 	"github.com/histopathai/main-service-refactor/internal/domain/model"
 	"github.com/histopathai/main-service-refactor/internal/domain/repository"
-	"github.com/histopathai/main-service-refactor/internal/service"
 	"github.com/histopathai/main-service-refactor/internal/shared/constants"
 	"github.com/histopathai/main-service-refactor/internal/shared/errors"
 )
@@ -19,13 +18,13 @@ const (
 type ProcessResultHandler struct {
 	imageRepo  repository.ImageRepository
 	serializer events.EventSerializer
-	publisher  service.EventPublisher
+	publisher  events.ImageEventPublisher
 }
 
 func NewProcessResultHandler(
 	imageRepo repository.ImageRepository,
 	serializer events.EventSerializer,
-	publisher service.EventPublisher,
+	publisher events.ImageEventPublisher,
 ) *ProcessResultHandler {
 	return &ProcessResultHandler{
 		imageRepo:  imageRepo,
