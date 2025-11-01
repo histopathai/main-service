@@ -144,7 +144,7 @@ func (is *ImageService) GetImageByID(ctx context.Context, imageID string) (*mode
 	return image, nil
 }
 
-func (is *ImageService) ListImageByPatientID(ctx context.Context, patientID string, pagination *sharedQuery.Pagination) ([]*model.Image, error) {
+func (is *ImageService) ListImageByPatientID(ctx context.Context, patientID string, pagination *sharedQuery.Pagination) (*sharedQuery.Result[*model.Image], error) {
 
 	filters := []sharedQuery.Filter{
 		{
@@ -158,7 +158,8 @@ func (is *ImageService) ListImageByPatientID(ctx context.Context, patientID stri
 	if err != nil {
 		return nil, err
 	}
-	return images.Data, nil
+
+	return images, nil
 }
 
 func (is *ImageService) DeleteImageByID(ctx context.Context, imageID string) error {

@@ -4,6 +4,7 @@ import "time"
 
 type Patient struct {
 	ID          string
+	CreatorID   string
 	WorkspaceID string
 	Name        string
 	Age         *int
