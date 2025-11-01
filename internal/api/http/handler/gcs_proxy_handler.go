@@ -31,6 +31,17 @@ func NewGCSProxyHandler(projectID, bucketName string, logger *slog.Logger) (*GCS
 	}, nil
 }
 
+// ProxyObject handles requests to proxy GCS objects
+// @Summary      Proxy GCS Object
+// @Description  Proxies a GCS object through the server
+// @Tags         GCS
+// @Produce      octet-stream
+// @Param        objectPath path string true "Path of the GCS object to proxy"
+// @Success      200 {file} binary "The requested GCS object"
+// @Failure      400 {object} response.ErrorResponse "Invalid object path"
+// @Failure      404 {object} response.ErrorResponse "Object not found"
+// @Failure      500 {object} response.ErrorResponse "Internal server error"
+// @Router       /proxy/{objectPath} [get]
 func (h *GCSProxyHandler) ProxyObject(c *gin.Context) {
 	objectPath := strings.TrimPrefix(c.Param("objectPath"), "/")
 	if objectPath == "" {

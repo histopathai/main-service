@@ -36,7 +36,7 @@ func NewAnnotationTypeHandler(annotationTypeService *service.AnnotationTypeServi
 // @Accept json
 // @Produce json
 // @Param        request body request.CreateAnnotationTypeRequest true "Annotation Type creation request"
-// @Success 201 {object} response.DataResponse[response.AnnotationTypeResponse] "Annotation Type created successfully"
+// @Success 201 {object} response.AnnotationTypeDataResponse "Annotation Type created successfully"
 // @Failure 400 {object} response.ErrorResponse "Invalid request payload"
 // @Failure 409 {object} response.ErrorResponse "Annotation Type already exists"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
@@ -105,7 +105,7 @@ func (ath *AnnotationTypeHandler) CreateNewAnnotationType(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path string true "Annotation Type ID"
-// @Success 200 {object} response.DataResponse[response.AnnotationTypeResponse] "Annotation Type retrieved successfully"
+// @Success 200 {object} response.AnnotationTypeDataResponse "Annotation Type retrieved successfully"
 // @Failure 404 {object} response.ErrorResponse "Annotation Type not found"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
@@ -141,7 +141,7 @@ func (ath *AnnotationTypeHandler) GetAnnotationType(c *gin.Context) {
 // @Param        offset query int false "Number of items to skip" default(0) minimum(0)
 // @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
 // @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
-// @Success 200 {object} response.DataResponse[[]response.AnnotationTypeResponse] "List of annotation types retrieved successfully"
+// @Success 200 {object} response.AnnotationTypeListResponse "List of annotation types retrieved successfully"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
@@ -194,7 +194,7 @@ func (ath *AnnotationTypeHandler) ListAnnotationTypes(c *gin.Context) {
 // @Produce json
 // @Param id path string true "Annotation Type ID"
 // @Param        request body request.UpdateAnnotationTypeRequest true "Annotation Type update request"
-// @Success 200 {object} response.DataResponse[response.AnnotationTypeResponse] "Annotation Type updated successfully"
+// @Success 204  "Annotation Type updated successfully"
 // @Failure 400 {object} response.ErrorResponse "Invalid request payload"
 // @Failure 404 {object} response.ErrorResponse "Annotation Type not found"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
@@ -273,7 +273,7 @@ func (ath *AnnotationTypeHandler) DeleteAnnotationType(c *gin.Context) {
 // @Param        offset query int false "Number of items to skip" default(0) minimum(0)
 // @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
 // @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
-// @Success 200 {object} response.DataResponse[[]response.AnnotationTypeResponse] "List of classification optioned annotation types retrieved successfully"
+// @Success 200 {object} response.AnnotationTypeListResponse "List of classification optioned annotation types retrieved successfully"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
@@ -330,7 +330,7 @@ func (ath *AnnotationTypeHandler) GetClassificationOptionedAnnotationTypes(c *gi
 // @Param        offset query int false "Number of items to skip" default(0) minimum(0)
 // @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
 // @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
-// @Success 200 {object} response.DataResponse[[]response.AnnotationTypeResponse] "List of score optioned annotation types retrieved successfully"
+// @Success 200 {object} response.AnnotationTypeListResponse "List of score optioned annotation types retrieved successfully"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth

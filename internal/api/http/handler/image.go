@@ -35,7 +35,7 @@ func NewImageHandler(imageService *service.ImageService, validator *validator.Re
 // @Accept json
 // @Produce json
 // @Param        request body request.UploadImageRequest true "Image upload request"
-// @Success 201 {object} response.DataResponse[string] "Image uploaded successfully"
+// @Success 201 {object} response.UploadImageResponse "Image uploaded successfully"
 // @Failure 400 {object} response.ErrorResponse "Invalid request payload"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
@@ -79,10 +79,11 @@ func (ih *ImageHandler) UploadImage(c *gin.Context) {
 		return
 	}
 
-	ih.response.Created(c, gin.H{
-		"upload_url": *signed_url,
-		"message":    "Use this URL to upload the image via a PUT request.",
-	})
+	respPayload := response.UploadImagePayload{
+		UploadURL: *signed_url,
+		Message:   "Use this URL to upload the image via a PUT request.",
+	}
+	ih.response.Created(c, respPayload)
 }
 
 // GetImageByID godoc
@@ -92,7 +93,7 @@ func (ih *ImageHandler) UploadImage(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param image_id path string true "Image ID"
-// @Success 200 {object} response.DataResponse[response.ImageResponse] "Image retrieved successfully"
+// @Success 200 {object} response.ImageDataResponse "Image retrieved successfully"
 // @Failure 400 {object} response.ErrorResponse "Invalid request payload"
 // @Failure 404 {object} response.ErrorResponse "Image not found"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
@@ -127,7 +128,7 @@ func (ih *ImageHandler) GetImageByID(c *gin.Context) {
 // @Param        offset query int false "Number of items to skip" default(0) minimum(0)
 // @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
 // @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
-// @Success 200 {object} response.ListResponse[response.ImageResponse] "Images retrieved successfully"
+// @Success 200 {object} response.ImageListResponse "Images retrieved successfully"
 // @Failure 400 {object} response.ErrorResponse "Invalid request payload"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized
