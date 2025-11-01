@@ -1,3 +1,4 @@
+// cmd/main.go
 package main
 
 import (
@@ -11,115 +12,83 @@ import (
 	"syscall"
 	"time"
 
-	"cloud.google.com/go/firestore"
-	"cloud.google.com/go/pubsub"
-	"cloud.google.com/go/storage"
 	"github.com/gin-gonic/gin"
-	"github.com/histopathai/main-service/adapter"
-	"github.com/histopathai/main-service/config"
-	"github.com/histopathai/main-service/internal/handler"
-	"github.com/histopathai/main-service/internal/repository"
-	"github.com/histopathai/main-service/internal/router"
+	"github.com/histopathai/main-service-refactor/pkg/config"
+	"github.com/histopathai/main-service-refactor/pkg/container"
+	"github.com/histopathai/main-service-refactor/pkg/logger"
+	"github.com/histopathai/main-service-refactor/pkg/seeder"
 )
 
 func main() {
-	cfg, err := config.LoadConfig()
+	// Load configuration
+	cfg, err := config.Load()
 	if err != nil {
-		log.Fatalf("Failed to load config: %v", err)
+		log.Fatalf("Failed to load configuration: %v", err)
 	}
 
-	gin.SetMode(cfg.Server.GINMode)
-
-	// Setup logger
-	loglevel := slog.LevelInfo
-	if cfg.Env == "LOCAL" {
-		loglevel = slog.LevelDebug
-	}
-
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: loglevel,
-	}))
-	slog.SetDefault(logger)
-
-	ctx := context.Background()
-
-	// Initialize Firestore client
-	firestoreClient, err := firestore.NewClient(ctx, cfg.ProjectID)
-	if err != nil {
-		log.Fatalf("Failed to create Firestore client: %v", err)
-	}
-	defer firestoreClient.Close()
-	slog.Info("Firestore client initialized")
-
-	storageClient, err := storage.NewClient(ctx)
-	if err != nil {
-		log.Fatalf("Failed to create Storage client: %v", err)
-	}
-	defer storageClient.Close()
-	slog.Info("Storage client initialized")
-
-	pubsubClient, err := pubsub.NewClient(ctx, cfg.ProjectID)
-	if err != nil {
-		log.Fatalf("Failed to create Pub/Sub client: %v", err)
-	}
-	defer pubsubClient.Close()
-	slog.Info("Pub/Sub client initialized")
-
-	//initialize adapters
-	firestoreAdapter := adapter.NewFirestoreAdapter(firestoreClient)
-	pubsubAdapter := adapter.NewGooglePubSubAdapter(pubsubClient)
-
-	//initialize repositories
-	mainRepo := repository.NewMainRepository(firestoreAdapter)
-	messageBroker := repository.NewMessageBroker(pubsubAdapter)
-
-	//initialize handlers
-	uploadHandler := handler.NewUploadHandler(
-		storageClient,
-		cfg.OriginalBucketName,
-		mainRepo,
-		logger,
-	)
-	workspaceHandler := handler.NewWorkspaceHandler(
-		mainRepo,
-		logger,
+	// Initialize logger
+	loggerInstance := logger.New(&cfg.Logging)
+	loggerInstance.Info("Starting main-service",
+		slog.String("env", string(cfg.Env)),
+		slog.String("version", getVersion()),
 	)
 
-	patientHandler := handler.NewPatientHandler(
-		mainRepo,
-		logger,
-	)
+	// Set Gin mode
+	gin.SetMode(cfg.Server.GinMode)
 
-	UploadCompletionHandler := handler.NewUploadCompletionHandler(
-		messageBroker,
-		mainRepo,
-		logger,
-		cfg.MsgTopics.UploadStatusTopicID,
-		cfg.MsgTopics.ImageProcessingTopicID,
-	)
+	// Create application context
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
 
-	UploadCompletionHandler.StartListening(ctx)
-	// Setup router
-	r := router.SetupRouter(&router.RouterConfig{
-		UploadHandler:    uploadHandler,
-		WorkspaceHandler: workspaceHandler,
-		PatientHandler:   patientHandler,
-	})
+	// Initialize dependency injection container
+	app, err := container.New(ctx, cfg, loggerInstance.Logger)
+	if err != nil {
+		loggerInstance.Error("Failed to initialize application",
+			slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+	defer app.Close()
 
-	//Create HTTP server
-	src := &http.Server{
+	// Run database seeder (only in local/dev environments)
+	if cfg.IsLocal() || cfg.IsDevelopment() {
+		if shouldSeed() {
+			loggerInstance.Info("Running database seeder...")
+			seederInstance := seeder.NewSeeder(app.Repos, loggerInstance.Logger)
+			if err := seederInstance.Seed(ctx); err != nil {
+				loggerInstance.Error("Failed to seed database",
+					slog.String("error", err.Error()))
+			}
+		}
+	}
+
+	// Start event orchestrator
+	if err := app.ImageOrchestrator.Start(ctx); err != nil {
+		loggerInstance.Error("Failed to start image orchestrator",
+			slog.String("error", err.Error()))
+		os.Exit(1)
+	}
+
+	// Setup HTTP router
+	engine := app.Router.SetupRoutes()
+
+	// Create HTTP server
+	server := &http.Server{
 		Addr:         fmt.Sprintf(":%s", cfg.Server.Port),
-		Handler:      r,
+		Handler:      engine,
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
 		IdleTimeout:  cfg.Server.IdleTimeout,
 	}
 
-	// Start server in a goroutine
+	// Start HTTP server in a goroutine
 	go func() {
-		slog.Info("Starting server", "port", cfg.Server.Port, "env", cfg.Env)
-		if err := src.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
+		loggerInstance.Info("Starting HTTP server",
+			slog.String("addr", server.Addr))
+
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			loggerInstance.Error("Failed to start HTTP server",
+				slog.String("error", err.Error()))
+			os.Exit(1)
 		}
 	}()
 
@@ -127,14 +96,37 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit
-	slog.Info("Shutting down server...")
 
-	// Gracefully shutdown the server with a timeout
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
-	if err := src.Shutdown(ctx); err != nil {
-		log.Fatalf("Server forced to shutdown: %v", err)
+	loggerInstance.Info("Shutting down server...")
+
+	// Create shutdown context with timeout
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer shutdownCancel()
+
+	// Shutdown HTTP server
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		loggerInstance.Error("Server forced to shutdown",
+			slog.String("error", err.Error()))
 	}
 
-	slog.Info("Server exiting")
+	// Stop orchestrator
+	if err := app.ImageOrchestrator.Stop(); err != nil {
+		loggerInstance.Error("Failed to stop orchestrator",
+			slog.String("error", err.Error()))
+	}
+
+	loggerInstance.Info("Server exited successfully")
+}
+
+func getVersion() string {
+	version := os.Getenv("APP_VERSION")
+	if version == "" {
+		return "dev"
+	}
+	return version
+}
+
+func shouldSeed() bool {
+	seed := os.Getenv("SEED_DATABASE")
+	return seed == "true" || seed == "1"
 }
