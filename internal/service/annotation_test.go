@@ -133,7 +133,7 @@ func TestGetAnnotationsByImageID_Success(t *testing.T) {
 	mockAnnotationRepo.EXPECT().
 		FindByFilters(ctx, gomock.Any(), gomock.Any()).
 		DoAndReturn(func(ctx context.Context, filters []sharedQuery.Filter, pagination *sharedQuery.Pagination) (*sharedQuery.Result[*model.Annotation], error) {
-			assert.Equal(t, "image_id", filters[0].Field)
+			assert.Equal(t, "ImageID", filters[0].Field)
 			assert.Equal(t, sharedQuery.OpEqual, filters[0].Operator)
 			assert.Equal(t, imageID, filters[0].Value)
 
