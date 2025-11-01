@@ -51,12 +51,12 @@ func NewAnnotationResponse(a *model.Annotation) *AnnotationResponse {
 	}
 }
 
-func NewAnnotationListResponse(result *query.Result[*model.AnnotationType]) *ListResponse[AnnotationTypeResponse] {
+func NewAnnotationListResponse(result *query.Result[*model.Annotation]) *ListResponse[*AnnotationResponse] {
 
-	data := make([]AnnotationTypeResponse, len(result.Data))
+	data := make([]*AnnotationResponse, len(result.Data))
 	for i, a := range result.Data {
-		dto := NewAnnotationTypeResponse(a)
-		data[i] = *dto
+		dto := NewAnnotationResponse(a)
+		data[i] = dto
 	}
 
 	pagination := PaginationResponse{
@@ -66,7 +66,7 @@ func NewAnnotationListResponse(result *query.Result[*model.AnnotationType]) *Lis
 		Total:   result.Total,
 	}
 
-	return &ListResponse[AnnotationTypeResponse]{
+	return &ListResponse[*AnnotationResponse]{
 		Data:       data,
 		Pagination: &pagination,
 	}

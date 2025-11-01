@@ -35,7 +35,7 @@ func NewImageResponse(img *model.Image) *ImageResponse {
 	}
 }
 
-func NewImageResponses(result query.Result[*model.Image]) *ListResponse[ImageResponse] {
+func NewImageListResponse(result *query.Result[*model.Image]) *ListResponse[ImageResponse] {
 	data := make([]ImageResponse, len(result.Data))
 	for i, img := range result.Data {
 		dto := NewImageResponse(img)
