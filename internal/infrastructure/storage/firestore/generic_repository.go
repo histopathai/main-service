@@ -60,7 +60,14 @@ func (gr *GenericRepositoryImpl[T]) Create(ctx context.Context, entity T) (T, er
 
 	entityMap := gr.fnToFirestoreMap(entity)
 
-	_, err := gr.client.Collection(gr.collection).Doc(entity.GetID()).Set(ctx, entityMap)
+	docRef := gr.client.Collection(gr.collection).Doc(entity.GetID())
+
+	var err error
+	if tx := fromCtx(ctx); tx != nil {
+		err = tx.Set(docRef, entityMap)
+	} else {
+		_, err = docRef.Set(ctx, entityMap)
+	}
 	if err != nil {
 		var zero T
 		return zero, mapFirestoreError(err)
@@ -70,7 +77,16 @@ func (gr *GenericRepositoryImpl[T]) Create(ctx context.Context, entity T) (T, er
 }
 
 func (gr *GenericRepositoryImpl[T]) Read(ctx context.Context, id string) (T, error) {
-	doc, err := gr.client.Collection(gr.collection).Doc(id).Get(ctx)
+	docRef := gr.client.Collection(gr.collection).Doc(id)
+	var doc *firestore.DocumentSnapshot
+	var err error
+
+	if tx := fromCtx(ctx); tx != nil {
+		doc, err = tx.Get(docRef)
+	} else {
+		doc, err = docRef.Get(ctx)
+	}
+
 	if err != nil {
 		var zero T
 		return zero, err
@@ -92,7 +108,13 @@ func (gr *GenericRepositoryImpl[T]) Update(ctx context.Context, id string, updat
 	}
 	updates["updated_at"] = time.Now()
 
-	_, err = gr.client.Collection(gr.collection).Doc(id).Set(ctx, updates, firestore.MergeAll)
+	docRef := gr.client.Collection(gr.collection).Doc(id)
+	if tx := fromCtx(ctx); tx != nil {
+		err = tx.Set(docRef, updates, firestore.MergeAll)
+	} else {
+		_, err = docRef.Set(ctx, updates, firestore.MergeAll)
+	}
+
 	if err != nil {
 		return mapFirestoreError(err)
 	}
@@ -101,7 +123,15 @@ func (gr *GenericRepositoryImpl[T]) Update(ctx context.Context, id string, updat
 }
 
 func (gr *GenericRepositoryImpl[T]) Delete(ctx context.Context, id string) error {
-	_, err := gr.client.Collection(gr.collection).Doc(id).Delete(ctx)
+	docRef := gr.client.Collection(gr.collection).Doc(id)
+
+	var err error
+	if tx := fromCtx(ctx); tx != nil {
+		err = tx.Delete(docRef)
+	} else {
+		_, err = docRef.Delete(ctx)
+	}
+
 	if err != nil {
 		return mapFirestoreError(err)
 	}
@@ -137,7 +167,12 @@ func (gr *GenericRepositoryImpl[T]) FindByFilters(ctx context.Context, filters [
 		fQuery = fQuery.Limit(paginationOpts.Limit + 1).Offset(paginationOpts.Offset)
 	}
 
-	iter := fQuery.Documents(ctx)
+	var iter *firestore.DocumentIterator
+	if tx := fromCtx(ctx); tx != nil {
+		iter = tx.Documents(fQuery)
+	} else {
+		iter = fQuery.Documents(ctx)
+	}
 	defer iter.Stop()
 
 	results := []T{}
@@ -170,15 +205,15 @@ func (gr *GenericRepositoryImpl[T]) FindByFilters(ctx context.Context, filters [
 		Limit:   paginationOpts.Limit,
 		Offset:  paginationOpts.Offset,
 		HasMore: hasMore,
-		Total:   0, // Total count can be implemented if needed
+		Total:   0,
 	}, nil
 
 }
 
-func (gr *GenericRepositoryImpl[T]) FindByName(ctx context.Context, name string) (*T, error) {
+func (gr *GenericRepositoryImpl[T]) FindByName(ctx context.Context, name string) (T, error) {
 	if !gr.hasUniqueName {
 		var zero T
-		return &zero, ErrInvalidInput
+		return zero, ErrInvalidInput
 	}
 
 	filters := []query.Filter{
@@ -191,13 +226,14 @@ func (gr *GenericRepositoryImpl[T]) FindByName(ctx context.Context, name string)
 
 	result, err := gr.FindByFilters(ctx, filters, &query.Pagination{Limit: 1, Offset: 0})
 	if err != nil {
-		return nil, err
+		var zero T
+		return zero, err
 	}
 
 	if len(result.Data) == 0 {
 		var zero T
-		return &zero, nil
+		return zero, nil
 	}
 
-	return &result.Data[0], nil
+	return result.Data[0], nil
 }
