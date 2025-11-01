@@ -7,6 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/histopathai/main-service-refactor/internal/api/http/dto/request"
 	"github.com/histopathai/main-service-refactor/internal/api/http/dto/response"
+	"github.com/histopathai/main-service-refactor/internal/api/http/middleware"
+	"github.com/histopathai/main-service-refactor/internal/api/http/validator"
 	"github.com/histopathai/main-service-refactor/internal/service"
 	"github.com/histopathai/main-service-refactor/internal/shared/errors"
 	"github.com/histopathai/main-service-refactor/internal/shared/query"
@@ -14,12 +16,14 @@ import (
 
 type PatientHandler struct {
 	patientService *service.PatientService
+	validator      *validator.RequestValidator
 	BaseHandler    // Embed the BaseHandler
 }
 
-func NewPatientHandler(patientService *service.PatientService, logger *slog.Logger) *PatientHandler {
+func NewPatientHandler(patientService *service.PatientService, validator *validator.RequestValidator, logger *slog.Logger) *PatientHandler {
 	return &PatientHandler{
 		patientService: patientService,
+		validator:      validator,
 		BaseHandler:    BaseHandler{logger: logger},
 	}
 }
@@ -40,24 +44,29 @@ func NewPatientHandler(patientService *service.PatientService, logger *slog.Logg
 
 func (ph *PatientHandler) CreateNewPatient(c *gin.Context) {
 
-	creator_id, exists := c.Get("user_id")
-	if !exists {
-		ph.handleError(c, errors.NewUnauthorizedError("unauthenticated"))
+	creator_id, err := middleware.GetAuthenticatedUserID(c)
+	if err != nil {
+		ph.handleError(c, err)
 		return
 	}
-
 	var req request.CreatePatientRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+
+	if err := c.ShouldBind(&req); err != nil {
 		ph.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
 			"error": err.Error(),
 		}))
 		return
 	}
 
+	if err := ph.validator.ValidateStruct(&req); err != nil {
+		ph.handleError(c, err)
+		return
+	}
+
 	// DTO -> Service Input
 	input := service.CreatePatientInput{
 		WorkspaceID: req.WorkspaceID,
-		CreatorID:   creator_id.(string),
+		CreatorID:   creator_id,
 		Name:        req.Name,
 		Age:         req.Age,
 		Gender:      req.Gender,
@@ -76,10 +85,7 @@ func (ph *PatientHandler) CreateNewPatient(c *gin.Context) {
 	ph.logger.Info("Patient created successfully",
 		slog.String("patient_id", patient.ID))
 
-	// Service Output -> DTO
-	c.JSON(http.StatusCreated, response.DataResponse[response.PatientResponse]{
-		Data: *response.NewPatientResponse(patient),
-	})
+	ph.response.Success(c, http.StatusCreated, patient)
 }
 
 // GetPatientByID godoc
@@ -110,9 +116,7 @@ func (ph *PatientHandler) GetPatientByID(c *gin.Context) {
 		slog.String("patient_id", patient.ID))
 
 	// Service Output -> DTO
-	c.JSON(http.StatusOK, response.DataResponse[response.PatientResponse]{
-		Data: *response.NewPatientResponse(patient),
-	})
+	ph.response.Success(c, http.StatusOK, patient)
 }
 
 // GetPatientsByWorkspaceID godoc
@@ -155,10 +159,16 @@ func (ph *PatientHandler) GetPatientsByWorkspaceID(c *gin.Context) {
 		return
 	}
 
+	paginationResp := response.PaginationResponse{
+		Limit:   result.Limit,
+		Offset:  result.Offset,
+		HasMore: result.HasMore,
+		Total:   result.Total,
+	}
 	ph.logger.Info("Patients retrieved successfully",
 		slog.String("workspace_id", workspaceID))
 
-	c.JSON(http.StatusOK, response.NewPatientListResponse(result))
+	ph.response.SuccessList(c, result.Data, &paginationResp)
 }
 
 // UpdatePatientByID godoc
@@ -208,7 +218,7 @@ func (ph *PatientHandler) UpdatePatientByID(c *gin.Context) {
 	ph.logger.Info("Patient updated successfully",
 		slog.String("patient_id", patientID))
 
-	c.Status(http.StatusNoContent)
+	ph.response.NoContent(c)
 }
 
 // ListPatients godoc
@@ -249,7 +259,15 @@ func (ph *PatientHandler) ListPatients(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, response.NewPatientListResponse(result))
+	paginationResp := response.PaginationResponse{
+		Limit:   result.Limit,
+		Offset:  result.Offset,
+		HasMore: result.HasMore,
+		Total:   result.Total,
+	}
+	ph.logger.Info("Patients listed successfully")
+
+	ph.response.SuccessList(c, result.Data, &paginationResp)
 }
 
 // DeletePatientByID godoc
@@ -280,7 +298,7 @@ func (ph *PatientHandler) DeletePatientByID(c *gin.Context) {
 		slog.String("patient_id", patientID),
 	)
 
-	c.Status(http.StatusNoContent)
+	ph.response.NoContent(c)
 }
 
 //TransferPatientWorkspace godoc
@@ -313,5 +331,5 @@ func (ph *PatientHandler) TransferPatientWorkspace(c *gin.Context) {
 		slog.String("patient_id", patientID),
 		slog.String("target_workspace_id", workspaceID),
 	)
-	c.Status(http.StatusNoContent)
+	ph.response.NoContent(c)
 }
