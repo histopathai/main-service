@@ -30,6 +30,7 @@ func NewPatientService(
 
 type CreatePatientInput struct {
 	WorkspaceID string
+	CreatorID   string
 	Name        string
 	Age         *int
 	Gender      *string
@@ -56,6 +57,7 @@ func (ps *PatientService) CreateNewPatient(ctx context.Context, input CreatePati
 	}
 	createdPatient, err := ps.patientRepo.Create(ctx, &model.Patient{
 		WorkspaceID: input.WorkspaceID,
+		CreatorID:   input.CreatorID,
 		Name:        input.Name,
 		Age:         input.Age,
 		Gender:      input.Gender,
@@ -93,7 +95,7 @@ func (ps *PatientService) GetPatientsByWorkspaceID(ctx context.Context, workspac
 	return ps.patientRepo.FindByFilters(ctx, filters, paginationOpts)
 }
 
-func (ps *PatientService) GetAllPatients(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[*model.Patient], error) {
+func (ps *PatientService) ListPatients(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[*model.Patient], error) {
 	return ps.patientRepo.FindByFilters(ctx, []sharedQuery.Filter{}, paginationOpts)
 }
 
