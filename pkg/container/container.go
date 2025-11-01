@@ -62,6 +62,7 @@ type Container struct {
 	AnnotationTypeHandler *handler.AnnotationTypeHandler
 	AuthMiddleware        *middleware.AuthMiddleware
 	TimeoutMiddleware     *middleware.TimeoutMiddleware
+	GCSProxyHandler       *handler.GCSProxyHandler
 	Router                *router.Router
 }
 
@@ -256,6 +257,16 @@ func (c *Container) initHTTPLayer() error {
 		c.Logger,
 	)
 
+	gcsProxyhandler, err := handler.NewGCSProxyHandler(
+		c.Config.GCP.ProjectID,
+		c.Config.GCP.ProcessedBucketName,
+		c.Logger,
+	)
+	if err != nil {
+		return fmt.Errorf("failed to create GCS proxy handler: %w", err)
+	}
+	c.GCSProxyHandler = gcsProxyhandler
+
 	// Router
 	routerConfig := &router.RouterConfig{
 		Logger:         c.Logger,
@@ -269,6 +280,7 @@ func (c *Container) initHTTPLayer() error {
 		c.ImageHandler,
 		c.AnnotationHandler,
 		c.AnnotationTypeHandler,
+		c.GCSProxyHandler,
 		c.AuthMiddleware,
 		c.TimeoutMiddleware,
 	)

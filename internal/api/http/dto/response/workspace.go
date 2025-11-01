@@ -59,3 +59,12 @@ func NewWorkspaceListResponse(result *query.Result[*model.Workspace]) *ListRespo
 		Pagination: &pagination,
 	}
 }
+
+// Added DTOs for swagger responses. Swagger requires a concrete type for response schemas.
+type WorkspaceDataResponse struct {
+	Data WorkspaceResponse `json:"data"`
+}
+type WorkspaceListResponse struct {
+	Data       []WorkspaceResponse `json:"data"`
+	Pagination *PaginationResponse `json:"pagination,omitempty"`
+}

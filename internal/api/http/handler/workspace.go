@@ -35,7 +35,7 @@ func NewWorkspaceHandler(workspaceService *service.WorkspaceService, validator *
 // @Accept json
 // @Produce json
 // @Param        request body request.CreateWorkspaceRequest true "Workspace creation request"
-// @Success 201 {object} response.DataResponse[response.WorkspaceResponse] "Workspace created successfully"
+// @Success 201 {object} response.WorkspaceDataResponse "Workspace created successfully"
 // @Failure 400 {object} response.ErrorResponse "Invalid request payload"
 // @Failure 409 {object} response.ErrorResponse "Workspace already exists"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
@@ -161,7 +161,7 @@ func (wh *WorkspaceHandler) UpdateWorkspace(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param        id   path      string  true  "Workspace ID"
-// @Success 200 {object} response.DataResponse[response.WorkspaceResponse] "Workspace details retrieved successfully"
+// @Success 200 {object} response.WorkspaceDataResponse "Workspace details retrieved successfully"
 // @Failure 404 {object} response.ErrorResponse "Workspace not found"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Router /workspaces/{id} [get]
@@ -221,7 +221,7 @@ func (wh *WorkspaceHandler) DeleteWorkspace(c *gin.Context) {
 // @Param        offset query int false "Number of items to skip" default(0) minimum(0)
 // @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
 // @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
-// @Success      200 {object} response.ListResponse[response.WorkspaceResponse] "List of workspaces"
+// @Success      200 {object} response.WorkspaceListResponse "List of workspaces"
 // @Failure      400 {object} response.ErrorResponse "Invalid query parameters"
 // @Failure      401 {object} response.ErrorResponse "Unauthorized"
 // @Failure      500 {object} response.ErrorResponse "Internal server error"

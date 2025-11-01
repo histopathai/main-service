@@ -35,7 +35,7 @@ func NewPatientHandler(patientService *service.PatientService, validator *valida
 // @Accept json
 // @Produce json
 // @Param        request body request.CreatePatientRequest true "Patient creation request"
-// @Success 201 {object} response.DataResponse[response.PatientResponse] "Patient created successfully"
+// @Success 201 {object} response.PatientDataResponse "Patient created successfully"
 // @Failure 400 {object} response.ErrorResponse "Invalid request payload"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
@@ -97,7 +97,7 @@ func (ph *PatientHandler) CreateNewPatient(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param patient_id path string true "Patient ID"
-// @Success 200 {object} response.DataResponse[response.PatientResponse] "Patient retrieved successfully"
+// @Success 200 {object} response.PatientDataResponse "Patient retrieved successfully"
 // @Failure 400 {object} response.ErrorResponse "Invalid patient ID"
 // @Failure 404 {object} response.ErrorResponse "Patient not found"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
@@ -133,7 +133,7 @@ func (ph *PatientHandler) GetPatientByID(c *gin.Context) {
 // @Param        offset query int false "Number of items to skip" default(0) minimum(0)
 // @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
 // @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
-// @Success 200 {object} response.ListResponse[response.PatientResponse] "Patients retrieved successfully"
+// @Success 200 {object} response.PatientListResponse "Patients retrieved successfully"
 // @Failure 400 {object} response.ErrorResponse "Invalid workspace ID"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
@@ -244,7 +244,7 @@ func (ph *PatientHandler) UpdatePatientByID(c *gin.Context) {
 // @Param        offset query int false "Number of items to skip" default(0) minimum(0)
 // @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
 // @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
-// @Success      200 {object} response.ListResponse[response.PatientResponse] "List of patients"
+// @Success      200 {object} response.PatientListResponse "List of patients"
 // @Failure      400 {object} response.ErrorResponse "Invalid query parameters"
 // @Failure      401 {object} response.ErrorResponse "Unauthorized"
 // @Failure      500 {object} response.ErrorResponse "Internal server error"

@@ -7,6 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/histopathai/main-service-refactor/internal/api/http/handler"
 	"github.com/histopathai/main-service-refactor/internal/api/http/middleware"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 type RouterConfig struct {
@@ -24,6 +26,7 @@ type Router struct {
 	imageHandler          *handler.ImageHandler
 	annotationHandler     *handler.AnnotationHandler
 	annotationTypeHandler *handler.AnnotationTypeHandler
+	gcsProxyHandler       *handler.GCSProxyHandler
 
 	// Middleware
 	authMiddleware    *middleware.AuthMiddleware
@@ -37,6 +40,7 @@ func NewRouter(
 	imageHandler *handler.ImageHandler,
 	annotationHandler *handler.AnnotationHandler,
 	annotationTypeHandler *handler.AnnotationTypeHandler,
+	gcsProxyHandler *handler.GCSProxyHandler,
 	authMiddleware *middleware.AuthMiddleware,
 	timeoutMiddleware *middleware.TimeoutMiddleware,
 ) *Router {
@@ -47,6 +51,7 @@ func NewRouter(
 		imageHandler:          imageHandler,
 		annotationHandler:     annotationHandler,
 		annotationTypeHandler: annotationTypeHandler,
+		gcsProxyHandler:       gcsProxyHandler,
 		authMiddleware:        authMiddleware,
 		timeoutMiddleware:     timeoutMiddleware,
 	}
@@ -61,6 +66,8 @@ func (r *Router) SetupRoutes() *gin.Engine {
 	r.engine.GET("/health", r.healthCheck)
 	r.engine.GET("/ready", r.readinessCheck)
 
+	// Swagger documentation endpoint
+	r.engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 	// API v1 routes
 	v1 := r.engine.Group("/api/v1")
 	{
@@ -81,6 +88,8 @@ func (r *Router) SetupRoutes() *gin.Engine {
 
 		// Annotation Type routes
 		r.setupAnnotationTypeRoutes(v1)
+
+		v1.GET("/proxy/*objectPath", r.gcsProxyHandler.ProxyObject)
 	}
 
 	return r.engine

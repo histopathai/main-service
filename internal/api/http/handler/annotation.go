@@ -35,7 +35,7 @@ func NewAnnotationHandler(annotationService *service.AnnotationService, validato
 // @Accept json
 // @Produce json
 // @Param        request body request.CreateAnnotationRequest true "Annotation creation request"
-// @Success 201 {object} response.DataResponse[response.AnnotationResponse] "Annotation created successfully"
+// @Success 201 {object} response.AnnotationDataResponse "Annotation created successfully"
 // @Failure 400 {object} response.ErrorResponse "Invalid request payload"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
@@ -95,7 +95,7 @@ func (ah *AnnotationHandler) CreateNewAnnotation(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param id path string true "Annotation ID"
-// @Success 200 {object} response.DataResponse[response.AnnotationResponse] "Annotation retrieved successfully"
+// @Success 200 {object} response.AnnotationDataResponse "Annotation retrieved successfully"
 // @Failure 400 {object} response.ErrorResponse "Invalid annotation ID"
 // @Failure 404 {object} response.ErrorResponse "Annotation not found"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
@@ -134,7 +134,7 @@ func (ah *AnnotationHandler) GetAnnotationByID(c *gin.Context) {
 // @Param        offset query int false "Number of items to skip" default(0) minimum(0)
 // @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
 // @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
-// @Success 200 {object} response.ListResponse[response.AnnotationResponse] "List of annotations retrieved successfully"
+// @Success 200 {object} response.AnnotationListResponse "List of annotations retrieved successfully"
 // @Failure 400 {object} response.ErrorResponse "Invalid request parameters"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"

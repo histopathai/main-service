@@ -51,3 +51,13 @@ func NewAnnotationTypeListResponse(result *query.Result[*model.AnnotationType]) 
 		Pagination: &pagination,
 	}
 }
+
+// Added DTOs for swagger responses. Swagger requires a concrete type for response schemas.
+type AnnotationTypeDataResponse struct {
+	Data AnnotationTypeResponse `json:"data"`
+}
+
+type AnnotationTypeListResponse struct {
+	Data       []AnnotationTypeResponse `json:"data"`
+	Pagination *PaginationResponse      `json:"pagination,omitempty"`
+}
