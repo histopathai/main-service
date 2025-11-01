@@ -56,3 +56,13 @@ func NewPatientListResponse(result *query.Result[*model.Patient]) *ListResponse[
 		Pagination: &pagination,
 	}
 }
+
+// Added DTOs for swagger responses. Swagger requires a concrete type for response schemas.
+type PatientDataResponse struct {
+	Data PatientResponse `json:"data"`
+}
+
+type PatientListResponse struct {
+	Data       []PatientResponse   `json:"data"`
+	Pagination *PaginationResponse `json:"pagination,omitempty"`
+}
