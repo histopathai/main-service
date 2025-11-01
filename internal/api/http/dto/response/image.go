@@ -54,3 +54,21 @@ func NewImageListResponse(result *query.Result[*model.Image]) *ListResponse[Imag
 		Pagination: &pagination,
 	}
 }
+
+type UploadImagePayload struct {
+	UploadURL string `json:"upload_url" example:"https://storage.googleapis.com/..."`
+	Message   string `json:"message" example:"Use this URL to upload the image via a PUT request."`
+}
+type UploadImageResponse struct {
+	Data UploadImagePayload `json:"data"`
+}
+
+// Added DTOs for swagger responses. Swagger requires a concrete type for response schemas.
+type ImageDataResponse struct {
+	Data ImageResponse `json:"data"`
+}
+
+type ImageListResponse struct {
+	Data       []ImageResponse     `json:"data"`
+	Pagination *PaginationResponse `json:"pagination,omitempty"`
+}
