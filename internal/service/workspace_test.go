@@ -74,7 +74,7 @@ func TestCreateNewWorkspace_Success(t *testing.T) {
 		})
 
 	// --- Act ---
-	createdWS, err := wsService.CreateNewWorkspace(ctx, input)
+	createdWS, err := wsService.CreateNewWorkspace(ctx, &input)
 
 	// --- Assert ---
 	assert.NoError(t, err)
@@ -99,7 +99,7 @@ func TestCreateNewWorkspace_Conflict(t *testing.T) {
 		}}, nil)
 
 	// --- Act ---
-	createdWS, err := wsService.CreateNewWorkspace(ctx, input)
+	createdWS, err := wsService.CreateNewWorkspace(ctx, &input)
 
 	// --- Assert ---
 	require.Error(t, err)
