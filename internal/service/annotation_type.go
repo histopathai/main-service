@@ -58,6 +58,7 @@ func (ats *AnnotationTypeService) ValidateAnnotationTypeCreation(ctx context.Con
 }
 
 type CreateAnnotationTypeInput struct {
+	CreatorID             string
 	Name                  string
 	Description           *string
 	ScoreEnabled          bool
@@ -127,7 +128,7 @@ func (ats *AnnotationTypeService) GetAnnotationTypeByID(ctx context.Context, id 
 	return ats.annotationTypeRepo.Read(ctx, id)
 }
 
-func (ats *AnnotationTypeService) GetAllAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[*model.AnnotationType], error) {
+func (ats *AnnotationTypeService) ListAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[*model.AnnotationType], error) {
 	return ats.annotationTypeRepo.FindByFilters(ctx, []sharedQuery.Filter{}, paginationOpts)
 }
 
@@ -209,8 +210,4 @@ func (ats *AnnotationTypeService) DeleteAnnotationType(ctx context.Context, id s
 	})
 
 	return uowErr
-}
-
-func (ats *AnnotationTypeService) ListAnnotationTypes(ctx context.Context, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[*model.AnnotationType], error) {
-	return ats.annotationTypeRepo.FindByFilters(ctx, []sharedQuery.Filter{}, paginationOpts)
 }

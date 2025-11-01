@@ -4,6 +4,7 @@ import "time"
 
 type AnnotationType struct {
 	ID                    string
+	CreatorID             string
 	Name                  string
 	Description           *string
 	ScoreEnabled          bool
