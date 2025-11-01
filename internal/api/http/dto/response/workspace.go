@@ -39,11 +39,11 @@ func NewWorkspaceResponse(ws *model.Workspace) *WorkspaceResponse {
 	}
 }
 
-func NewWorkspaceListResponse(result *query.Result[model.Workspace]) *ListResponse[WorkspaceResponse] {
+func NewWorkspaceListResponse(result *query.Result[*model.Workspace]) *ListResponse[WorkspaceResponse] {
 
 	data := make([]WorkspaceResponse, len(result.Data))
 	for i, ws := range result.Data {
-		dto := NewWorkspaceResponse(&ws)
+		dto := NewWorkspaceResponse(ws)
 		data[i] = *dto
 	}
 
