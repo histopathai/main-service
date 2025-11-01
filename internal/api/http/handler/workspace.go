@@ -68,7 +68,7 @@ func (wh *WorkspaceHandler) CreateNewWorkspace(c *gin.Context) {
 		ReleaseYear:      req.ReleaseYear,
 	}
 
-	workspace, err := wh.workspaceService.CreateNewWorkspace(c.Request.Context(), input)
+	workspace, err := wh.workspaceService.CreateNewWorkspace(c.Request.Context(), &input)
 	if err != nil {
 		wh.handleError(c, err)
 		return
