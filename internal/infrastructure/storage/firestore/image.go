@@ -39,6 +39,8 @@ func imageMapUpdates(updates map[string]interface{}) (map[string]interface{}, er
 
 		case constants.ImageFormatField:
 			firestoreUpdates["format"] = value
+		case constants.ImageCreatorIDField:
+			firestoreUpdates["creator_id"] = value
 		case constants.ImageWidthField:
 			firestoreUpdates["width"] = value
 		case constants.ImageHeightField:
