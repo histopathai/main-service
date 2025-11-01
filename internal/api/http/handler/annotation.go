@@ -7,6 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/histopathai/main-service-refactor/internal/api/http/dto/request"
 	"github.com/histopathai/main-service-refactor/internal/api/http/dto/response"
+	"github.com/histopathai/main-service-refactor/internal/api/http/middleware"
+	"github.com/histopathai/main-service-refactor/internal/api/http/validator"
 	"github.com/histopathai/main-service-refactor/internal/service"
 	"github.com/histopathai/main-service-refactor/internal/shared/errors"
 	"github.com/histopathai/main-service-refactor/internal/shared/query"
@@ -14,12 +16,14 @@ import (
 
 type AnnotationHandler struct {
 	annotationService *service.AnnotationService
+	validator         *validator.RequestValidator
 	BaseHandler       // Embed the BaseHandler
 }
 
-func NewAnnotationHandler(annotationService *service.AnnotationService, logger *slog.Logger) *AnnotationHandler {
+func NewAnnotationHandler(annotationService *service.AnnotationService, validator *validator.RequestValidator, logger *slog.Logger) *AnnotationHandler {
 	return &AnnotationHandler{
 		annotationService: annotationService,
+		validator:         validator,
 		BaseHandler:       BaseHandler{logger: logger},
 	}
 }
@@ -38,9 +42,9 @@ func NewAnnotationHandler(annotationService *service.AnnotationService, logger *
 // @Security BearerAuth
 // @Router /annotations [post]
 func (ah *AnnotationHandler) CreateNewAnnotation(c *gin.Context) {
-	annotator_id, exists := c.Get("user_id")
-	if !exists {
-		ah.handleError(c, errors.NewUnauthorizedError("unauthenticated"))
+	annotator_id, err := middleware.GetAuthenticatedUserID(c)
+	if err != nil {
+		ah.handleError(c, err)
 		return
 	}
 
@@ -52,10 +56,15 @@ func (ah *AnnotationHandler) CreateNewAnnotation(c *gin.Context) {
 		return
 	}
 
+	if err := ah.validator.ValidateStruct(&req); err != nil {
+		ah.handleError(c, err)
+		return
+	}
+
 	// DTO -> Service Input
 	input := service.CreateAnnotationInput{
 		ImageID:     req.ImageID,
-		AnnotatorID: annotator_id.(string),
+		AnnotatorID: annotator_id,
 		Polygon:     req.Polygon,
 		Score:       req.Score,
 		Class:       req.Class,
@@ -68,9 +77,15 @@ func (ah *AnnotationHandler) CreateNewAnnotation(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, response.DataResponse[response.AnnotationResponse]{
-		Data: *response.NewAnnotationResponse(createdAnnotation),
-	})
+	ah.logger.Info("Annotation created successfully",
+		slog.String("annotation_id", createdAnnotation.ID),
+	)
+
+	// Service Output -> DTO
+	annotationResp := response.NewAnnotationResponse(createdAnnotation)
+
+	ah.response.Created(c, annotationResp)
+
 }
 
 // GetAnnotationByID godoc
@@ -102,9 +117,10 @@ func (ah *AnnotationHandler) GetAnnotationByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, response.DataResponse[response.AnnotationResponse]{
-		Data: *response.NewAnnotationResponse(annotation),
-	})
+	// Service Output -> DTO
+	annotationResp := response.NewAnnotationResponse(annotation)
+
+	ah.response.Success(c, http.StatusOK, annotationResp)
 }
 
 // GetAnnotationsByImageID godoc
@@ -153,7 +169,20 @@ func (ah *AnnotationHandler) GetAnnotationsByImageID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, response.NewAnnotationListResponse(result))
+	// Service Output -> DTO
+
+	paginationResp := &response.PaginationResponse{
+		Total:  result.Total,
+		Limit:  queryReq.Limit,
+		Offset: queryReq.Offset,
+	}
+
+	annotationsResp := make([]response.AnnotationResponse, 0, len(result.Data))
+	for i, at := range result.Data {
+		annotationsResp[i] = *response.NewAnnotationResponse(at)
+	}
+
+	ah.response.SuccessList(c, annotationsResp, paginationResp)
 }
 
 // DeleteAnnotation godoc
@@ -189,5 +218,6 @@ func (ah *AnnotationHandler) DeleteAnnotation(c *gin.Context) {
 		slog.String("annotation_id", annotationID),
 	)
 
-	c.Status(http.StatusNoContent)
+	// No content to return
+	ah.response.NoContent(c)
 }

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
+	"github.com/histopathai/main-service-refactor/internal/shared/constants"
 	"github.com/histopathai/main-service-refactor/internal/shared/errors"
 )
 
@@ -16,7 +17,6 @@ type RequestValidator struct {
 func NewRequestValidator() *RequestValidator {
 	v := validator.New()
 
-	// JSON tag'lerini kullan (struct field yerine)
 	v.RegisterTagNameFunc(func(fld reflect.StructField) string {
 		name := strings.SplitN(fld.Tag.Get("json"), ",", 2)[0]
 		if name == "-" {
@@ -34,14 +34,12 @@ func (rv *RequestValidator) ValidateStruct(s interface{}) error {
 		return nil
 	}
 
-	// Validator hatalarını parse et
 	validationErrors, ok := err.(validator.ValidationErrors)
 	if !ok {
 		return errors.NewValidationError("validation failed",
 			map[string]interface{}{"error": err.Error()})
 	}
 
-	// Her field için human-readable mesaj oluştur
 	details := make(map[string]interface{})
 	for _, e := range validationErrors {
 		details[e.Field()] = rv.formatFieldError(e)
@@ -75,4 +73,10 @@ func (rv *RequestValidator) formatFieldError(e validator.FieldError) string {
 	default:
 		return fmt.Sprintf("%s is invalid", field)
 	}
+}
+
+func (rv *RequestValidator) ValidateOrganType(fl string) bool {
+	organType := fl
+
+	return constants.IsValidOrganType(organType)
 }

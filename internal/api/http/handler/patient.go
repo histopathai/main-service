@@ -82,10 +82,12 @@ func (ph *PatientHandler) CreateNewPatient(c *gin.Context) {
 		ph.handleError(c, err)
 		return
 	}
-	ph.logger.Info("Patient created successfully",
-		slog.String("patient_id", patient.ID))
+	ph.logger.Info("Patient created", slog.String("patient_id", patient.ID))
 
-	ph.response.Success(c, http.StatusCreated, patient)
+	// Service Output -> DTO
+	patientResp := response.NewPatientResponse(patient)
+
+	ph.response.Created(c, patientResp)
 }
 
 // GetPatientByID godoc
@@ -116,7 +118,8 @@ func (ph *PatientHandler) GetPatientByID(c *gin.Context) {
 		slog.String("patient_id", patient.ID))
 
 	// Service Output -> DTO
-	ph.response.Success(c, http.StatusOK, patient)
+	patientResp := response.NewPatientResponse(patient)
+	ph.response.Success(c, http.StatusOK, patientResp)
 }
 
 // GetPatientsByWorkspaceID godoc
@@ -159,16 +162,24 @@ func (ph *PatientHandler) GetPatientsByWorkspaceID(c *gin.Context) {
 		return
 	}
 
+	ph.logger.Info("Patients retrieved successfully",
+		slog.String("workspace_id", workspaceID))
+
 	paginationResp := response.PaginationResponse{
 		Limit:   result.Limit,
 		Offset:  result.Offset,
 		HasMore: result.HasMore,
 		Total:   result.Total,
 	}
-	ph.logger.Info("Patients retrieved successfully",
-		slog.String("workspace_id", workspaceID))
 
-	ph.response.SuccessList(c, result.Data, &paginationResp)
+	// Service Output -> DTO
+	patientResponses := make([]response.PatientResponse, len(result.Data))
+	for i, patient := range result.Data {
+		patientResponses[i] = *response.NewPatientResponse(patient)
+	}
+
+	ph.response.SuccessList(c, patientResponses, &paginationResp)
+
 }
 
 // UpdatePatientByID godoc
@@ -218,7 +229,9 @@ func (ph *PatientHandler) UpdatePatientByID(c *gin.Context) {
 	ph.logger.Info("Patient updated successfully",
 		slog.String("patient_id", patientID))
 
+	// No content to return
 	ph.response.NoContent(c)
+
 }
 
 // ListPatients godoc
@@ -258,16 +271,22 @@ func (ph *PatientHandler) ListPatients(c *gin.Context) {
 		ph.handleError(c, err)
 		return
 	}
+	ph.logger.Info("Patients listed successfully")
 
+	// Service Output -> DTO
 	paginationResp := response.PaginationResponse{
 		Limit:   result.Limit,
 		Offset:  result.Offset,
 		HasMore: result.HasMore,
 		Total:   result.Total,
 	}
-	ph.logger.Info("Patients listed successfully")
+	patientResponses := make([]response.PatientResponse, len(result.Data))
+	for i, patient := range result.Data {
+		patientResponses[i] = *response.NewPatientResponse(patient)
+	}
 
-	ph.response.SuccessList(c, result.Data, &paginationResp)
+	ph.response.SuccessList(c, patientResponses, &paginationResp)
+
 }
 
 // DeletePatientByID godoc

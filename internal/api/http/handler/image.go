@@ -7,6 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/histopathai/main-service-refactor/internal/api/http/dto/request"
 	"github.com/histopathai/main-service-refactor/internal/api/http/dto/response"
+	"github.com/histopathai/main-service-refactor/internal/api/http/middleware"
+	"github.com/histopathai/main-service-refactor/internal/api/http/validator"
 	"github.com/histopathai/main-service-refactor/internal/service"
 	"github.com/histopathai/main-service-refactor/internal/shared/errors"
 	"github.com/histopathai/main-service-refactor/internal/shared/query"
@@ -14,12 +16,14 @@ import (
 
 type ImageHandler struct {
 	imageService *service.ImageService
+	validator    *validator.RequestValidator
 	BaseHandler  // Embed the BaseHandler
 }
 
-func NewImageHandler(imageService *service.ImageService, logger *slog.Logger) *ImageHandler {
+func NewImageHandler(imageService *service.ImageService, validator *validator.RequestValidator, logger *slog.Logger) *ImageHandler {
 	return &ImageHandler{
 		imageService: imageService,
+		validator:    validator,
 		BaseHandler:  BaseHandler{logger: logger},
 	}
 }
@@ -38,9 +42,9 @@ func NewImageHandler(imageService *service.ImageService, logger *slog.Logger) *I
 // @Security BearerAuth
 // @Router /images [post]
 func (ih *ImageHandler) UploadImage(c *gin.Context) {
-	creator_id, exists := c.Get("user_id")
-	if !exists {
-		ih.handleError(c, errors.NewUnauthorizedError("unauthenticated"))
+	creator_id, err := middleware.GetAuthenticatedUserID(c)
+	if err != nil {
+		ih.handleError(c, err)
 		return
 	}
 
@@ -52,10 +56,15 @@ func (ih *ImageHandler) UploadImage(c *gin.Context) {
 		return
 	}
 
+	if err := ih.validator.ValidateStruct(&req); err != nil {
+		ih.handleError(c, err)
+		return
+	}
+
 	// DTO -> Service Input
 	input := service.UploadImageInput{
 		PatientID:   req.PatientID,
-		CreatorID:   creator_id.(string),
+		CreatorID:   creator_id,
 		ContentType: req.ContentType,
 		Name:        req.Name,
 		Format:      req.Format,
@@ -69,15 +78,10 @@ func (ih *ImageHandler) UploadImage(c *gin.Context) {
 		ih.handleError(c, err)
 		return
 	}
-	ih.logger.Info("Image upload URL generated",
-		slog.String("creator_id", creator_id.(string)),
-	)
 
-	c.JSON(http.StatusCreated, response.DataResponse[map[string]string]{
-		Data: map[string]string{
-			"upload_url": *signed_url,
-			"Message":    "Use this URL to upload the image via a PUT request.",
-		},
+	ih.response.Created(c, gin.H{
+		"upload_url": *signed_url,
+		"message":    "Use this URL to upload the image via a PUT request.",
 	})
 }
 
@@ -108,9 +112,8 @@ func (ih *ImageHandler) GetImageByID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, response.DataResponse[response.ImageResponse]{
-		Data: *response.NewImageResponse(image),
-	})
+	imageResp := response.NewImageResponse(image)
+	ih.response.Success(c, http.StatusOK, imageResp)
 }
 
 // ListImageByPatientID godoc
@@ -158,8 +161,19 @@ func (ih *ImageHandler) ListImageByPatientID(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, response.NewImageListResponse(result))
+	imageResponses := make([]response.ImageResponse, len(result.Data))
+	for i, img := range result.Data {
+		imageResponses[i] = *response.NewImageResponse(img)
+	}
 
+	paginationResp := &response.PaginationResponse{
+		Limit:   result.Limit,
+		Offset:  result.Offset,
+		HasMore: result.HasMore,
+		Total:   result.Total,
+	}
+
+	ih.response.SuccessList(c, imageResponses, paginationResp)
 }
 
 // DeleteImage godoc
@@ -189,9 +203,6 @@ func (ih *ImageHandler) DeleteImage(c *gin.Context) {
 		return
 	}
 
-	ih.logger.Info("Image deleted successfully",
-		slog.String("image_id", image_id),
-	)
-
-	c.Status(http.StatusNoContent)
+	ih.logger.Info("Image deleted", slog.String("image_id", image_id))
+	ih.response.NoContent(c)
 }

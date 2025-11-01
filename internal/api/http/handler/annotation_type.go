@@ -6,6 +6,8 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/histopathai/main-service-refactor/internal/api/http/dto/response"
+	"github.com/histopathai/main-service-refactor/internal/api/http/middleware"
+	"github.com/histopathai/main-service-refactor/internal/api/http/validator"
 
 	"github.com/histopathai/main-service-refactor/internal/api/http/dto/request"
 	"github.com/histopathai/main-service-refactor/internal/service"
@@ -15,12 +17,14 @@ import (
 
 type AnnotationTypeHandler struct {
 	annotationTypeService *service.AnnotationTypeService
+	validator             *validator.RequestValidator
 	BaseHandler           // Embed the BaseHandler
 }
 
-func NewAnnotationTypeHandler(annotationTypeService *service.AnnotationTypeService, logger *slog.Logger) *AnnotationTypeHandler {
+func NewAnnotationTypeHandler(annotationTypeService *service.AnnotationTypeService, validator *validator.RequestValidator, logger *slog.Logger) *AnnotationTypeHandler {
 	return &AnnotationTypeHandler{
 		annotationTypeService: annotationTypeService,
+		validator:             validator,
 		BaseHandler:           BaseHandler{logger: logger},
 	}
 }
@@ -42,9 +46,9 @@ func NewAnnotationTypeHandler(annotationTypeService *service.AnnotationTypeServi
 
 func (ath *AnnotationTypeHandler) CreateNewAnnotationType(c *gin.Context) {
 
-	creator_id, exists := c.Get("user_id")
-	if !exists {
-		ath.handleError(c, errors.NewUnauthorizedError("unauthenticated"))
+	creator_id, err := middleware.GetAuthenticatedUserID(c)
+	if err != nil {
+		ath.handleError(c, err)
 		return
 	}
 
@@ -55,6 +59,10 @@ func (ath *AnnotationTypeHandler) CreateNewAnnotationType(c *gin.Context) {
 		}))
 		return
 	}
+	if err := ath.validator.ValidateStruct(&req); err != nil {
+		ath.handleError(c, err)
+		return
+	}
 
 	// DTO -> Service Input
 	var classList []string
@@ -62,7 +70,7 @@ func (ath *AnnotationTypeHandler) CreateNewAnnotationType(c *gin.Context) {
 		classList = *req.ClassList
 	}
 	input := service.CreateAnnotationTypeInput{
-		CreatorID:             creator_id.(string),
+		CreatorID:             creator_id,
 		Name:                  req.Name,
 		Description:           req.Description,
 		ScoreEnabled:          req.ScoreEnabled,
@@ -82,9 +90,11 @@ func (ath *AnnotationTypeHandler) CreateNewAnnotationType(c *gin.Context) {
 		slog.String("annotation_type_id", result.ID),
 	)
 
-	c.JSON(http.StatusCreated, response.DataResponse[response.AnnotationTypeResponse]{
-		Data: *response.NewAnnotationTypeResponse(result),
-	})
+	// Server Output -> DTO
+
+	annotation_resp := response.NewAnnotationTypeResponse(result)
+
+	ath.response.Created(c, annotation_resp)
 
 }
 
@@ -110,9 +120,15 @@ func (ath *AnnotationTypeHandler) GetAnnotationType(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, response.DataResponse[response.AnnotationTypeResponse]{
-		Data: *response.NewAnnotationTypeResponse(result),
-	})
+	ath.logger.Info("Annotation type retrieved successfully",
+		slog.String("annotation_type_id", id),
+	)
+
+	// Service Output -> DTO
+	annotation_resp := response.NewAnnotationTypeResponse(result)
+
+	ath.response.Success(c, http.StatusOK, annotation_resp)
+
 }
 
 // ListAnnotationTypes godoc
@@ -152,7 +168,22 @@ func (ath *AnnotationTypeHandler) ListAnnotationTypes(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, response.NewAnnotationTypeListResponse(result))
+	ath.logger.Info("Annotation types listed successfully")
+
+	// Service Output -> DTO
+	paginationResp := &response.PaginationResponse{
+		Limit:   pagination.Limit,
+		Offset:  pagination.Offset,
+		Total:   result.Total,
+		HasMore: result.HasMore,
+	}
+	annotationResponses := make([]response.AnnotationTypeResponse, len(result.Data))
+	for i, at := range result.Data {
+		annotationResponses[i] = *response.NewAnnotationTypeResponse(at)
+	}
+
+	ath.response.SuccessList(c, annotationResponses, paginationResp)
+
 }
 
 // UpdateAnnotationType godoc
@@ -193,19 +224,12 @@ func (ath *AnnotationTypeHandler) UpdateAnnotationType(c *gin.Context) {
 		return
 	}
 
-	result, err := ath.annotationTypeService.GetAnnotationTypeByID(c.Request.Context(), id)
-	if err != nil {
-		ath.handleError(c, err)
-		return
-	}
-
 	ath.logger.Info("Annotation type updated successfully",
 		slog.String("annotation_type_id", id),
 	)
 
-	c.JSON(http.StatusOK, response.DataResponse[response.AnnotationTypeResponse]{
-		Data: *response.NewAnnotationTypeResponse(result),
-	})
+	// No content to return
+	ath.response.NoContent(c)
 }
 
 // DeleteAnnotationType godoc
@@ -235,7 +259,8 @@ func (ath *AnnotationTypeHandler) DeleteAnnotationType(c *gin.Context) {
 		slog.String("annotation_type_id", id),
 	)
 
-	c.Status(http.StatusNoContent)
+	// No content to return
+	ath.response.NoContent(c)
 }
 
 // Get Classification Optionied Annotation Types godoc
@@ -276,7 +301,23 @@ func (ath *AnnotationTypeHandler) GetClassificationOptionedAnnotationTypes(c *gi
 		return
 	}
 
-	c.JSON(http.StatusOK, response.NewAnnotationTypeListResponse(result))
+	ath.logger.Info("Classification optioned annotation types listed successfully")
+
+	// Service Output -> DTO
+	paginationResp := &response.PaginationResponse{
+		Limit:   pagination.Limit,
+		Offset:  pagination.Offset,
+		Total:   result.Total,
+		HasMore: result.HasMore,
+	}
+
+	annotationResponses := make([]response.AnnotationTypeResponse, len(result.Data))
+	for i, at := range result.Data {
+		annotationResponses[i] = *response.NewAnnotationTypeResponse(at)
+	}
+
+	ath.response.SuccessList(c, annotationResponses, paginationResp)
+
 }
 
 // Get Score Optionied Annotation Types godoc
@@ -317,5 +358,21 @@ func (ath *AnnotationTypeHandler) GetScoreOptionedAnnotationTypes(c *gin.Context
 		return
 	}
 
-	c.JSON(http.StatusOK, response.NewAnnotationTypeListResponse(result))
+	ath.logger.Info("Score optioned annotation types listed successfully")
+
+	// Service Output -> DTO
+	paginationResp := &response.PaginationResponse{
+		Limit:   pagination.Limit,
+		Offset:  pagination.Offset,
+		Total:   result.Total,
+		HasMore: result.HasMore,
+	}
+
+	annotationResponses := make([]response.AnnotationTypeResponse, len(result.Data))
+	for i, at := range result.Data {
+		annotationResponses[i] = *response.NewAnnotationTypeResponse(at)
+	}
+
+	ath.response.SuccessList(c, annotationResponses, paginationResp)
+
 }

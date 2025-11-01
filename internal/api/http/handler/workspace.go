@@ -7,6 +7,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/histopathai/main-service-refactor/internal/api/http/dto/request"
 	"github.com/histopathai/main-service-refactor/internal/api/http/dto/response"
+	"github.com/histopathai/main-service-refactor/internal/api/http/middleware"
+	"github.com/histopathai/main-service-refactor/internal/api/http/validator"
 	"github.com/histopathai/main-service-refactor/internal/service"
 	"github.com/histopathai/main-service-refactor/internal/shared/errors"
 	"github.com/histopathai/main-service-refactor/internal/shared/query"
@@ -14,12 +16,14 @@ import (
 
 type WorkspaceHandler struct {
 	workspaceService *service.WorkspaceService
+	validator        *validator.RequestValidator
 	BaseHandler      // Embed the BaseHandler
 }
 
-func NewWorkspaceHandler(workspaceService *service.WorkspaceService, logger *slog.Logger) *WorkspaceHandler {
+func NewWorkspaceHandler(workspaceService *service.WorkspaceService, validator *validator.RequestValidator, logger *slog.Logger) *WorkspaceHandler {
 	return &WorkspaceHandler{
 		workspaceService: workspaceService,
+		validator:        validator,
 		BaseHandler:      BaseHandler{logger: logger},
 	}
 }
@@ -41,12 +45,11 @@ func NewWorkspaceHandler(workspaceService *service.WorkspaceService, logger *slo
 
 func (wh *WorkspaceHandler) CreateNewWorkspace(c *gin.Context) {
 
-	creator_id, exists := c.Get("user_id")
-	if !exists {
-		wh.handleError(c, errors.NewUnauthorizedError("unauthenticated"))
+	creator_id, err := middleware.GetAuthenticatedUserID(c)
+	if err != nil {
+		wh.handleError(c, err)
 		return
 	}
-
 	var req request.CreateWorkspaceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		wh.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
@@ -55,9 +58,21 @@ func (wh *WorkspaceHandler) CreateNewWorkspace(c *gin.Context) {
 		return
 	}
 
+	if err := wh.validator.ValidateStruct(&req); err != nil {
+		wh.handleError(c, err)
+		return
+	}
+
+	if isvalid := wh.validator.ValidateOrganType(req.OrganType); !isvalid {
+		wh.handleError(c, errors.NewValidationError("invalid organ type", map[string]interface{}{
+			"error": "invalid organ type",
+		}))
+		return
+	}
+
 	// DTO -> Service Input
 	input := service.CreateWorkspaceInput{
-		CreatorID:        creator_id.(string),
+		CreatorID:        creator_id,
 		Name:             req.Name,
 		OrganType:        req.OrganType,
 		AnnotationTypeID: req.AnnotationTypeID,
@@ -78,9 +93,11 @@ func (wh *WorkspaceHandler) CreateNewWorkspace(c *gin.Context) {
 		slog.String("workspace_id", workspace.ID),
 	)
 
-	c.JSON(http.StatusCreated, response.DataResponse[response.WorkspaceResponse]{
-		Data: *response.NewWorkspaceResponse(workspace),
-	})
+	// Service Output -> DTO
+
+	workspaceResp := response.NewWorkspaceResponse(workspace)
+	wh.response.Created(c, workspaceResp)
+
 }
 
 //UpdateWorkspace godoc
@@ -133,7 +150,8 @@ func (wh *WorkspaceHandler) UpdateWorkspace(c *gin.Context) {
 		slog.String("workspace_id", workspaceID),
 	)
 
-	c.Status(http.StatusNoContent)
+	// No content to return
+	wh.response.NoContent(c)
 }
 
 // GetWorkspaceByID godoc
@@ -157,10 +175,9 @@ func (wh *WorkspaceHandler) GetWorkspaceByID(c *gin.Context) {
 		wh.handleError(c, err)
 		return
 	}
-
-	c.JSON(http.StatusOK, response.DataResponse[response.WorkspaceResponse]{
-		Data: *response.NewWorkspaceResponse(workspace),
-	})
+	// Service Output -> DTO
+	workspaceResp := response.NewWorkspaceResponse(workspace)
+	wh.response.Success(c, http.StatusOK, workspaceResp)
 }
 
 // DeleteWorkspace godoc
@@ -190,7 +207,8 @@ func (wh *WorkspaceHandler) DeleteWorkspace(c *gin.Context) {
 		slog.String("workspace_id", workspaceID),
 	)
 
-	c.Status(http.StatusNoContent)
+	// No content to return
+	wh.response.NoContent(c)
 }
 
 // ListWorkspaces godoc
@@ -231,5 +249,18 @@ func (wh *WorkspaceHandler) ListWorkspaces(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK, response.NewWorkspaceListResponse(result))
+	// Service Output -> DTO
+	paginationResp := &response.PaginationResponse{
+		Limit:   result.Limit,
+		Offset:  result.Offset,
+		HasMore: result.HasMore,
+		Total:   result.Total,
+	}
+
+	workspaceResponses := make([]response.WorkspaceResponse, len(result.Data))
+	for i, workspace := range result.Data {
+		workspaceResponses[i] = *response.NewWorkspaceResponse(workspace)
+	}
+
+	wh.response.SuccessList(c, workspaceResponses, paginationResp)
 }
