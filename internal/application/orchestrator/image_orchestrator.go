@@ -5,9 +5,9 @@ import (
 	"log/slog"
 	"sync"
 
-	eventhandlers "github.com/histopathai/main-service-refactor/internal/application/event_handlers"
-	"github.com/histopathai/main-service-refactor/internal/domain/events"
-	infraEvents "github.com/histopathai/main-service-refactor/internal/infrastructure/events"
+	eventhandlers "github.com/histopathai/main-service/internal/application/event_handlers"
+	"github.com/histopathai/main-service/internal/domain/events"
+	infraEvents "github.com/histopathai/main-service/internal/infrastructure/events"
 )
 
 type SubscriberConfig struct {

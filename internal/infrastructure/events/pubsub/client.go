@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/pubsub"
-	"github.com/histopathai/main-service-refactor/internal/domain/events"
+	"github.com/histopathai/main-service/internal/domain/events"
 )
 
 type PublishOptions struct {

@@ -6,8 +6,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/histopathai/main-service-refactor/internal/domain/model"
-	"github.com/histopathai/main-service-refactor/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/domain/repository"
 )
 
 type Seeder struct {

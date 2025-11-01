@@ -6,8 +6,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/histopathai/main-service-refactor/internal/api/http/dto/response"
-	"github.com/histopathai/main-service-refactor/internal/shared/errors"
+	"github.com/histopathai/main-service/internal/api/http/dto/response"
+	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
 type AuthMiddleware struct {

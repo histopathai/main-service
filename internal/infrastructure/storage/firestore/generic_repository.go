@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/histopathai/main-service-refactor/internal/domain/model"
-	"github.com/histopathai/main-service-refactor/internal/shared/query"
+	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/shared/query"
 	"google.golang.org/api/iterator"
 
 	"cloud.google.com/go/firestore"

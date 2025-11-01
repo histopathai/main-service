@@ -4,7 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/histopathai/main-service-refactor/internal/domain/model"
+	"github.com/histopathai/main-service/internal/domain/model"
 )
 
 type SignedURLMethod string

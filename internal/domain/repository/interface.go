@@ -3,8 +3,8 @@ package repository
 import (
 	"context"
 
-	"github.com/histopathai/main-service-refactor/internal/domain/model"
-	"github.com/histopathai/main-service-refactor/internal/shared/query"
+	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/shared/query"
 )
 
 type Repository[T any] interface {

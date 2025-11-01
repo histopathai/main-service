@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/histopathai/main-service-refactor/internal/shared/constants"
-	"github.com/histopathai/main-service-refactor/internal/shared/errors"
+	"github.com/histopathai/main-service/internal/shared/constants"
+	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
 type RequestValidator struct {

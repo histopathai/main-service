@@ -1,6 +1,6 @@
 package request
 
-import "github.com/histopathai/main-service-refactor/internal/domain/model"
+import "github.com/histopathai/main-service/internal/domain/model"
 
 type CreateAnnotationRequest struct {
 	ImageID     string        `json:"image_id" binding:"required,uuid4"`

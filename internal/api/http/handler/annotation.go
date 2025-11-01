@@ -5,13 +5,13 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/histopathai/main-service-refactor/internal/api/http/dto/request"
-	"github.com/histopathai/main-service-refactor/internal/api/http/dto/response"
-	"github.com/histopathai/main-service-refactor/internal/api/http/middleware"
-	"github.com/histopathai/main-service-refactor/internal/api/http/validator"
-	"github.com/histopathai/main-service-refactor/internal/service"
-	"github.com/histopathai/main-service-refactor/internal/shared/errors"
-	"github.com/histopathai/main-service-refactor/internal/shared/query"
+	"github.com/histopathai/main-service/internal/api/http/dto/request"
+	"github.com/histopathai/main-service/internal/api/http/dto/response"
+	"github.com/histopathai/main-service/internal/api/http/middleware"
+	"github.com/histopathai/main-service/internal/api/http/validator"
+	"github.com/histopathai/main-service/internal/service"
+	"github.com/histopathai/main-service/internal/shared/errors"
+	"github.com/histopathai/main-service/internal/shared/query"
 )
 
 type AnnotationHandler struct {

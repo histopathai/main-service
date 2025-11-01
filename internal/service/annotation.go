@@ -3,11 +3,11 @@ package service
 import (
 	"context"
 
-	"github.com/histopathai/main-service-refactor/internal/domain/model"
-	"github.com/histopathai/main-service-refactor/internal/domain/repository"
-	"github.com/histopathai/main-service-refactor/internal/shared/constants"
-	"github.com/histopathai/main-service-refactor/internal/shared/errors"
-	sharedQuery "github.com/histopathai/main-service-refactor/internal/shared/query"
+	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/shared/constants"
+	"github.com/histopathai/main-service/internal/shared/errors"
+	sharedQuery "github.com/histopathai/main-service/internal/shared/query"
 )
 
 type AnnotationService struct {

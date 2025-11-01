@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/histopathai/main-service-refactor/internal/domain/model"
-	"github.com/histopathai/main-service-refactor/internal/domain/repository"
-	"github.com/histopathai/main-service-refactor/internal/shared/constants"
-	"github.com/histopathai/main-service-refactor/internal/shared/query"
+	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/shared/constants"
+	"github.com/histopathai/main-service/internal/shared/query"
 
 	"cloud.google.com/go/firestore"
 )

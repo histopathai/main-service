@@ -8,8 +8,8 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
-	"github.com/histopathai/main-service-refactor/internal/domain/model"
-	domainStorage "github.com/histopathai/main-service-refactor/internal/domain/storage"
+	"github.com/histopathai/main-service/internal/domain/model"
+	domainStorage "github.com/histopathai/main-service/internal/domain/storage"
 	"google.golang.org/api/iterator"
 )
 

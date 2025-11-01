@@ -4,7 +4,7 @@ import (
 	"log/slog"
 	"os"
 
-	"github.com/histopathai/main-service-refactor/pkg/config"
+	"github.com/histopathai/main-service/pkg/config"
 )
 
 type Logger struct {

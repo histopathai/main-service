@@ -13,10 +13,10 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/histopathai/main-service-refactor/pkg/config"
-	"github.com/histopathai/main-service-refactor/pkg/container"
-	"github.com/histopathai/main-service-refactor/pkg/logger"
-	"github.com/histopathai/main-service-refactor/pkg/seeder"
+	"github.com/histopathai/main-service/pkg/config"
+	"github.com/histopathai/main-service/pkg/container"
+	"github.com/histopathai/main-service/pkg/logger"
+	"github.com/histopathai/main-service/pkg/seeder"
 )
 
 func main() {

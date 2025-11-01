@@ -7,9 +7,9 @@ import (
 	"log/slog"
 	"strconv"
 
-	"github.com/histopathai/main-service-refactor/internal/domain/model"
-	"github.com/histopathai/main-service-refactor/internal/service"
-	"github.com/histopathai/main-service-refactor/internal/shared/errors"
+	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/service"
+	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
 type UploadStatusHandler struct {

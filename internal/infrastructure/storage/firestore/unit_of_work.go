@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"cloud.google.com/go/firestore"
-	"github.com/histopathai/main-service-refactor/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/domain/repository"
 	// Gerekliyse eklendi
 )
 
