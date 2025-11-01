@@ -12,15 +12,26 @@ import (
 )
 
 type BaseHandler struct {
-	logger *slog.Logger
+	logger   *slog.Logger
+	response *ResponseHelper
+}
+
+func NewBaseHandler(logger *slog.Logger) BaseHandler {
+	return BaseHandler{
+		logger:   logger,
+		response: &ResponseHelper{},
+	}
 }
 
 func (bh *BaseHandler) handleError(c *gin.Context, err error) {
+	requestID, _ := c.Get("request_id")
 	var customErr *errors.Err
 
 	if stderr.As(err, &customErr) {
 		statusCode, errResponse := bh.mapCustomError(customErr)
+
 		bh.logger.Error("Request failed",
+			slog.String("request_id", requestID.(string)),
 			slog.String("error_type", string(customErr.Type)),
 			slog.String("message", customErr.Message),
 			slog.String("path", c.Request.URL.Path),
