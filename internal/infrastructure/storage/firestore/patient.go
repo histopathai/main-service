@@ -36,6 +36,7 @@ func patientToFirestoreMap(p *model.Patient) map[string]interface{} {
 
 		"workspace_id": p.WorkspaceID,
 		"name":         p.Name,
+		"creator_id":   p.CreatorID,
 	}
 	if p.Age != nil {
 		m["age"] = *p.Age
@@ -71,6 +72,7 @@ func patientFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Patient, e
 	p.ID = doc.Ref.ID
 	p.WorkspaceID = data["workspace_id"].(string)
 	p.Name = data["name"].(string)
+	p.CreatorID = data["creator_id"].(string)
 
 	if v, ok := data["age"].(int64); ok {
 		age := int(v)
@@ -114,6 +116,8 @@ func patientMapUpdates(updates map[string]interface{}) (map[string]interface{}, 
 		switch key {
 		case constants.PatientWorkspaceIDField:
 			firestoreUpdates["workspace_id"] = value
+		case constants.PatientCreatorIDField:
+			firestoreUpdates["creator_id"] = value
 		case constants.PatientNameField:
 			firestoreUpdates["name"] = value
 		case constants.PatientAgeField:
@@ -144,6 +148,12 @@ func patientMapFilters(filters []query.Filter) ([]query.Filter, error) {
 		case constants.PatientWorkspaceIDField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "workspace_id",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.PatientCreatorIDField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "creator_id",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})

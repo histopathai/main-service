@@ -14,6 +14,7 @@ const (
 
 const (
 	PatientWorkspaceIDField = "WorkspaceID"
+	PatientCreatorIDField   = "CreatorID"
 	PatientNameField        = "Name"
 	PatientAgeField         = "Age"
 	PatientGenderField      = "Gender"
