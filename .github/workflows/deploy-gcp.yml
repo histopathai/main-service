@@ -59,13 +59,14 @@ jobs:
       - name: Generate Mocks
         run: go generate ./...
 
-      - name: Run Unit Tests
-        run: go test -v ./... 
-
+      
       - name: Swag CLI & Generate Docs
         run: |
           export PATH=$PATH:$(go env GOPATH)/bin
           swag init -g cmd/main.go
+
+      - name: Run Unit Tests
+        run: go test -v ./... 
 
       - name: Build Docker image
         run: |
