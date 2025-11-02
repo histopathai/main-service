@@ -100,9 +100,9 @@ func (r *Router) setupWorkspaceRoutes(rg *gin.RouterGroup) {
 	{
 		workspaces.POST("", r.workspaceHandler.CreateNewWorkspace)
 		workspaces.GET("", r.workspaceHandler.ListWorkspaces)
-		workspaces.GET("/:id", r.workspaceHandler.GetWorkspaceByID)
-		workspaces.PUT("/:id", r.workspaceHandler.UpdateWorkspace)
-		workspaces.DELETE("/:id", r.workspaceHandler.DeleteWorkspace)
+		workspaces.GET("/:workspace_id", r.workspaceHandler.GetWorkspaceByID)
+		workspaces.PUT("/:workspace_id", r.workspaceHandler.UpdateWorkspace)
+		workspaces.DELETE("/:workspace_id", r.workspaceHandler.DeleteWorkspace)
 
 		// Nested patient routes
 		workspaces.GET("/:workspace_id/patients", r.patientHandler.GetPatientsByWorkspaceID)
