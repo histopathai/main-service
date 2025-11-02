@@ -39,6 +39,7 @@ func NewGenericRepositoryImpl[T model.Entity](
 		fnFromFirestoreDoc: fnFromFirestoreDoc,
 		fnToFirestoreMap:   fnToFirestoreMap,
 		fnMapUpdates:       fnMapUpdates,
+		fnMapFilters:       fnMapFilters,
 	}
 }
 
