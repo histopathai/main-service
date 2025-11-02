@@ -56,6 +56,13 @@ func NewRouter(
 		timeoutMiddleware:     timeoutMiddleware,
 	}
 }
+func debugUserMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		// Test için sahte bir kullanıcı ID'si ekle
+		c.Set("user_id", "local-debug-user-uuid")
+		c.Next()
+	}
+}
 
 func (r *Router) SetupRoutes() *gin.Engine {
 	//Global Middlewares
@@ -71,9 +78,14 @@ func (r *Router) SetupRoutes() *gin.Engine {
 	// API v1 routes
 	v1 := r.engine.Group("/api/v1")
 	{
-		// Apply authentication middleware to all v1 routes
-		v1.Use(r.authMiddleware.RequireAuth())
 
+		if gin.Mode() == gin.DebugMode {
+			r.config.Logger.Info("Running in debug mode, applying debug user middleware")
+			v1.Use(debugUserMiddleware())
+		} else {
+			// Apply authentication middleware to all v1 routes
+			v1.Use(r.authMiddleware.RequireAuth())
+		}
 		// Workspace routes
 		r.setupWorkspaceRoutes(v1)
 
