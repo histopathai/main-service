@@ -219,7 +219,7 @@ func (gr *GenericRepositoryImpl[T]) FindByName(ctx context.Context, name string)
 
 	filters := []query.Filter{
 		{
-			Field:    "name",
+			Field:    "Name", // used FindByFilters will map it
 			Operator: query.OpEqual,
 			Value:    name,
 		},
