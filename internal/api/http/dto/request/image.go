@@ -1,5 +1,6 @@
 package request
 
+// Image DTOs
 type UploadImageRequest struct {
 	PatientID   string `json:"patient_id" binding:"required" example:"550e8400-e29b-41d4-a716-446655440000"`
 	CreatorID   string `json:"creator_id" binding:"omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`

@@ -1,5 +1,6 @@
 package request
 
+// Patient DTOs
 type CreatePatientRequest struct {
 	WorkspaceID string  `json:"workspace_id" binding:"required" example:"550e8400-e29b-41d4-a716-446655440000"`
 	Name        string  `json:"name" binding:"required" example:"Patient_001"`

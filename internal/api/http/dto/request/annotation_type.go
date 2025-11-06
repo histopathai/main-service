@@ -1,5 +1,6 @@
 package request
 
+// Annotation Type DTOs
 type CreateAnnotationTypeRequest struct {
 	Name                  string    `json:"name" binding:"required" example:"Tumor"`
 	Description           *string   `json:"description,omitempty" example:"Annotation type for tumor regions."`
