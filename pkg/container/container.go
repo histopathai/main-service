@@ -182,7 +182,7 @@ func (c *Container) initEventHandlers() error {
 
 	c.UploadStatusHandler = eventhandlers.NewUploadStatusHandler(
 		c.ImageService,
-		c.Logger,
+		c.Logger.WithGroup("upload_status_handler"),
 	)
 
 	eventSerializer := events.NewJSONEventSerializer()
@@ -190,6 +190,7 @@ func (c *Container) initEventHandlers() error {
 		c.Repos.ImageRepo,
 		eventSerializer,
 		c.EventPublisher,
+		c.Logger.WithGroup("process_result_handler"),
 	)
 
 	c.Logger.Info("Event handlers initialized")

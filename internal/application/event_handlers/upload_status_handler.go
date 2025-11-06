@@ -40,21 +40,21 @@ func (h *UploadStatusHandler) Handle(ctx context.Context, data []byte, attribute
 
 	var n GCSNotification
 	if err := json.Unmarshal(data, &n); err != nil {
-		h.logger.Error("Failed to unmarshal GCS notification", slog.String("error", err.Error()), "data", string(data))
-		return errors.NewInternalError("Failed to unmarshal GCS notification: %v", err)
+		h.logger.Error("Failed to unmarshal GCS notification, dropping message", slog.String("error", err.Error()), "data", string(data))
+		return nil
 	}
 
 	metadata := n.Metadata
 	if metadata == nil {
-		h.logger.Error("GCS notification missing metadata block", "data", string(data))
-		return errors.NewInternalError("GCS notification missing metadata", nil)
+		h.logger.Error("GCS notification missing metadata block, dropping message", "data", string(data))
+		return nil
 	}
 
 	imageID, ok := metadata["x-goog-meta-image-id"]
 	if !ok {
-		msg := "GCS metadata missing 'x-goog-meta-image-id'"
-		h.logger.Error(msg)
-		return errors.NewValidationError(msg, nil)
+		msg := "GCS metadata missing 'x-goog-meta-image-id', dropping message"
+		h.logger.Error(msg, "data", string(data))
+		return nil
 	}
 
 	input := &service.ConfirmUploadInput{
@@ -84,7 +84,7 @@ func (h *UploadStatusHandler) Handle(ctx context.Context, data []byte, attribute
 	}
 
 	if err := h.imageService.ConfirmUpload(ctx, input); err != nil {
-		h.logger.Error("Failed to confirm image upload after GCS event", slog.String("error", err.Error()), "imageID", imageID)
+		h.logger.Error("Failed to confirm image upload after GCS event, will retry", slog.String("error", err.Error()), "imageID", imageID)
 		return errors.NewInternalError(fmt.Sprintf("Failed to confirm image upload: %v", err), err)
 	}
 

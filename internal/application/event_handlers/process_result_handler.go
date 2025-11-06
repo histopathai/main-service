@@ -2,6 +2,7 @@ package eventhandlers
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"github.com/histopathai/main-service/internal/domain/events"
@@ -19,17 +20,20 @@ type ProcessResultHandler struct {
 	imageRepo  repository.ImageRepository
 	serializer events.EventSerializer
 	publisher  events.ImageEventPublisher
+	logger     *slog.Logger
 }
 
 func NewProcessResultHandler(
 	imageRepo repository.ImageRepository,
 	serializer events.EventSerializer,
 	publisher events.ImageEventPublisher,
+	logger *slog.Logger,
 ) *ProcessResultHandler {
 	return &ProcessResultHandler{
 		imageRepo:  imageRepo,
 		serializer: serializer,
 		publisher:  publisher,
+		logger:     logger,
 	}
 }
 
@@ -42,7 +46,8 @@ func (h *ProcessResultHandler) Handle(ctx context.Context, data []byte, attribut
 	case events.EventTypeImageProcessingFailed:
 		return h.handleFailed(ctx, data, attributes)
 	default:
-		return errors.NewValidationError("unknown event type", nil)
+		h.logger.Warn("Unknown event type, dropping message", "event_type", eventType)
+		return nil
 	}
 }
 
@@ -58,7 +63,8 @@ type ImageProcessingCompletedEvent struct {
 func (h *ProcessResultHandler) handleCompleted(ctx context.Context, data []byte, attributes map[string]string) error {
 	var event ImageProcessingCompletedEvent
 	if err := h.serializer.Deserialize(data, &event); err != nil {
-		return errors.NewInternalError("Failed to deserialize event: %v", err)
+		h.logger.Error("Failed to deserialize ImageProcessingCompletedEvent, dropping message", "error", err, "data", string(data))
+		return nil
 	}
 
 	updates := map[string]interface{}{
@@ -79,7 +85,8 @@ func (h *ProcessResultHandler) handleCompleted(ctx context.Context, data []byte,
 func (h *ProcessResultHandler) handleFailed(ctx context.Context, data []byte, attributes map[string]string) error {
 	var event events.ImageProcessingFailedEvent
 	if err := h.serializer.Deserialize(data, &event); err != nil {
-		return errors.NewInternalError("Failed to deserialize event: %v", err)
+		h.logger.Error("Failed to deserialize ImageProcessingFailedEvent, dropping message", "error", err, "data", string(data))
+		return nil
 	}
 
 	image, err := h.imageRepo.Read(ctx, event.ImageID)
