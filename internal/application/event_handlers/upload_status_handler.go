@@ -27,105 +27,72 @@ func NewUploadStatusHandler(
 	}
 }
 
-type UploadMetadata struct {
-	ImageID    string `json:"image-id"`
-	PatientID  string `json:"patient-id"`
-	CreatorID  string `json:"creator-id"`
-	Name       string `json:"name"`
-	Format     string `json:"format"`
-	Width      string `json:"width,omitempty"`
-	Height     string `json:"height,omitempty"`
-	Size       string `json:"size,omitempty"`
-	OriginPath string `json:"origin-path"`
-	Status     string `json:"status"`
+// YENİ STRUCT: GCS'den gelen JSON'u yakalamak için
+type GCSNotification struct {
+	Name     string            `json:"name"`
+	Bucket   string            `json:"bucket"`
+	Metadata map[string]string `json:"metadata"`
 }
 
 func (h *UploadStatusHandler) Handle(ctx context.Context, data []byte, attributes map[string]string) error {
-	h.logger.Info("Processing upload status event",
-		"EventType", attributes["event_type"],
+	h.logger.Info("Processing GCS upload event",
 		"EventID", attributes["event_id"],
 	)
 
-	var metadata UploadMetadata
-	if err := json.Unmarshal(data, &metadata); err != nil {
-		h.logger.Error("Failed to unmarshal upload metadata", slog.String("error", err.Error()))
-		return errors.NewInternalError("Failed to unmarshal upload metadata: %v", err)
+	var n GCSNotification
+	if err := json.Unmarshal(data, &n); err != nil {
+		h.logger.Error("Failed to unmarshal GCS notification", slog.String("error", err.Error()), "data", string(data))
+		return errors.NewInternalError("Failed to unmarshal GCS notification: %v", err)
 	}
 
-	if err := validatateUploadMetadata(&metadata); err != nil {
-		h.logger.Error("Invalid upload metadata", slog.String("error", err.Error()))
-		return errors.NewInternalError("Invalid upload metadata: %v", err)
+	metadata := n.Metadata
+	if metadata == nil {
+		h.logger.Error("GCS notification missing metadata block", "data", string(data))
+		return errors.NewInternalError("GCS notification missing metadata", nil)
 	}
 
-	input := h.buildConfirmInput(&metadata)
+	imageID, ok := metadata["x-goog-meta-image-id"]
+	if !ok {
+		msg := "GCS metadata missing 'x-goog-meta-image-id'"
+		h.logger.Error(msg)
+		return errors.NewValidationError(msg, nil)
+	}
+
+	input := &service.ConfirmUploadInput{
+		ImageID:    imageID,
+		PatientID:  metadata["x-goog-meta-patient-id"],
+		CreatorID:  metadata["x-goog-meta-creator-id"],
+		Name:       metadata["x-goog-meta-file-name"],
+		Format:     metadata["x-goog-meta-format"],
+		OriginPath: metadata["x-goog-meta-origin-path"],
+		Status:     model.ImageStatus(metadata["x-goog-meta-status"]),
+	}
+
+	if widthStr, ok := metadata["x-goog-meta-width"]; ok {
+		if width, err := strconv.Atoi(widthStr); err == nil {
+			input.Width = &width
+		}
+	}
+	if heightStr, ok := metadata["x-goog-meta-height"]; ok {
+		if height, err := strconv.Atoi(heightStr); err == nil {
+			input.Height = &height
+		}
+	}
+	if sizeStr, ok := metadata["x-goog-meta-size"]; ok {
+		if size, err := strconv.ParseInt(sizeStr, 10, 64); err == nil {
+			input.Size = &size
+		}
+	}
 
 	if err := h.imageService.ConfirmUpload(ctx, input); err != nil {
-		h.logger.Error("Failed to confirm image upload", slog.String("error", err.Error()))
-		return errors.NewInternalError("Failed to confirm image upload: %v", err)
+		h.logger.Error("Failed to confirm image upload after GCS event", slog.String("error", err.Error()), "imageID", imageID)
+		return errors.NewInternalError(fmt.Sprintf("Failed to confirm image upload: %v", err), err)
 	}
 
-	h.logger.Info("Successfully processed upload status event",
-		"ImageID", metadata.ImageID,
-		"Status", metadata.Status,
+	h.logger.Info("Successfully confirmed upload from GCS event",
+		"ImageID", imageID,
+		"Status", input.Status,
 	)
 
 	return nil
-}
-
-func validatateUploadMetadata(metadata *UploadMetadata) error {
-	details := make([]string, 0)
-	if metadata.ImageID == "" {
-		details = append(details, "ImageID is required")
-	}
-	if metadata.PatientID == "" {
-		details = append(details, "PatientID is required")
-	}
-	if metadata.CreatorID == "" {
-		details = append(details, "CreatorID is required")
-	}
-	if metadata.Name == "" {
-		details = append(details, "Name is required")
-	}
-	if metadata.Format == "" {
-		details = append(details, "Format is required")
-	}
-	if metadata.OriginPath == "" {
-		details = append(details, "OriginPath is required")
-	}
-	if metadata.Status == "" {
-		details = append(details, "Status is required")
-	}
-
-	if len(details) > 0 {
-		return fmt.Errorf("validation errors: %v", details)
-	}
-	return nil
-}
-
-func (h *UploadStatusHandler) buildConfirmInput(metadata *UploadMetadata) *service.ConfirmUploadInput {
-	m := &service.ConfirmUploadInput{
-		ImageID:    metadata.ImageID,
-		PatientID:  metadata.PatientID,
-		CreatorID:  metadata.CreatorID,
-		Name:       metadata.Name,
-		Format:     metadata.Format,
-		OriginPath: metadata.OriginPath,
-		Status:     model.ImageStatus(metadata.Status),
-	}
-	if metadata.Width != "" {
-		if width, err := strconv.Atoi(metadata.Width); err == nil {
-			m.Width = &width
-		}
-	}
-	if metadata.Height != "" {
-		if height, err := strconv.Atoi(metadata.Height); err == nil {
-			m.Height = &height
-		}
-	}
-	if metadata.Size != "" {
-		if size, err := strconv.ParseInt(metadata.Size, 10, 64); err == nil {
-			m.Size = &size
-		}
-	}
-	return m
 }
