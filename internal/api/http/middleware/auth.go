@@ -20,19 +20,24 @@ func NewAuthMiddleware(logger *slog.Logger) *AuthMiddleware {
 
 func (am *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		userID, exists := c.Get("user_id")
-		if !exists {
-			c.JSON(http.StatusUnauthorized, response.ErrorResponse{
-				ErrorType: string(errors.ErrorTypeUnauthorized),
-				Message:   "Authentication required",
-			})
-			c.Abort()
-			return
+		userID := c.GetHeader("X-User-ID")
+		if userID == "" {
+			debugUserID, exists := c.Get("user_id")
+			if !exists {
+				c.JSON(http.StatusUnauthorized, response.ErrorResponse{
+					ErrorType: string(errors.ErrorTypeUnauthorized),
+					Message:   "Authentication required (Header or context missing)",
+				})
+				c.Abort()
+				return
+			}
+			userID = debugUserID.(string)
 		}
 
-		// Type assertion with safety check
-		userIDStr, ok := userID.(string)
-		if !ok || userIDStr == "" {
+		c.Set("user_id", userID)
+
+		// Ensure userID is a non-empty string
+		if userID == "" {
 			c.JSON(http.StatusUnauthorized, response.ErrorResponse{
 				ErrorType: string(errors.ErrorTypeUnauthorized),
 				Message:   "Invalid user ID format",
@@ -42,7 +47,7 @@ func (am *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 		}
 
 		// Set typed value back to context
-		c.Set("authenticated_user_id", userIDStr)
+		c.Set("authenticated_user_id", userID)
 		c.Next()
 	}
 }
