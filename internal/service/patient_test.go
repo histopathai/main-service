@@ -66,19 +66,20 @@ func TestCreateNewPatient_Success(t *testing.T) {
 		FindByName(gomock.Any(), input.Name).
 		Return(nil, nil)
 
+	mockWorkspaceRepo.EXPECT().
+		Read(gomock.Any(), input.WorkspaceID).
+		Return(&model.Workspace{
+			ID:               input.WorkspaceID,
+			Name:             "Test Workspace",
+			AnnotationTypeID: ptrString("at-id-123"),
+		}, nil)
+
 	mockPatientRepo.EXPECT().
 		Create(gomock.Any(), gomock.Any()).
 		Return(&model.Patient{
 			ID:          "patient-123",
 			WorkspaceID: input.WorkspaceID,
 			Name:        input.Name,
-		}, nil)
-
-	mockWorkspaceRepo.EXPECT().
-		Read(gomock.Any(), input.WorkspaceID).
-		Return(&model.Workspace{
-			ID:   input.WorkspaceID,
-			Name: "Test Workspace",
 		}, nil)
 
 	createdPatient, err := pService.CreateNewPatient(ctx, input)
@@ -88,6 +89,40 @@ func TestCreateNewPatient_Success(t *testing.T) {
 	require.Equal(t, "patient-123", createdPatient.ID)
 	require.Equal(t, input.WorkspaceID, createdPatient.WorkspaceID)
 	require.Equal(t, input.Name, createdPatient.Name)
+}
+
+func TestCreateNewPatient_Failure_WorkspaceNotReady(t *testing.T) {
+	pService, mockWorkspaceRepo, mockPatientRepo, _, _ := setupPatientService(t)
+
+	ctx := context.Background()
+
+	input := service.CreatePatientInput{
+		WorkspaceID: "workspace-123",
+		Name:        "John Doe",
+	}
+
+	mockPatientRepo.EXPECT().
+		FindByName(gomock.Any(), input.Name).
+		Return(nil, nil)
+
+	mockWorkspaceRepo.EXPECT().
+		Read(gomock.Any(), input.WorkspaceID).
+		Return(&model.Workspace{
+			ID:               input.WorkspaceID,
+			Name:             "Test Workspace",
+			AnnotationTypeID: nil,
+		}, nil)
+
+	mockPatientRepo.EXPECT().Create(gomock.Any(), gomock.Any()).Times(0)
+
+	createdPatient, err := pService.CreateNewPatient(ctx, input)
+
+	require.Error(t, err)
+	require.Nil(t, createdPatient)
+
+	var validationErr *errors.Err
+	require.True(t, stderrors.As(err, &validationErr))
+	assert.Equal(t, errors.ErrorTypeValidation, validationErr.Type)
 }
 
 func TestCreateNewPatient_Conflict(t *testing.T) {
