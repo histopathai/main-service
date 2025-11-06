@@ -85,7 +85,7 @@ func (is *ImageService) UploadImage(ctx context.Context, input *UploadImageInput
 	expr_time := time.Minute * 30
 	url, err := is.storage.GenerateSignedURL(ctx, is.bucketName, storage.MethodPut, image, input.ContentType, expr_time)
 	if err != nil {
-		return nil, err
+		return nil, errors.NewInternalError("failed to generate signed URL", err)
 	}
 
 	return &url, nil
