@@ -67,8 +67,7 @@ func (is *ImageService) UploadImage(ctx context.Context, input *UploadImageInput
 		return nil, err
 	}
 	uuid := uuid.New().String()
-	originpath := fmt.Sprintf("gcs://%s/%s-%s", is.bucketName, uuid, input.Name)
-
+	originpath := fmt.Sprintf("%s-%s", uuid, input.Name)
 	image := &model.Image{
 		ID:         uuid,
 		PatientID:  input.PatientID,
