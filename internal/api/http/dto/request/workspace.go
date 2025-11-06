@@ -1,7 +1,7 @@
 package request
 
 type CreateWorkspaceRequest struct {
-	CreatorID        string  `json:"creator_id" binding:"omitempty,uuid4" example:"550e8400-e29b-41d4-a716-446655440000"`
+	CreatorID        string  `json:"creator_id" binding:"omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
 	Name             string  `json:"name" binding:"required" example:"Lung Cancer Study"`
 	OrganType        string  `json:"organ_type" binding:"required" example:"Lung"`
 	AnnotationTypeID *string `json:"annotation_type_id,omitempty" binding:"omitempty,uuid4" example:"550e8400-e29b-41d4-a716-446655440000"`
