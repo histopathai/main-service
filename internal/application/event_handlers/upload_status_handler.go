@@ -27,7 +27,6 @@ func NewUploadStatusHandler(
 	}
 }
 
-// YENİ STRUCT: GCS'den gelen JSON'u yakalamak için
 type GCSNotification struct {
 	Name     string            `json:"name"`
 	Bucket   string            `json:"bucket"`
