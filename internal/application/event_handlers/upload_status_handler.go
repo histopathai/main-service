@@ -50,34 +50,34 @@ func (h *UploadStatusHandler) Handle(ctx context.Context, data []byte, attribute
 		return nil
 	}
 
-	imageID, ok := metadata["x-goog-meta-image-id"]
+	imageID, ok := metadata["image-id"]
 	if !ok {
-		msg := "GCS metadata missing 'x-goog-meta-image-id', dropping message"
+		msg := "GCS metadata missing 'image-id', dropping message"
 		h.logger.Error(msg, "data", string(data))
 		return nil
 	}
 
 	input := &service.ConfirmUploadInput{
 		ImageID:    imageID,
-		PatientID:  metadata["x-goog-meta-patient-id"],
-		CreatorID:  metadata["x-goog-meta-creator-id"],
-		Name:       metadata["x-goog-meta-file-name"],
-		Format:     metadata["x-goog-meta-format"],
-		OriginPath: metadata["x-goog-meta-origin-path"],
-		Status:     model.ImageStatus(metadata["x-goog-meta-status"]),
+		PatientID:  metadata["patient-id"],
+		CreatorID:  metadata["creator-id"],
+		Name:       metadata["file-name"],
+		Format:     metadata["format"],
+		OriginPath: metadata["origin-path"],
+		Status:     model.ImageStatus(metadata["status"]),
 	}
 
-	if widthStr, ok := metadata["x-goog-meta-width"]; ok {
+	if widthStr, ok := metadata["width"]; ok {
 		if width, err := strconv.Atoi(widthStr); err == nil {
 			input.Width = &width
 		}
 	}
-	if heightStr, ok := metadata["x-goog-meta-height"]; ok {
+	if heightStr, ok := metadata["height"]; ok {
 		if height, err := strconv.Atoi(heightStr); err == nil {
 			input.Height = &height
 		}
 	}
-	if sizeStr, ok := metadata["x-goog-meta-size"]; ok {
+	if sizeStr, ok := metadata["size"]; ok {
 		if size, err := strconv.ParseInt(sizeStr, 10, 64); err == nil {
 			input.Size = &size
 		}
