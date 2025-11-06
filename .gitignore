@@ -1,3 +1,4 @@
 # Ignore all mocks except generate.go
 **/mocks/*
 !**/mocks/generate.go
+**/docs/*
