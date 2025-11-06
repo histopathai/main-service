@@ -2,3 +2,5 @@
 **/mocks/*
 !**/mocks/generate.go
 **/docs/*
+
+*.env
