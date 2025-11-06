@@ -54,8 +54,6 @@ func (rv *RequestValidator) formatFieldError(e validator.FieldError) string {
 	switch e.Tag() {
 	case "required":
 		return fmt.Sprintf("%s is required", field)
-	case "uuid4":
-		return fmt.Sprintf("%s must be a valid UUID", field)
 	case "email":
 		return fmt.Sprintf("%s must be a valid email address", field)
 	case "min":
