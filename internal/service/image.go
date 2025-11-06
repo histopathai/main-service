@@ -89,7 +89,7 @@ func (is *ImageService) UploadImage(ctx context.Context, input *UploadImageInput
 		return nil, errors.NewInternalError("failed to generate signed URL", err)
 	}
 
-	return &storagePayload, nil
+	return storagePayload, nil
 }
 
 type ConfirmUploadInput struct {

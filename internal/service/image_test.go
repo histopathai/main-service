@@ -59,18 +59,20 @@ func TestUploadImage_Success(t *testing.T) {
 		Read(ctx, input.PatientID).
 		Return(&model.Patient{ID: input.PatientID}, nil)
 
+	mockPayload := &storage.SignedURLPayload{
+		URL:     "https://signed-url.example.com",
+		Headers: map[string]string{"x-goog-meta-image-id": "image-123"},
+	}
+
 	mockStorage.EXPECT().
 		GenerateSignedURL(ctx, "test-bucket", gomock.Any(), gomock.Any(), input.ContentType, gomock.Any()).
-		Return(&storage.SignedURLPayload{
-			URL:     "https://signed-url.example.com",
-			Headers: map[string]string{"Authorization": "Bearer token"},
-		}, nil)
+		Return(mockPayload, nil)
 
 	url, err := imgService.UploadImage(ctx, input)
 
 	require.NoError(t, err)
 	require.NotNil(t, url)
-	assert.Contains(t, *url, "https://")
+	assert.Contains(t, url.URL, "https://")
 }
 
 func TestUploadImage_InvalidPatient(t *testing.T) {
