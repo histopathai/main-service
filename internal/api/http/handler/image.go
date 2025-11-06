@@ -73,15 +73,16 @@ func (ih *ImageHandler) UploadImage(c *gin.Context) {
 		Size:        req.Size,
 	}
 
-	signed_url, err := ih.imageService.UploadImage(c.Request.Context(), &input)
+	storagePayload, err := ih.imageService.UploadImage(c.Request.Context(), &input)
 	if err != nil {
 		ih.handleError(c, err)
 		return
 	}
 
 	respPayload := response.UploadImagePayload{
-		UploadURL: *signed_url,
-		Message:   "Use this URL to upload the image via a PUT request.",
+		UploadURL: storagePayload.URL,
+		Headers:   storagePayload.Headers,
+		Message:   "Use this URL and Headers to upload the image via a PUT request.",
 	}
 	ih.response.Created(c, respPayload)
 }

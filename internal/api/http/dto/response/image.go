@@ -56,9 +56,11 @@ func NewImageListResponse(result *query.Result[*model.Image]) *ListResponse[Imag
 }
 
 type UploadImagePayload struct {
-	UploadURL string `json:"upload_url" example:"https://storage.googleapis.com/..."`
-	Message   string `json:"message" example:"Use this URL to upload the image via a PUT request."`
+	UploadURL string            `json:"upload_url"`
+	Headers   map[string]string `json:"headers"`
+	Message   string            `json:"message"`
 }
+
 type UploadImageResponse struct {
 	Data UploadImagePayload `json:"data"`
 }

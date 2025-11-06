@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/domain/storage"
 	"github.com/histopathai/main-service/internal/mocks"
 	"github.com/histopathai/main-service/internal/service"
 	"github.com/histopathai/main-service/internal/shared/errors"
@@ -60,7 +61,10 @@ func TestUploadImage_Success(t *testing.T) {
 
 	mockStorage.EXPECT().
 		GenerateSignedURL(ctx, "test-bucket", gomock.Any(), gomock.Any(), input.ContentType, gomock.Any()).
-		Return("https://signed-url.example.com", nil)
+		Return(&storage.SignedURLPayload{
+			URL:     "https://signed-url.example.com",
+			Headers: map[string]string{"Authorization": "Bearer token"},
+		}, nil)
 
 	url, err := imgService.UploadImage(ctx, input)
 

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -36,7 +37,7 @@ func (g *GCSClient) GenerateSignedURL(
 	method domainStorage.SignedURLMethod,
 	image *model.Image, contentType string,
 	expiration time.Duration,
-) (string, error) {
+) (*domainStorage.SignedURLPayload, error) {
 
 	opts := &storage.SignedURLOptions{
 		Method:  string(method),
@@ -46,7 +47,8 @@ func (g *GCSClient) GenerateSignedURL(
 	if method == domainStorage.MethodPut && contentType != "" {
 		opts.ContentType = contentType
 	}
-	opts.Headers = []string{
+
+	headers := []string{
 		"x-goog-meta-image-id:" + image.ID,
 		"x-goog-meta-patient-id:" + image.PatientID,
 		"x-goog-meta-creator-id:" + image.CreatorID,
@@ -56,44 +58,36 @@ func (g *GCSClient) GenerateSignedURL(
 		"x-goog-meta-status:" + string(image.Status),
 	}
 	if image.Width != nil {
-		opts.Headers = append(opts.Headers, fmt.Sprintf("x-goog-meta-width:%d", *image.Width))
+		headers = append(headers, fmt.Sprintf("x-goog-meta-width:%d", *image.Width))
 	}
 	if image.Height != nil {
-		opts.Headers = append(opts.Headers, fmt.Sprintf("x-goog-meta-height:%d", *image.Height))
+		headers = append(headers, fmt.Sprintf("x-goog-meta-height:%d", *image.Height))
 	}
 	if image.Size != nil {
-		opts.Headers = append(opts.Headers, fmt.Sprintf("x-goog-meta-size:%d", *image.Size))
+		headers = append(headers, fmt.Sprintf("x-goog-meta-size:%d", *image.Size))
 	}
 
-	metadata := &storage.ObjectAttrs{
-		Name:        image.OriginPath,
-		ContentType: contentType,
-		Metadata: map[string]string{
-			"image-id":    image.ID,
-			"patient-id":  image.PatientID,
-			"creator-id":  image.CreatorID,
-			"format":      image.Format,
-			"name":        image.Name,
-			"origin-path": image.OriginPath,
-			"status":      string(image.Status),
-		},
-	}
-	if image.Width != nil {
-		metadata.Metadata["width"] = fmt.Sprintf("%d", *image.Width)
-	}
-	if image.Height != nil {
-		metadata.Metadata["height"] = fmt.Sprintf("%d", *image.Height)
-	}
-	if image.Size != nil {
-		metadata.Metadata["size"] = fmt.Sprintf("%d", *image.Size)
-	}
+	opts.Headers = headers
 
-	url, err := g.client.Bucket(bucketName).SignedURL(metadata.Name, opts)
+	url, err := g.client.Bucket(bucketName).SignedURL(image.OriginPath, opts)
 	if err != nil {
-		return "", fmt.Errorf("failed to generate signed URL: %w", mapGCSError(err, "generating signed URL"))
+		return nil, fmt.Errorf("failed to generate signed URL: %w", mapGCSError(err, "generating signed URL"))
 	}
 
-	return url, nil
+	headersMap := make(map[string]string, len(headers))
+	for _, h := range headers {
+		parts := strings.SplitN(h, ":", 2)
+		if len(parts) == 2 {
+			headersMap[parts[0]] = parts[1]
+		}
+	}
+
+	payload := &domainStorage.SignedURLPayload{
+		URL:     url,
+		Headers: headersMap,
+	}
+
+	return payload, nil
 }
 
 func (g *GCSClient) GetObjectMetadata(ctx context.Context,

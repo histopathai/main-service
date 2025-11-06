@@ -60,7 +60,7 @@ func (is *ImageService) validateImageInput(ctx context.Context, input *UploadIma
 	return nil
 }
 
-func (is *ImageService) UploadImage(ctx context.Context, input *UploadImageInput) (*string, error) {
+func (is *ImageService) UploadImage(ctx context.Context, input *UploadImageInput) (*storage.SignedURLPayload, error) {
 
 	err := is.validateImageInput(ctx, input)
 	if err != nil {
@@ -68,6 +68,7 @@ func (is *ImageService) UploadImage(ctx context.Context, input *UploadImageInput
 	}
 	uuid := uuid.New().String()
 	originpath := fmt.Sprintf("%s-%s", uuid, input.Name)
+
 	image := &model.Image{
 		ID:         uuid,
 		PatientID:  input.PatientID,
@@ -82,12 +83,13 @@ func (is *ImageService) UploadImage(ctx context.Context, input *UploadImageInput
 	}
 
 	expr_time := time.Minute * 30
-	url, err := is.storage.GenerateSignedURL(ctx, is.bucketName, storage.MethodPut, image, input.ContentType, expr_time)
+
+	storagePayload, err := is.storage.GenerateSignedURL(ctx, is.bucketName, storage.MethodPut, image, input.ContentType, expr_time)
 	if err != nil {
 		return nil, errors.NewInternalError("failed to generate signed URL", err)
 	}
 
-	return &url, nil
+	return &storagePayload, nil
 }
 
 type ConfirmUploadInput struct {
