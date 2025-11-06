@@ -41,7 +41,7 @@ func (ws *WorkspaceService) validateWorkspaceInput(ctx context.Context, input *C
 
 	filter := []sharedQuery.Filter{
 		{
-			Field:    "name",
+			Field:    constants.WorkspaceNameField,
 			Operator: sharedQuery.OpEqual,
 			Value:    input.Name,
 		},
