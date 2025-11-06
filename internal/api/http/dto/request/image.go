@@ -1,8 +1,8 @@
 package request
 
 type UploadImageRequest struct {
-	PatientID   string `json:"patient_id" binding:"required,uuid4" example:"550e8400-e29b-41d4-a716-446655440000"`
-	CreatorID   string `json:"creator_id" binding:"omitempty,uuid4" example:"550e8400-e29b-41d4-a716-446655440000"`
+	PatientID   string `json:"patient_id" binding:"required" example:"550e8400-e29b-41d4-a716-446655440000"`
+	CreatorID   string `json:"creator_id" binding:"omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
 	ContentType string `json:"content_type" binding:"required" example:"image/tiff"`
 	Name        string `json:"name" binding:"required" example:"slide1.tiff"`
 	Format      string `json:"format" binding:"required" example:"TIFF"`
@@ -12,6 +12,6 @@ type UploadImageRequest struct {
 }
 
 type ListImageByPatientIDRequest struct {
-	PatientID string `form:"patient_id" binding:"required,uuid4" example:"550e8400-e29b-41d4-a716-446655440000"`
+	PatientID string `form:"patient_id" binding:"required" example:"550e8400-e29b-41d4-a716-446655440000"`
 	JSONPaginationRequest
 }

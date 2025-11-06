@@ -1,7 +1,7 @@
 package request
 
 type CreatePatientRequest struct {
-	WorkspaceID string  `json:"workspace_id" binding:"required,uuid4" example:"550e8400-e29b-41d4-a716-446655440000"`
+	WorkspaceID string  `json:"workspace_id" binding:"required" example:"550e8400-e29b-41d4-a716-446655440000"`
 	Name        string  `json:"name" binding:"required" example:"Patient_001"`
 	Age         *int    `json:"age,omitempty" example:"45"`
 	Gender      *string `json:"gender,omitempty" example:"Female"`
@@ -13,7 +13,7 @@ type CreatePatientRequest struct {
 }
 
 type UpdatePatientRequest struct {
-	WorkspaceID *string `json:"workspace_id,omitempty" binding:"omitempty,uuid4" example:"550e8400-e29b-41d4-a716-446655440000"`
+	WorkspaceID *string `json:"workspace_id,omitempty" binding:"omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
 	Name        *string `json:"name,omitempty" example:"Patient_001"`
 	Age         *int    `json:"age,omitempty" example:"45"`
 	Gender      *string `json:"gender,omitempty" example:"Female"`
