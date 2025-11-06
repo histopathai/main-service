@@ -35,7 +35,6 @@ func NewImageOrchestrator(
 	logger *slog.Logger,
 ) *ImageOrchestrator {
 
-	registry.Register(events.EventTypeImageUploaded, uploadHandler.Handle)
 	registry.Register(events.EventTypeImageProcessingCompleted, processHandler.Handle)
 	registry.Register(events.EventTypeImageProcessingFailed, processHandler.Handle)
 
@@ -54,12 +53,13 @@ func (io *ImageOrchestrator) Start(ctx context.Context) error {
 	io.logger.Info("Starting Image Orchestrator")
 
 	if io.config.UploadStatusSubscriptionID != "" {
-		if err := io.startSubscription(ctx, io.config.UploadStatusSubscriptionID, "upload-status"); err != nil {
+		if err := io.startSubscription(ctx, io.config.UploadStatusSubscriptionID, "upload-status", io.uploadHandler.Handle); err != nil {
 			return err
 		}
 	}
+
 	if io.config.ImageProcessResultSubscriptionID != "" {
-		if err := io.startSubscription(ctx, io.config.ImageProcessResultSubscriptionID, "image-process-result"); err != nil {
+		if err := io.startSubscription(ctx, io.config.ImageProcessResultSubscriptionID, "image-process-result", io.registry.Handle); err != nil {
 			return err
 		}
 	}
@@ -68,7 +68,7 @@ func (io *ImageOrchestrator) Start(ctx context.Context) error {
 	return nil
 }
 
-func (io *ImageOrchestrator) startSubscription(ctx context.Context, subscriptionID, name string) error {
+func (io *ImageOrchestrator) startSubscription(ctx context.Context, subscriptionID, name string, handler events.EventHandler) error {
 	subCtx, cancel := context.WithCancel(ctx)
 	io.cancelFuncs = append(io.cancelFuncs, cancel)
 
@@ -78,7 +78,7 @@ func (io *ImageOrchestrator) startSubscription(ctx context.Context, subscription
 
 		io.logger.Info("Starting subscription", "name", name, "subscriptionID", subscriptionID)
 
-		if err := io.pubsubClient.Subscribe(subCtx, subscriptionID, io.registry.Handle); err != nil {
+		if err := io.pubsubClient.Subscribe(subCtx, subscriptionID, handler); err != nil {
 			if subCtx.Err() != context.Canceled {
 				io.logger.Error("Subscription error",
 					"name", name,
