@@ -39,27 +39,20 @@ type CreateWorkspaceInput struct {
 
 func (ws *WorkspaceService) validateWorkspaceInput(ctx context.Context, input *CreateWorkspaceInput) error {
 
-	filter := []sharedQuery.Filter{
-		{
-			Field:    constants.WorkspaceNameField,
-			Operator: sharedQuery.OpEqual,
-			Value:    input.Name,
-		},
-	}
-
-	pagination := &sharedQuery.Pagination{
-		Limit:  1,
-		Offset: 0,
-	}
-
-	existingWorkspaces, err := ws.workspaceRepo.FindByFilters(ctx, filter, pagination)
+	existing, err := ws.workspaceRepo.FindByName(ctx, input.Name)
 	if err != nil {
-		return err
+		return errors.NewInternalError("failed to check existing workspace name", err)
+	}
+	if existing != nil {
+		return errors.NewConflictError("workspace with the same name already exists", map[string]interface{}{"name": "Workspace name must be unique"})
 	}
 
-	if len(existingWorkspaces.Data) > 0 {
-		details := map[string]interface{}{"name": "Workspace with this name already exists."}
-		return errors.NewConflictError("workspace name already exists", details)
+	if input.ReleaseYear != nil {
+		year := *input.ReleaseYear
+		if year < 1900 || year > 2100 {
+			details := map[string]interface{}{"release_year": "Release year must be between 1900 and 2100."}
+			return errors.NewValidationError("invalid release year", details)
+		}
 	}
 
 	return nil
