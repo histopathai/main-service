@@ -71,28 +71,11 @@ type CreateAnnotationTypeInput struct {
 
 func (ats *AnnotationTypeService) CreateNewAnnotationType(ctx context.Context, input *CreateAnnotationTypeInput) (*model.AnnotationType, error) {
 
-	_, err := ats.annotationTypeRepo.FindByName(ctx, input.Name)
-	if err == nil {
-		details := map[string]interface{}{"name": "An annotation type with the same name already exists."}
-		return nil, errors.NewConflictError("annotation type name already exists", details)
-	}
-
-	if err := ats.ValidateAnnotationTypeCreation(ctx, input); err != nil {
-		return nil, err
-	}
-
-	filter := []sharedQuery.Filter{
-		{
-			Field:    constants.AnnotationTypeNameField,
-			Operator: sharedQuery.OpEqual,
-			Value:    input.Name,
-		},
-	}
-	existing, err := ats.annotationTypeRepo.FindByFilters(ctx, filter, &sharedQuery.Pagination{Limit: 1, Offset: 0})
+	existing, err := ats.annotationTypeRepo.FindByName(ctx, input.Name)
 	if err != nil {
 		return nil, err
 	}
-	if len(existing.Data) > 0 {
+	if existing != nil {
 		details := map[string]interface{}{"name": "An annotation type with the same name already exists."}
 		return nil, errors.NewConflictError("annotation type name already exists", details)
 	}
