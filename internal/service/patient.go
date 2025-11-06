@@ -50,10 +50,16 @@ func (ps *PatientService) CreateNewPatient(ctx context.Context, input CreatePati
 	if patient != nil {
 		return nil, errors.NewConflictError("patient with the same name already exists", map[string]interface{}{"name": "Patient name must be unique"})
 	}
-	_, err = ps.workspaceRepo.Read(ctx, input.WorkspaceID)
+
+	ws, err := ps.workspaceRepo.Read(ctx, input.WorkspaceID)
 	if err != nil {
 		return nil, errors.NewValidationError("invalid workspace_id",
 			map[string]interface{}{"workspace_id": "Workspace does not exist"})
+	}
+
+	if ws.AnnotationTypeID == nil || *ws.AnnotationTypeID == "" {
+		return nil, errors.NewValidationError("workspace is not ready for patients",
+			map[string]interface{}{"workspace_id": "Workspace must have an Annotation Type assigned before adding patients."})
 	}
 	createdPatient, err := ps.patientRepo.Create(ctx, &model.Patient{
 		WorkspaceID: input.WorkspaceID,
