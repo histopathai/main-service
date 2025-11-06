@@ -32,19 +32,28 @@ func NewWorkspaceRepositoryImpl(client *firestore.Client, hasUniqueName bool) *W
 }
 
 func workspaceToFirestoreMap(w *model.Workspace) map[string]interface{} {
+	// Önce zorunlu (pointer olmayan) alanları ekle
 	m := map[string]interface{}{
-		"creator_id":         w.CreatorID,
-		"annotation_type_id": w.AnnotationTypeID,
-		"name":               w.Name,
-		"organ_type":         w.OrganType,
-		"organization":       w.Organization,
-		"description":        w.Description,
-		"license":            w.License,
-		"resource_url":       w.ResourceURL,
-		"release_year":       w.ReleaseYear,
-		"created_at":         w.CreatedAt,
-		"updated_at":         w.UpdatedAt,
+		"creator_id":   w.CreatorID,
+		"name":         w.Name,
+		"organ_type":   w.OrganType,
+		"organization": w.Organization,
+		"description":  w.Description,
+		"license":      w.License,
+		"created_at":   w.CreatedAt,
+		"updated_at":   w.UpdatedAt,
 	}
+
+	if w.AnnotationTypeID != nil {
+		m["annotation_type_id"] = *w.AnnotationTypeID
+	}
+	if w.ResourceURL != nil {
+		m["resource_url"] = *w.ResourceURL
+	}
+	if w.ReleaseYear != nil {
+		m["release_year"] = *w.ReleaseYear
+	}
+
 	return m
 }
 
