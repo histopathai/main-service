@@ -60,11 +60,9 @@ func TestCreateNewWorkspace_Success(t *testing.T) {
 		License:      "CC-BY",
 	}
 
-	// Expectation: mock the repository method
 	mockWorkspaceRepo.EXPECT().
-		FindByFilters(ctx, gomock.Any(), gomock.Any()).
-		Return(&sharedQuery.Result[*model.Workspace]{Data: []*model.Workspace{}}, nil)
-
+		FindByName(ctx, input.Name).
+		Return(nil, nil)
 	mockWorkspaceRepo.EXPECT().
 		Create(ctx, gomock.Any()).
 		DoAndReturn(func(ctx context.Context, ws *model.Workspace) (*model.Workspace, error) {
