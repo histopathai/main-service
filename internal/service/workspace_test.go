@@ -91,10 +91,11 @@ func TestCreateNewWorkspace_Conflict(t *testing.T) {
 
 	// Expectation: mock the repository method to return an existing workspace
 	mockWorkspaceRepo.EXPECT().
-		FindByFilters(ctx, gomock.Any(), gomock.Any()).
-		Return(&sharedQuery.Result[*model.Workspace]{Data: []*model.Workspace{
-			{Name: "Existing Workspace"},
-		}}, nil)
+		FindByName(ctx, input.Name).
+		Return(&model.Workspace{
+			ID:   "ws-456",
+			Name: input.Name,
+		}, nil)
 
 	// --- Act ---
 	createdWS, err := wsService.CreateNewWorkspace(ctx, &input)
@@ -160,9 +161,8 @@ func TestUpdateWorkspace_Success(t *testing.T) {
 	workspaceID := "workspace-123"
 
 	mockWorkspaceRepo.EXPECT().
-		FindByFilters(ctx, gomock.Any(), gomock.Any()).
-		Return(&sharedQuery.Result[*model.Workspace]{Data: []*model.Workspace{}}, nil)
-
+		FindByName(ctx, "Updated Workspace").
+		Return(nil, nil)
 	mockWorkspaceRepo.EXPECT().
 		Read(ctx, workspaceID).
 		Return(&model.Workspace{}, nil)
@@ -214,10 +214,11 @@ func TestUpdateWorkspace_Failure_NameConflict(t *testing.T) {
 	workspaceID := "workspace-123"
 
 	mockWorkspaceRepo.EXPECT().
-		FindByFilters(ctx, gomock.Any(), gomock.Any()).
-		Return(&sharedQuery.Result[*model.Workspace]{Data: []*model.Workspace{
-			{Name: "Conflicting Name"},
-		}}, nil)
+		FindByName(ctx, "Conflicting Name").
+		Return(&model.Workspace{
+			ID:   "ws-456",
+			Name: "Conflicting Name",
+		}, nil)
 
 	mockWorkspaceRepo.EXPECT().
 		Read(ctx, workspaceID).
