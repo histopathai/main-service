@@ -138,6 +138,18 @@ func (wh *WorkspaceHandler) UpdateWorkspace(c *gin.Context) {
 		return
 	}
 
+	if err := wh.validator.ValidateStruct(&req); err != nil {
+		wh.handleError(c, err)
+		return
+	}
+
+	if isvalid := wh.validator.ValidateOrganType(*req.OrganType); !isvalid {
+		wh.handleError(c, errors.NewValidationError("invalid organ type", map[string]interface{}{
+			"error": "invalid organ type",
+		}))
+		return
+	}
+
 	// DTO -> Service Input
 	input := service.UpdateWorkspaceInput{
 		Name:             req.Name,
