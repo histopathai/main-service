@@ -9,6 +9,7 @@ import (
 	"github.com/histopathai/main-service/internal/domain/repository"
 	"github.com/histopathai/main-service/internal/mocks"
 	"github.com/histopathai/main-service/internal/service"
+	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 	"github.com/stretchr/testify/assert"
@@ -284,4 +285,78 @@ func TestDeletePatientByID_WithAssociatedImagesFailure(t *testing.T) {
 	var conflictErr *errors.Err
 	require.True(t, stderrors.As(err, &conflictErr))
 	assert.Equal(t, errors.ErrorTypeConflict, conflictErr.Type)
+}
+
+func TestUpdatePatient_Success(t *testing.T) {
+	pService, _, mockPatientRepo, _, _ := setupPatientService(t)
+	ctx := context.Background()
+	patientID := "pat-123"
+	newName := "New Name"
+	newAge := 30
+	input := service.UpdatePatientInput{
+		Name: &newName,
+		Age:  &newAge,
+	}
+
+	expectedUpdates := map[string]interface{}{
+		constants.PatientNameField: newName,
+		constants.PatientAgeField:  newAge,
+	}
+
+	mockPatientRepo.EXPECT().Update(ctx, patientID, expectedUpdates).Return(nil)
+
+	err := pService.UpdatePatient(ctx, patientID, input)
+	require.NoError(t, err)
+}
+
+func TestUpdatePatient_NoUpdates(t *testing.T) {
+	pService, _, mockPatientRepo, _, _ := setupPatientService(t)
+	ctx := context.Background()
+	patientID := "pat-123"
+	input := service.UpdatePatientInput{}
+
+	mockPatientRepo.EXPECT().Update(ctx, patientID, gomock.Any()).Times(0)
+
+	err := pService.UpdatePatient(ctx, patientID, input)
+	require.NoError(t, err)
+}
+
+func TestListPatients_Success(t *testing.T) {
+	pService, _, mockPatientRepo, _, _ := setupPatientService(t)
+	ctx := context.Background()
+	pagination := &query.Pagination{Limit: 10}
+
+	mockPatientRepo.EXPECT().
+		FindByFilters(ctx, []query.Filter{}, pagination).
+		Return(&query.Result[*model.Patient]{Data: []*model.Patient{
+			{ID: "pat-1"},
+		}}, nil)
+
+	result, err := pService.ListPatients(ctx, pagination)
+	require.NoError(t, err)
+	require.Len(t, result.Data, 1)
+}
+
+func TestGetPatientsByWorkspaceID_Success(t *testing.T) {
+	pService, _, mockPatientRepo, _, _ := setupPatientService(t)
+	ctx := context.Background()
+	workspaceID := "ws-123"
+	pagination := &query.Pagination{Limit: 10}
+
+	expectedFilter := []query.Filter{
+		{
+			Field:    constants.PatientWorkspaceIDField,
+			Operator: query.OpEqual,
+			Value:    workspaceID,
+		},
+	}
+	mockPatientRepo.EXPECT().
+		FindByFilters(ctx, expectedFilter, pagination).
+		Return(&query.Result[*model.Patient]{Data: []*model.Patient{
+			{ID: "pat-1", WorkspaceID: workspaceID},
+		}}, nil)
+
+	result, err := pService.GetPatientsByWorkspaceID(ctx, workspaceID, pagination)
+	require.NoError(t, err)
+	require.Len(t, result.Data, 1)
 }
