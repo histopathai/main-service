@@ -14,6 +14,16 @@ import (
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
+var allowedImageSortFields = map[string]bool{
+	"created_at": true,
+	"updated_at": true,
+	"name":       true,
+	"format":     true,
+	"width":      true,
+	"height":     true,
+	"size":       true,
+}
+
 type ImageHandler struct {
 	imageService *service.ImageService
 	validator    *validator.RequestValidator
@@ -147,6 +157,10 @@ func (ih *ImageHandler) ListImageByPatientID(c *gin.Context) {
 		ih.handleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
 			"error": err.Error(),
 		}))
+		return
+	}
+	if err := queryReq.ValidateSortFields(allowedImageSortFields); err != nil {
+		ih.handleError(c, err)
 		return
 	}
 

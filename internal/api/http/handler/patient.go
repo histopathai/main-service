@@ -14,6 +14,18 @@ import (
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
+var allowedPatientSortFields = map[string]bool{
+	"created_at": true,
+	"updated_at": true,
+	"name":       true,
+	"age":        true,
+	"gender":     true,
+	"race":       true,
+	"disease":    true,
+	"subtype":    true,
+	"grade":      true,
+}
+
 type PatientHandler struct {
 	patientService *service.PatientService
 	validator      *validator.RequestValidator
@@ -149,6 +161,11 @@ func (ph *PatientHandler) GetPatientsByWorkspaceID(c *gin.Context) {
 	}
 	workspaceID := c.Param("workspace_id")
 
+	if err := queryReq.ValidateSortFields(allowedPatientSortFields); err != nil {
+		ph.handleError(c, err)
+		return
+	}
+
 	pagination := &query.Pagination{
 		Limit:   queryReq.Limit,
 		Offset:  queryReq.Offset,
@@ -255,6 +272,11 @@ func (ph *PatientHandler) ListPatients(c *gin.Context) {
 	if err := c.ShouldBindQuery(&queryReq); err != nil {
 		ph.handleError(c, errors.NewValidationError("invalid query parameters",
 			map[string]interface{}{"error": err.Error()}))
+		return
+	}
+
+	if err := queryReq.ValidateSortFields(allowedPatientSortFields); err != nil {
+		ph.handleError(c, err)
 		return
 	}
 

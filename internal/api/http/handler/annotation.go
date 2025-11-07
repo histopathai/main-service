@@ -14,6 +14,14 @@ import (
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
+var allowedAnnotationSortFields = map[string]bool{
+	"created_at": true,
+	"updated_at": true,
+	"name":       true,
+	"score":      true,
+	"class":      true,
+}
+
 type AnnotationHandler struct {
 	annotationService *service.AnnotationService
 	validator         *validator.RequestValidator
@@ -153,6 +161,11 @@ func (ah *AnnotationHandler) GetAnnotationsByImageID(c *gin.Context) {
 	if err := c.ShouldBindQuery(&queryReq); err != nil {
 		ah.handleError(c, errors.NewValidationError("invalid query parameters",
 			map[string]interface{}{"error": err.Error()}))
+		return
+	}
+
+	if err := queryReq.ValidateSortFields(allowedAnnotationSortFields); err != nil {
+		ah.handleError(c, err)
 		return
 	}
 

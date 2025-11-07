@@ -14,6 +14,16 @@ import (
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
+var allowedWorkspaceSortFields = map[string]bool{
+	"created_at":   true,
+	"updated_at":   true,
+	"name":         true,
+	"organ_type":   true,
+	"organization": true,
+	"license":      true,
+	"release_year": true,
+}
+
 type WorkspaceHandler struct {
 	workspaceService *service.WorkspaceService
 	validator        *validator.RequestValidator
@@ -233,6 +243,11 @@ func (wh *WorkspaceHandler) ListWorkspaces(c *gin.Context) {
 	if err := c.ShouldBindQuery(&queryReq); err != nil {
 		wh.handleError(c, errors.NewValidationError("invalid query parameters",
 			map[string]interface{}{"error": err.Error()}))
+		return
+	}
+
+	if err := queryReq.ValidateSortFields(allowedWorkspaceSortFields); err != nil {
+		wh.handleError(c, err)
 		return
 	}
 

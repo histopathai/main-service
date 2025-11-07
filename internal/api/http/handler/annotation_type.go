@@ -15,6 +15,12 @@ import (
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
+var allowedAnnotationTypeSortFields = map[string]bool{
+	"created_at": true,
+	"updated_at": true,
+	"name":       true,
+}
+
 type AnnotationTypeHandler struct {
 	annotationTypeService *service.AnnotationTypeService
 	validator             *validator.RequestValidator
@@ -155,6 +161,11 @@ func (ath *AnnotationTypeHandler) ListAnnotationTypes(c *gin.Context) {
 		return
 	}
 
+	if err := queryReq.ValidateSortFields(allowedAnnotationTypeSortFields); err != nil {
+		ath.handleError(c, err)
+		return
+	}
+
 	pagination := &query.Pagination{
 		Limit:   queryReq.Limit,
 		Offset:  queryReq.Offset,
@@ -287,6 +298,11 @@ func (ath *AnnotationTypeHandler) GetClassificationOptionedAnnotationTypes(c *gi
 		return
 	}
 
+	if err := queryReq.ValidateSortFields(allowedAnnotationTypeSortFields); err != nil {
+		ath.handleError(c, err)
+		return
+	}
+
 	pagination := &query.Pagination{
 		Limit:   queryReq.Limit,
 		Offset:  queryReq.Offset,
@@ -340,6 +356,11 @@ func (ath *AnnotationTypeHandler) GetScoreOptionedAnnotationTypes(c *gin.Context
 		ath.handleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
 			"error": err.Error(),
 		}))
+		return
+	}
+
+	if err := queryReq.ValidateSortFields(allowedAnnotationTypeSortFields); err != nil {
+		ath.handleError(c, err)
 		return
 	}
 
