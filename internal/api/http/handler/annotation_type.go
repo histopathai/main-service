@@ -161,6 +161,8 @@ func (ath *AnnotationTypeHandler) ListAnnotationTypes(c *gin.Context) {
 		return
 	}
 
+	queryReq.ApplyDefaults()
+
 	if err := queryReq.ValidateSortFields(allowedAnnotationTypeSortFields); err != nil {
 		ath.handleError(c, err)
 		return
@@ -298,6 +300,8 @@ func (ath *AnnotationTypeHandler) GetClassificationOptionedAnnotationTypes(c *gi
 		return
 	}
 
+	queryReq.ApplyDefaults()
+
 	if err := queryReq.ValidateSortFields(allowedAnnotationTypeSortFields); err != nil {
 		ath.handleError(c, err)
 		return
@@ -358,6 +362,8 @@ func (ath *AnnotationTypeHandler) GetScoreOptionedAnnotationTypes(c *gin.Context
 		}))
 		return
 	}
+
+	queryReq.ApplyDefaults()
 
 	if err := queryReq.ValidateSortFields(allowedAnnotationTypeSortFields); err != nil {
 		ath.handleError(c, err)
