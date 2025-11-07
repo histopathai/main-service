@@ -258,6 +258,8 @@ func (wh *WorkspaceHandler) ListWorkspaces(c *gin.Context) {
 		return
 	}
 
+	queryReq.ApplyDefaults()
+
 	if err := queryReq.ValidateSortFields(allowedWorkspaceSortFields); err != nil {
 		wh.handleError(c, err)
 		return
