@@ -236,3 +236,33 @@ func TestUpdateWorkspace_Failure_NameConflict(t *testing.T) {
 	require.True(t, stderrors.As(err, &conflictErr))
 	assert.Equal(t, errors.ErrorTypeConflict, conflictErr.Type)
 }
+
+func TestListWorkspaces_Success(t *testing.T) {
+	wsService, mockWorkspaceRepo, _, _ := setupWorkspaceService(t)
+	ctx := context.Background()
+	pagination := &sharedQuery.Pagination{Limit: 10}
+
+	mockWorkspaceRepo.EXPECT().
+		FindByFilters(ctx, []sharedQuery.Filter{}, pagination).
+		Return(&sharedQuery.Result[*model.Workspace]{Data: []*model.Workspace{
+			{ID: "ws-1"},
+		}}, nil)
+
+	result, err := wsService.ListWorkspaces(ctx, pagination)
+	require.NoError(t, err)
+	require.Len(t, result.Data, 1)
+}
+
+func TestGetWorkspaceByID_NotFound(t *testing.T) {
+	wsService, mockWorkspaceRepo, _, _ := setupWorkspaceService(t)
+	ctx := context.Background()
+	workspaceID := "ws-not-found"
+
+	mockWorkspaceRepo.EXPECT().
+		Read(ctx, workspaceID).
+		Return(nil, errors.NewNotFoundError("not found"))
+
+	ws, err := wsService.GetWorkspaceByID(ctx, workspaceID)
+	require.Error(t, err)
+	require.Nil(t, ws)
+}
