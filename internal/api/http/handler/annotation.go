@@ -164,6 +164,8 @@ func (ah *AnnotationHandler) GetAnnotationsByImageID(c *gin.Context) {
 		return
 	}
 
+	queryReq.ApplyDefaults()
+
 	if err := queryReq.ValidateSortFields(allowedAnnotationSortFields); err != nil {
 		ah.handleError(c, err)
 		return
