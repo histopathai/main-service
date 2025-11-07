@@ -161,6 +161,8 @@ func (ph *PatientHandler) GetPatientsByWorkspaceID(c *gin.Context) {
 	}
 	workspaceID := c.Param("workspace_id")
 
+	queryReq.ApplyDefaults()
+
 	if err := queryReq.ValidateSortFields(allowedPatientSortFields); err != nil {
 		ph.handleError(c, err)
 		return
@@ -274,6 +276,8 @@ func (ph *PatientHandler) ListPatients(c *gin.Context) {
 			map[string]interface{}{"error": err.Error()}))
 		return
 	}
+
+	queryReq.ApplyDefaults()
 
 	if err := queryReq.ValidateSortFields(allowedPatientSortFields); err != nil {
 		ph.handleError(c, err)
