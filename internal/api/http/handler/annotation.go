@@ -172,9 +172,9 @@ func (ah *AnnotationHandler) GetAnnotationsByImageID(c *gin.Context) {
 	// Service Output -> DTO
 
 	paginationResp := &response.PaginationResponse{
-		Total:  result.Total,
-		Limit:  queryReq.Limit,
-		Offset: queryReq.Offset,
+		Limit:   queryReq.Limit,
+		Offset:  queryReq.Offset,
+		HasMore: result.HasMore,
 	}
 
 	annotationsResp := make([]response.AnnotationResponse, 0, len(result.Data))

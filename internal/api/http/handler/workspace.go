@@ -254,7 +254,6 @@ func (wh *WorkspaceHandler) ListWorkspaces(c *gin.Context) {
 		Limit:   result.Limit,
 		Offset:  result.Offset,
 		HasMore: result.HasMore,
-		Total:   result.Total,
 	}
 
 	workspaceResponses := make([]response.WorkspaceResponse, len(result.Data))

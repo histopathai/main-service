@@ -174,7 +174,6 @@ func (ath *AnnotationTypeHandler) ListAnnotationTypes(c *gin.Context) {
 	paginationResp := &response.PaginationResponse{
 		Limit:   pagination.Limit,
 		Offset:  pagination.Offset,
-		Total:   result.Total,
 		HasMore: result.HasMore,
 	}
 	annotationResponses := make([]response.AnnotationTypeResponse, len(result.Data))
@@ -307,7 +306,6 @@ func (ath *AnnotationTypeHandler) GetClassificationOptionedAnnotationTypes(c *gi
 	paginationResp := &response.PaginationResponse{
 		Limit:   pagination.Limit,
 		Offset:  pagination.Offset,
-		Total:   result.Total,
 		HasMore: result.HasMore,
 	}
 
@@ -364,7 +362,6 @@ func (ath *AnnotationTypeHandler) GetScoreOptionedAnnotationTypes(c *gin.Context
 	paginationResp := &response.PaginationResponse{
 		Limit:   pagination.Limit,
 		Offset:  pagination.Offset,
-		Total:   result.Total,
 		HasMore: result.HasMore,
 	}
 

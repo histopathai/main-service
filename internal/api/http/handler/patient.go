@@ -169,7 +169,6 @@ func (ph *PatientHandler) GetPatientsByWorkspaceID(c *gin.Context) {
 		Limit:   result.Limit,
 		Offset:  result.Offset,
 		HasMore: result.HasMore,
-		Total:   result.Total,
 	}
 
 	// Service Output -> DTO
@@ -278,7 +277,6 @@ func (ph *PatientHandler) ListPatients(c *gin.Context) {
 		Limit:   result.Limit,
 		Offset:  result.Offset,
 		HasMore: result.HasMore,
-		Total:   result.Total,
 	}
 	patientResponses := make([]response.PatientResponse, len(result.Data))
 	for i, patient := range result.Data {

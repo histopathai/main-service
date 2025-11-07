@@ -172,7 +172,6 @@ func (ih *ImageHandler) ListImageByPatientID(c *gin.Context) {
 		Limit:   result.Limit,
 		Offset:  result.Offset,
 		HasMore: result.HasMore,
-		Total:   result.Total,
 	}
 
 	ih.response.SuccessList(c, imageResponses, paginationResp)
