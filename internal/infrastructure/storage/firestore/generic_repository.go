@@ -206,7 +206,6 @@ func (gr *GenericRepositoryImpl[T]) FindByFilters(ctx context.Context, filters [
 		Limit:   paginationOpts.Limit,
 		Offset:  paginationOpts.Offset,
 		HasMore: hasMore,
-		Total:   0,
 	}, nil
 
 }
