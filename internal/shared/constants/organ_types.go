@@ -1,6 +1,9 @@
 package constants
 
-import "strings"
+import (
+	"regexp"
+	"strings"
+)
 
 // OrganType represents the standardized organ or tissue source for histopathology samples.
 type OrganType string
@@ -37,7 +40,7 @@ const (
 	OrganTongue         OrganType = "tongue"
 )
 
-// AllOrganTypes provides a list of all defined organ types (useful for validation or enumeration).
+// AllOrganTypes holds all defined organ names for iteration or validation purposes.
 var AllOrganTypes = []OrganType{
 	OrganUnknown,
 	OrganBrain,
@@ -70,13 +73,23 @@ var AllOrganTypes = []OrganType{
 	OrganTongue,
 }
 
-func IsValidOrganType(s string) bool {
+// Precompiled regex (auto-generated or manually updated)
+var organTypeRegex = regexp.MustCompile(`^(unknown|brain|lung|liver|kidney|heart|stomach|small_intestine|large_intestine|pancreas|spleen|bladder|prostate|testis|ovary|uterus|skin|bone|bone_marrow|breast|thyroid|lymph_node|esophagus|gallbladder|salivary_gland|adrenal_gland|placenta|eye|tongue)$`)
 
-	lowers := strings.ToLower(s)
-	for _, organ := range AllOrganTypes {
-		if string(organ) == lowers {
-			return true
-		}
-	}
-	return false
+// normalizeOrganString normalizes a string to snake_case and lowercase
+func normalizeOrganString(s string) string {
+	s = strings.TrimSpace(s)
+	s = strings.ReplaceAll(s, "-", "_")
+	s = strings.ReplaceAll(s, " ", "_")
+
+	// CamelCase → snake_case dönüşümü
+	re := regexp.MustCompile(`([a-z])([A-Z])`)
+	s = re.ReplaceAllString(s, `${1}_${2}`)
+
+	return strings.ToLower(s)
+}
+
+// IsValidOrganType returns true if the input matches any known organ name
+func IsValidOrganType(s string) bool {
+	return organTypeRegex.MatchString(normalizeOrganString(s))
 }
