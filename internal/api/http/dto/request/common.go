@@ -22,6 +22,9 @@ type QueryPaginationRequest struct {
 }
 
 func (qpr *QueryPaginationRequest) ApplyDefaults() {
+	if qpr.Limit <= 0 {
+		qpr.Limit = DefaultLimit
+	}
 	if qpr.Limit > MaxLimit {
 		qpr.Limit = MaxLimit
 	}
