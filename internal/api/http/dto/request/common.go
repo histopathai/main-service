@@ -36,14 +36,18 @@ func (qpr *QueryPaginationRequest) ApplyDefaults() {
 	}
 }
 
-func (qpr *QueryPaginationRequest) ValidateSortFields(validFields []string) error {
-	for _, field := range validFields {
-		if field == qpr.SortBy {
-			return nil
-		}
+func (qpr *QueryPaginationRequest) ValidateSortFields(validFields map[string]bool) error {
+	if validFields[qpr.SortBy] {
+		return nil
 	}
+
+	keys := make([]string, 0, len(validFields))
+	for k := range validFields {
+		keys = append(keys, k)
+	}
+
 	return errors.NewValidationError("invalid sort field", map[string]interface{}{
-		"sort_by": fmt.Sprintf("must be one of: %v", validFields),
+		"sort_by": fmt.Sprintf("must be one of: %v", keys),
 	})
 }
 
