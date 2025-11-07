@@ -38,11 +38,11 @@ type Container struct {
 	UOW   repository.UnitOfWorkFactory
 
 	// Services
-	WorkspaceService      *service.WorkspaceService
-	PatientService        *service.PatientService
-	ImageService          *service.ImageService
-	AnnotationService     *service.AnnotationService
-	AnnotationTypeService *service.AnnotationTypeService
+	WorkspaceService      service.IWorkspaceService
+	PatientService        service.IPatientService
+	ImageService          service.IImageService
+	AnnotationService     service.IAnnotationService
+	AnnotationTypeService service.IAnnotationTypeService
 	EventPublisher        events.ImageEventPublisher
 
 	// Event Handlers
