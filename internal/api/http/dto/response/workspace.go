@@ -51,7 +51,6 @@ func NewWorkspaceListResponse(result *query.Result[*model.Workspace]) *ListRespo
 		Limit:   result.Limit,
 		Offset:  result.Offset,
 		HasMore: result.HasMore,
-		Total:   result.Total,
 	}
 
 	return &ListResponse[WorkspaceResponse]{

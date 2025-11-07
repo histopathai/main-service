@@ -43,7 +43,6 @@ func NewAnnotationTypeListResponse(result *query.Result[*model.AnnotationType]) 
 		Limit:   result.Limit,
 		Offset:  result.Offset,
 		HasMore: result.HasMore,
-		Total:   result.Total,
 	}
 
 	return &ListResponse[AnnotationTypeResponse]{

@@ -45,7 +45,6 @@ func NewImageListResponse(result *query.Result[*model.Image]) *ListResponse[Imag
 	pagination := PaginationResponse{
 		Limit:   result.Limit,
 		Offset:  result.Offset,
-		Total:   result.Total,
 		HasMore: result.HasMore,
 	}
 

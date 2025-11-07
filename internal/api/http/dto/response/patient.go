@@ -48,7 +48,6 @@ func NewPatientListResponse(result *query.Result[*model.Patient]) *ListResponse[
 		Limit:   result.Limit,
 		Offset:  result.Offset,
 		HasMore: result.HasMore,
-		Total:   result.Total,
 	}
 
 	return &ListResponse[PatientResponse]{

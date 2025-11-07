@@ -9,7 +9,6 @@ type ErrorResponse struct {
 type PaginationResponse struct {
 	Limit   int  `json:"limit" example:"20"`
 	Offset  int  `json:"offset" example:"0"`
-	Total   int  `json:"total,omitempty" example:"150"`
 	HasMore bool `json:"has_more" example:"true"`
 }
 
