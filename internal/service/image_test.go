@@ -9,7 +9,9 @@ import (
 	"github.com/histopathai/main-service/internal/domain/storage"
 	"github.com/histopathai/main-service/internal/mocks"
 	"github.com/histopathai/main-service/internal/service"
+	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
+	"github.com/histopathai/main-service/internal/shared/query"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -160,4 +162,55 @@ func TestConfirmUpload_PublishEventFailure(t *testing.T) {
 	var internalErr *errors.Err
 	require.True(t, stderrors.As(err, &internalErr))
 	assert.Equal(t, errors.ErrorTypeInternal, internalErr.Type)
+}
+
+func TestListImageByPatientID_Success(t *testing.T) {
+	imgService, mockImageRepo, _, _, _ := setupImageService(t)
+	ctx := context.Background()
+	patientID := "pat-123"
+	pagination := &query.Pagination{Limit: 10}
+
+	expectedFilter := []query.Filter{
+		{
+			Field:    constants.ImagePatientIDField,
+			Operator: query.OpEqual,
+			Value:    patientID,
+		},
+	}
+	mockImageRepo.EXPECT().
+		FindByFilters(ctx, expectedFilter, pagination).
+		Return(&query.Result[*model.Image]{Data: []*model.Image{
+			{ID: "img-1", PatientID: patientID},
+			{ID: "img-2", PatientID: patientID},
+		}}, nil)
+
+	result, err := imgService.ListImageByPatientID(ctx, patientID, pagination)
+	require.NoError(t, err)
+	require.Len(t, result.Data, 2)
+}
+
+func TestDeleteImageByID_Success(t *testing.T) {
+	imgService, mockImageRepo, _, _, _ := setupImageService(t)
+	ctx := context.Background()
+	imageID := "img-123"
+
+	mockImageRepo.EXPECT().Delete(ctx, imageID).Return(nil)
+
+	err := imgService.DeleteImageByID(ctx, imageID)
+	require.NoError(t, err)
+}
+
+func TestGetImageByID_NotFound(t *testing.T) {
+	imgService, mockImageRepo, _, _, _ := setupImageService(t)
+	ctx := context.Background()
+	imageID := "img-not-found"
+
+	mockImageRepo.EXPECT().Read(ctx, imageID).Return(nil, errors.NewNotFoundError("not found"))
+
+	img, err := imgService.GetImageByID(ctx, imageID)
+	require.Error(t, err)
+	require.Nil(t, img)
+	var notFoundErr *errors.Err
+	require.True(t, stderrors.As(err, &notFoundErr))
+	assert.Equal(t, errors.ErrorTypeNotFound, notFoundErr.Type)
 }
