@@ -27,12 +27,12 @@ var allowedPatientSortFields = map[string]bool{
 }
 
 type PatientHandler struct {
-	patientService *service.PatientService
+	patientService service.IPatientService
 	validator      *validator.RequestValidator
 	BaseHandler    // Embed the BaseHandler
 }
 
-func NewPatientHandler(patientService *service.PatientService, validator *validator.RequestValidator, logger *slog.Logger) *PatientHandler {
+func NewPatientHandler(patientService service.IPatientService, validator *validator.RequestValidator, logger *slog.Logger) *PatientHandler {
 	return &PatientHandler{
 		patientService: patientService,
 		validator:      validator,

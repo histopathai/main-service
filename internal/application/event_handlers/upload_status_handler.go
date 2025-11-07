@@ -13,12 +13,12 @@ import (
 )
 
 type UploadStatusHandler struct {
-	imageService *service.ImageService
+	imageService service.IImageService
 	logger       *slog.Logger
 }
 
 func NewUploadStatusHandler(
-	imageService *service.ImageService,
+	imageService service.IImageService,
 	logger *slog.Logger,
 ) *UploadStatusHandler {
 	return &UploadStatusHandler{

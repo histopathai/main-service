@@ -22,12 +22,12 @@ var allowedAnnotationTypeSortFields = map[string]bool{
 }
 
 type AnnotationTypeHandler struct {
-	annotationTypeService *service.AnnotationTypeService
+	annotationTypeService service.IAnnotationTypeService
 	validator             *validator.RequestValidator
 	BaseHandler           // Embed the BaseHandler
 }
 
-func NewAnnotationTypeHandler(annotationTypeService *service.AnnotationTypeService, validator *validator.RequestValidator, logger *slog.Logger) *AnnotationTypeHandler {
+func NewAnnotationTypeHandler(annotationTypeService service.IAnnotationTypeService, validator *validator.RequestValidator, logger *slog.Logger) *AnnotationTypeHandler {
 	return &AnnotationTypeHandler{
 		annotationTypeService: annotationTypeService,
 		validator:             validator,

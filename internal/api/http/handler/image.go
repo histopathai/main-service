@@ -25,12 +25,12 @@ var allowedImageSortFields = map[string]bool{
 }
 
 type ImageHandler struct {
-	imageService *service.ImageService
+	imageService service.IImageService
 	validator    *validator.RequestValidator
 	BaseHandler  // Embed the BaseHandler
 }
 
-func NewImageHandler(imageService *service.ImageService, validator *validator.RequestValidator, logger *slog.Logger) *ImageHandler {
+func NewImageHandler(imageService service.IImageService, validator *validator.RequestValidator, logger *slog.Logger) *ImageHandler {
 	return &ImageHandler{
 		imageService: imageService,
 		validator:    validator,

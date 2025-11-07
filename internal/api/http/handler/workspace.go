@@ -25,12 +25,12 @@ var allowedWorkspaceSortFields = map[string]bool{
 }
 
 type WorkspaceHandler struct {
-	workspaceService *service.WorkspaceService
+	workspaceService service.IWorkspaceService
 	validator        *validator.RequestValidator
 	BaseHandler      // Embed the BaseHandler
 }
 
-func NewWorkspaceHandler(workspaceService *service.WorkspaceService, validator *validator.RequestValidator, logger *slog.Logger) *WorkspaceHandler {
+func NewWorkspaceHandler(workspaceService service.IWorkspaceService, validator *validator.RequestValidator, logger *slog.Logger) *WorkspaceHandler {
 	return &WorkspaceHandler{
 		workspaceService: workspaceService,
 		validator:        validator,
