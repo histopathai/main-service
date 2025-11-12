@@ -138,7 +138,7 @@ func (c *Container) initRepositories() error {
 func (c *Container) initServices() error {
 	// Create event publisher
 	topicMap := map[events.EventType]string{
-		events.EventTypeImageProcessingRequested: c.Config.PubSub.ImageProcessingTopicID,
+		events.EventTypeImageProcessingRequested: c.Config.PubSub.ImageProcessingTopic,
 	}
 	c.EventPublisher = service.NewEventPublisher(c.PubSubClient, topicMap)
 
@@ -199,8 +199,8 @@ func (c *Container) initEventHandlers() error {
 
 func (c *Container) initOrchestrator() error {
 	orchestratorConfig := orchestrator.SubscriberConfig{
-		UploadStatusSubscriptionID:       c.Config.PubSub.UploadStatusSubscriptionID,
-		ImageProcessResultSubscriptionID: c.Config.PubSub.ImageProcessResultSubscriptionID,
+		UploadStatusSubscriptionID:       c.Config.PubSub.UploadStatusSubscription,
+		ImageProcessResultSubscriptionID: c.Config.PubSub.ProcessingCompletedSubscription,
 	}
 
 	c.ImageOrchestrator = orchestrator.NewImageOrchestrator(
