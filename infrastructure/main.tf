@@ -4,7 +4,7 @@ terraform {
   required_providers {
     google = {
         source = "hashicorp/google"
-        prefix = "~> 5.0"
+        version = "~> 5.0"
     }
   }
   backend "gcs" {
@@ -44,7 +44,6 @@ locals {
     # Storage bucket info
     original_bucket_name  = data.terraform_remote_state.platform.outputs.original_bucket_name
     processed_bucket_name = data.terraform_remote_state.platform.outputs.processed_bucket_name
-
 }
 
 provider "google" {
@@ -56,7 +55,7 @@ provider "google" {
 # CLOUD RUN SERVICE
 # ----------------------------------
 
-resource "google_cloud_run_v2_service" "auth_service" {
+resource "google_cloud_run_v2_service" "main_service" {
     name     = local.service_name
     location = local.region
     ingress  = var.allow_public_access ? "INGRESS_TRAFFIC_ALL" : "INGRESS_TRAFFIC_INTERNAL_ONLY"
@@ -82,30 +81,50 @@ resource "google_cloud_run_v2_service" "auth_service" {
             }
 
             env {
-                name  = "ENVIRONMENT"
-                value = var.environment
+                name  = "PROJECT_ID"
+                value = local.project_id
+            }
+
+            env {
+                name  = "PROJECT_NUMBER"
+                value = local.project_number
+            }
+
+            env {
+                name  = "REGION"
+                value = local.region
+            }
+
+            env {
+                name  = "ENV"
+                value = var.environment == "prod" ? "PROD" : "DEV"
             }
 
             env {
                 name = "GIN_MODE"
                 value = var.environment == "prod" ? "release" : "debug"
             }
+
             env {
                 name = "LOG_LEVEL"
-                value = var.environment == "prod" ? "info" : "debug"
+                value = var.log_levels
             }
+
             env {
                 name = "LOG_FORMAT"
                 value = "json"
             }
+
             env  {
                 name = "READ_TIMEOUT"
                 value = "15s"
             }
+
             env {
                 name  = "WRITE_TIMEOUT"
                 value = "30s"
             }
+
             env {
                 name  = "IDLE_TIMEOUT"
                 value = "120s"
@@ -116,26 +135,32 @@ resource "google_cloud_run_v2_service" "auth_service" {
                 name = "ORIGINAL_BUCKET_NAME"
                 value = local.original_bucket_name
             }
+
             env {
                 name = "PROCESSED_BUCKET_NAME"
                 value = local.processed_bucket_name
             }
+
             env {
                 name = "UPLOAD_STATUS_SUBSCRIPTION"
                 value = local.upload_status_subscription
             }
+
             env {
                 name = "IMAGE_PROCESSING_TOPIC"
                 value = local.image_processing_topic
             }
+
             env {
                 name = "IMAGE_PROCESSING_DLQ_TOPIC"
                 value = local.image_processing_dlq_topic
             }
+
             env {
                 name = "PROCESSING_COMPLETED_SUBSCRIPTION"
                 value = local.processing_completed_subscription
             }
+
             env {
                 name = "PROCESSING_COMPLETED_DLQ_TOPIC"
                 value = local.processing_completed_dlq_topic
@@ -147,13 +172,23 @@ resource "google_cloud_run_v2_service" "auth_service" {
         type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
         percent = 100
     }
+
     labels = {
         environment = var.environment
         service     = "main-service"
         managed_by  = "terraform"
     }
+}
 
+# ---------------------------------
+# IAM for Public Access (Optional)
+# ---------------------------------
+resource "google_cloud_run_v2_service_iam_member" "public_access" {
+  count = var.allow_public_access ? 1 : 0
 
-
-
+  project  = google_cloud_run_v2_service.main_service.project
+  location = google_cloud_run_v2_service.main_service.location
+  name     = google_cloud_run_v2_service.main_service.name
+  role     = "roles/run.invoker"
+  member   = "allUsers"
 }
