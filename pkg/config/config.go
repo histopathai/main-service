@@ -32,17 +32,19 @@ type ServerConfig struct {
 
 type GCPConfig struct {
 	ProjectID           string
+	ProjectNumber       string
+	Region              string
 	CredentialsFile     string
 	OriginalBucketName  string
 	ProcessedBucketName string
 }
 
 type PubSubConfig struct {
-	UploadStatusTopicID              string
-	ImageProcessingTopicID           string
-	ImageProcessResultTopicID        string
-	UploadStatusSubscriptionID       string
-	ImageProcessResultSubscriptionID string
+	UploadStatusSubscription        string
+	ImageProcessingTopic            string
+	ImageProcessingDLQTopic         string
+	ProcessingCompletedSubscription string
+	ProcessingCompletedDLQTopic     string
 }
 
 type LoggingConfig struct {
@@ -79,16 +81,18 @@ func Load() (*Config, error) {
 		},
 		GCP: GCPConfig{
 			ProjectID:           requireEnv("PROJECT_ID"),
+			ProjectNumber:       getEnv("PROJECT_NUMBER", ""),
+			Region:              getEnv("REGION", ""),
 			CredentialsFile:     getEnv("GOOGLE_APPLICATION_CREDENTIALS", ""),
 			OriginalBucketName:  requireEnv("ORIGINAL_BUCKET_NAME"),
 			ProcessedBucketName: getEnv("PROCESSED_BUCKET_NAME", ""),
 		},
 		PubSub: PubSubConfig{
-			UploadStatusTopicID:              getEnv("UPLOAD_STATUS_TOPIC_ID", "upload-status"),
-			ImageProcessingTopicID:           getEnv("IMAGE_PROCESSING_TOPIC_ID", "image-processing"),
-			ImageProcessResultTopicID:        getEnv("IMAGE_PROCESS_RESULT_TOPIC_ID", "image-process-result"),
-			UploadStatusSubscriptionID:       getEnv("UPLOAD_STATUS_SUBSCRIPTION_ID", "upload-status-sub"),
-			ImageProcessResultSubscriptionID: getEnv("IMAGE_PROCESS_RESULT_SUBSCRIPTION_ID", "image-process-result-sub"),
+			UploadStatusSubscription:        getEnv("UPLOAD_STATUS_SUBSCRIPTION", "upload-status-sub"),
+			ImageProcessingTopic:            getEnv("IMAGE_PROCESSING_TOPIC", "image-processing"),
+			ImageProcessingDLQTopic:         getEnv("IMAGE_PROCESSING_DLQ_TOPIC", "image-processing-dlq"),
+			ProcessingCompletedSubscription: getEnv("PROCESSING_COMPLETED_SUBSCRIPTION", "image-process-result-sub"),
+			ProcessingCompletedDLQTopic:     getEnv("PROCESSING_COMPLETED_DLQ_TOPIC", "image-process-result-dlq"),
 		},
 		Logging: LoggingConfig{
 			Level:  getEnv("LOG_LEVEL", "info"),
