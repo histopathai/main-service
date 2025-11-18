@@ -210,5 +210,5 @@ resource "google_cloud_run_v2_service_iam_member" "public_access" {
   location = google_cloud_run_v2_service.main_service.location
   name     = google_cloud_run_v2_service.main_service.name
   role     = "roles/run.invoker"
-  member   = "allUsers"
+  member   = "serviceAccount:${data.terraform_remote_state.platform.outputs.auth_service_account_email}"
 }
