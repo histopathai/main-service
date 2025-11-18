@@ -109,9 +109,9 @@ func (ah *AnnotationHandler) CreateNewAnnotation(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
-// @Router /annotations/{id} [get]
+// @Router /annotations/{annotation_id} [get]
 func (ah *AnnotationHandler) GetAnnotationByID(c *gin.Context) {
-	annotationID := c.Param("id")
+	annotationID := c.Param("annotation_id")
 	if annotationID == "" {
 		ah.handleError(c, errors.NewValidationError("invalid annotation ID", map[string]interface{}{
 			"annotation_id": "Annotation ID cannot be empty",
@@ -213,9 +213,9 @@ func (ah *AnnotationHandler) GetAnnotationsByImageID(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
-// @Router /annotations/{id} [delete]
+// @Router /annotations/{annotation_id} [delete]
 func (ah *AnnotationHandler) DeleteAnnotation(c *gin.Context) {
-	annotationID := c.Param("id")
+	annotationID := c.Param("annotation_id")
 	if annotationID == "" {
 		ah.handleError(c, errors.NewValidationError("invalid annotation ID", map[string]interface{}{
 			"annotation_id": "Annotation ID cannot be empty",
