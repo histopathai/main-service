@@ -39,7 +39,7 @@ func setupAnnotationHandler(t *testing.T) (*gin.Engine, *mocks.MockIAnnotationSe
 	})
 
 	r.POST("/annotations", ah.CreateNewAnnotation)
-	r.GET("/annotations/:id", ah.GetAnnotationByID)
+	r.GET("/annotations/:annotation_id", ah.GetAnnotationByID)
 	r.GET("/annotations/image/:image_id", ah.GetAnnotationsByImageID)
 
 	return r, mockService

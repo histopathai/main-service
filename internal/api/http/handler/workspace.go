@@ -124,11 +124,11 @@ func (wh *WorkspaceHandler) CreateNewWorkspace(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
-// @Router /workspaces/{id} [put]
+// @Router /workspaces/{workspace_id} [put]
 
 func (wh *WorkspaceHandler) UpdateWorkspace(c *gin.Context) {
 
-	workspaceID := c.Param("id")
+	workspaceID := c.Param("workspace_id")
 
 	var req request.UpdateWorkspaceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -186,12 +186,11 @@ func (wh *WorkspaceHandler) UpdateWorkspace(c *gin.Context) {
 // @Success 200 {object} response.WorkspaceDataResponse "Workspace details retrieved successfully"
 // @Failure 404 {object} response.ErrorResponse "Workspace not found"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Router /workspaces/{id} [get]
+// @Router /workspaces/{workspace_id} [get]
 
 func (wh *WorkspaceHandler) GetWorkspaceByID(c *gin.Context) {
 
-	workspaceID := c.Param("id")
-
+	workspaceID := c.Param("workspace_id")
 	workspace, err := wh.workspaceService.GetWorkspaceByID(c.Request.Context(), workspaceID)
 	if err != nil {
 		wh.handleError(c, err)
@@ -215,9 +214,9 @@ func (wh *WorkspaceHandler) GetWorkspaceByID(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
-// @Router /workspaces/{id} [delete]
+// @Router /workspaces/{workspace_id} [delete]
 func (wh *WorkspaceHandler) DeleteWorkspace(c *gin.Context) {
-	workspaceID := c.Param("id")
+	workspaceID := c.Param("workspace_id")
 
 	err := wh.workspaceService.DeleteWorkspace(c.Request.Context(), workspaceID)
 	if err != nil {

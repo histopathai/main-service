@@ -38,8 +38,8 @@ func setupWorkspaceHandler(t *testing.T) (*gin.Engine, *mocks.MockIWorkspaceServ
 	})
 
 	r.POST("/workspaces", wh.CreateNewWorkspace)
-	r.GET("/workspaces/:id", wh.GetWorkspaceByID)
-	r.DELETE("/workspaces/:id", wh.DeleteWorkspace)
+	r.GET("/workspaces/:workspace_id", wh.GetWorkspaceByID)
+	r.DELETE("/workspaces/:workspace_id", wh.DeleteWorkspace)
 
 	return r, mockService
 }

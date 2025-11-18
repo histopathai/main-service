@@ -53,13 +53,13 @@ func (io *ImageOrchestrator) Start(ctx context.Context) error {
 	io.logger.Info("Starting Image Orchestrator")
 
 	if io.config.UploadStatusSubscriptionID != "" {
-		if err := io.startSubscription(ctx, io.config.UploadStatusSubscriptionID, "upload-status", io.uploadHandler.Handle); err != nil {
+		if err := io.startSubscription(ctx, io.config.UploadStatusSubscriptionID, io.uploadHandler.Handle); err != nil {
 			return err
 		}
 	}
 
 	if io.config.ImageProcessResultSubscriptionID != "" {
-		if err := io.startSubscription(ctx, io.config.ImageProcessResultSubscriptionID, "image-process-result", io.registry.Handle); err != nil {
+		if err := io.startSubscription(ctx, io.config.ImageProcessResultSubscriptionID, io.registry.Handle); err != nil {
 			return err
 		}
 	}
@@ -68,7 +68,7 @@ func (io *ImageOrchestrator) Start(ctx context.Context) error {
 	return nil
 }
 
-func (io *ImageOrchestrator) startSubscription(ctx context.Context, subscriptionID, name string, handler events.EventHandler) error {
+func (io *ImageOrchestrator) startSubscription(ctx context.Context, subscriptionID string, handler events.EventHandler) error {
 	subCtx, cancel := context.WithCancel(ctx)
 	io.cancelFuncs = append(io.cancelFuncs, cancel)
 
@@ -76,18 +76,17 @@ func (io *ImageOrchestrator) startSubscription(ctx context.Context, subscription
 	go func() {
 		defer io.wg.Done()
 
-		io.logger.Info("Starting subscription", "name", name, "subscriptionID", subscriptionID)
+		io.logger.Info("Starting subscription", "subscriptionID", subscriptionID)
 
 		if err := io.pubsubClient.Subscribe(subCtx, subscriptionID, handler); err != nil {
 			if subCtx.Err() != context.Canceled {
 				io.logger.Error("Subscription error",
-					"name", name,
 					"subscriptionID", subscriptionID,
 					"error", err)
 			}
 		}
 
-		io.logger.Info("Subscription stopped", "name", name, "subscriptionID", subscriptionID)
+		io.logger.Info("Subscription stopped", "subscriptionID", subscriptionID)
 	}()
 
 	return nil

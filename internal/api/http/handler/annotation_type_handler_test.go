@@ -39,9 +39,9 @@ func setupAnnotationTypeHandler(t *testing.T) (*gin.Engine, *mocks.MockIAnnotati
 	})
 
 	r.POST("/annotation-types", ath.CreateNewAnnotationType)
-	r.GET("/annotation-types/:id", ath.GetAnnotationType)
+	r.GET("/annotation-types/:annotation_type_id", ath.GetAnnotationType)
 	r.GET("/annotation-types/classification-enabled", ath.GetClassificationOptionedAnnotationTypes)
-	r.DELETE("/annotation-types/:id", ath.DeleteAnnotationType)
+	r.DELETE("/annotation-types/:annotation_type_id", ath.DeleteAnnotationType)
 
 	return r, mockService
 }
