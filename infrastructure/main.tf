@@ -79,7 +79,27 @@ resource "google_cloud_run_v2_service" "main_service" {
             ports {
                 container_port = 8080
             }
+            startup_probe {
+                http_get {
+                    path = "/health"
+                    port = 8080
+                }
+                initial_delay_seconds = 10
+                timeout_seconds       = 3
+                period_seconds        = 5
+                failure_threshold     = 10  
+            }
 
+            liveness_probe {
+                http_get {
+                    path = "/health"
+                    port = 8080
+                }
+                initial_delay_seconds = 30
+                timeout_seconds       = 3
+                period_seconds        = 10
+                failure_threshold     = 3
+            }
             env {
                 name  = "PROJECT_ID"
                 value = local.project_id

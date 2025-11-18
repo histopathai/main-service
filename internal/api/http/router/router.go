@@ -2,6 +2,7 @@ package router
 
 import (
 	"log/slog"
+	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -14,6 +15,10 @@ import (
 type RouterConfig struct {
 	Logger         *slog.Logger
 	RequestTimeout time.Duration
+}
+
+type HealthChecker interface {
+	IsHealthy() bool
 }
 
 type Router struct {
@@ -31,6 +36,9 @@ type Router struct {
 	// Middleware
 	authMiddleware    *middleware.AuthMiddleware
 	timeoutMiddleware *middleware.TimeoutMiddleware
+
+	// Health checker (optional, can be nil)
+	healthChecker HealthChecker
 }
 
 func NewRouter(
@@ -44,7 +52,8 @@ func NewRouter(
 	authMiddleware *middleware.AuthMiddleware,
 	timeoutMiddleware *middleware.TimeoutMiddleware,
 ) *Router {
-	return &Router{engine: gin.Default(),
+	return &Router{
+		engine:                gin.Default(),
 		config:                config,
 		workspaceHandler:      workspaceHandler,
 		patientHandler:        patientHandler,
@@ -56,9 +65,13 @@ func NewRouter(
 		timeoutMiddleware:     timeoutMiddleware,
 	}
 }
+
+func (r *Router) SetHealthChecker(hc HealthChecker) {
+	r.healthChecker = hc
+}
+
 func debugUserMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// Test için sahte bir kullanıcı ID'si ekle
 		c.Set("user_id", "local-debug-user-uuid")
 		c.Next()
 	}
@@ -69,36 +82,28 @@ func (r *Router) SetupRoutes() *gin.Engine {
 	r.engine.Use(middleware.RequestIDMiddleware())
 	r.engine.Use(r.timeoutMiddleware.Handler())
 
-	// Health check endpoint (no auth required)
+	// Health check endpoints (no auth required) - MUST be before any other routes
 	r.engine.GET("/health", r.healthCheck)
 	r.engine.GET("/ready", r.readinessCheck)
+	r.engine.GET("/readiness", r.readinessCheck) // Alternative endpoint
 
 	// Swagger documentation endpoint
 	r.engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
 	// API v1 routes
 	v1 := r.engine.Group("/api/v1")
 	{
-
 		if gin.Mode() == gin.DebugMode {
 			r.config.Logger.Info("Running in debug mode, applying debug user middleware")
 			v1.Use(debugUserMiddleware())
 		} else {
-			// Apply authentication middleware to all v1 routes
 			v1.Use(r.authMiddleware.RequireAuth())
 		}
-		// Workspace routes
+
 		r.setupWorkspaceRoutes(v1)
-
-		// Patient routes
 		r.setupPatientRoutes(v1)
-
-		// Image routes
 		r.setupImageRoutes(v1)
-
-		// Annotation routes
 		r.setupAnnotationRoutes(v1)
-
-		// Annotation Type routes
 		r.setupAnnotationTypeRoutes(v1)
 
 		v1.GET("/proxy/*objectPath", r.gcsProxyHandler.ProxyObject)
@@ -115,8 +120,6 @@ func (r *Router) setupWorkspaceRoutes(rg *gin.RouterGroup) {
 		workspaces.GET("/:workspace_id", r.workspaceHandler.GetWorkspaceByID)
 		workspaces.PUT("/:workspace_id", r.workspaceHandler.UpdateWorkspace)
 		workspaces.DELETE("/:workspace_id", r.workspaceHandler.DeleteWorkspace)
-
-		// Nested patient routes
 		workspaces.GET("/:workspace_id/patients", r.patientHandler.GetPatientsByWorkspaceID)
 	}
 }
@@ -130,8 +133,6 @@ func (r *Router) setupPatientRoutes(rg *gin.RouterGroup) {
 		patients.PUT("/:patient_id", r.patientHandler.UpdatePatientByID)
 		patients.DELETE("/:patient_id", r.patientHandler.DeletePatientByID)
 		patients.POST("/:patient_id/transfer/:workspace_id", r.patientHandler.TransferPatientWorkspace)
-
-		// Nested image routes
 		patients.GET("/:patient_id/images", r.imageHandler.ListImageByPatientID)
 	}
 }
@@ -169,15 +170,23 @@ func (r *Router) setupAnnotationTypeRoutes(rg *gin.RouterGroup) {
 }
 
 func (r *Router) healthCheck(c *gin.Context) {
-	c.JSON(200, gin.H{
+	c.JSON(http.StatusOK, gin.H{
 		"status": "healthy",
 		"time":   time.Now().UTC(),
 	})
 }
 
 func (r *Router) readinessCheck(c *gin.Context) {
-	// TODO: Add actual readiness checks (DB, PubSub, etc.)
-	c.JSON(200, gin.H{
+	// Check if health checker is available and healthy
+	if r.healthChecker != nil && !r.healthChecker.IsHealthy() {
+		c.JSON(http.StatusServiceUnavailable, gin.H{
+			"status": "not ready",
+			"time":   time.Now().UTC(),
+		})
+		return
+	}
+
+	c.JSON(http.StatusOK, gin.H{
 		"status": "ready",
 		"time":   time.Now().UTC(),
 	})

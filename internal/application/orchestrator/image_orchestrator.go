@@ -103,10 +103,5 @@ func (io *ImageOrchestrator) Stop() error {
 	io.wg.Wait()
 	io.logger.Info("Image Orchestrator stopped")
 
-	if err := io.pubsubClient.Stop(); err != nil {
-		io.logger.Error("Error stopping Pub/Sub client", slog.String("error", err.Error()))
-	}
-
-	io.logger.Info("Pub/Sub client stopped")
 	return nil
 }
