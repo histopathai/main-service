@@ -58,8 +58,7 @@ provider "google" {
 resource "google_cloud_run_v2_service" "main_service" {
     name     = local.service_name
     location = local.region
-    ingress  = var.allow_public_access ? "INGRESS_TRAFFIC_ALL" : "INGRESS_TRAFFIC_INTERNAL_ONLY"
-
+    ingress  = "INGRESS_TRAFFIC_ALL"
     template {
         service_account = local.service_account
         scaling {
@@ -200,15 +199,12 @@ resource "google_cloud_run_v2_service" "main_service" {
     }
 }
 
-# ---------------------------------
-# IAM for Public Access (Optional)
-# ---------------------------------
-resource "google_cloud_run_v2_service_iam_member" "public_access" {
-  count = var.allow_public_access ? 1 : 0
-
+resource "google_cloud_run_v2_service_iam_member" "auth_service_access" {
+  
   project  = google_cloud_run_v2_service.main_service.project
   location = google_cloud_run_v2_service.main_service.location
   name     = google_cloud_run_v2_service.main_service.name
   role     = "roles/run.invoker"
+  
   member   = "serviceAccount:${data.terraform_remote_state.platform.outputs.auth_service_account_email}"
 }
