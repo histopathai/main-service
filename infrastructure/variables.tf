@@ -20,7 +20,7 @@ variable "min_instances" {
 variable "max_instances" {
     description = "Maximum number of instances for scaling"
     type        = number
-    default     = 2
+    default     = 1
 }
 
 # --------------------------------
