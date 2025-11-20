@@ -8,7 +8,6 @@ terraform {
     }
   }
   backend "gcs" {
-    bucket = "tf-state-histopathai-platform"
     prefix = "services/main-service"
   }
 }
@@ -17,7 +16,7 @@ data "terraform_remote_state" "platform" {
     backend = "gcs"
 
     config = {
-        bucket = "tf-state-histopathai-platform"
+        bucket = var.tf_state_bucket
         prefix = "platform/prod"
     }
 }
@@ -35,11 +34,11 @@ locals {
     image_name              = "${local.region}-docker.pkg.dev/${local.project_id}/${local.artifact_repository_id}/${local.service_name}:${var.image_tag}"
 
     #Pub/Sub info
-    upload_status_subscription = data.terraform_remote_state.platform.outputs.upload_status_subscription
-    image_processing_topic = data.terraform_remote_state.platform.outputs.image_processing_topic
-    image_processing_dlq_topic = data.terraform_remote_state.platform.outputs.image_processing_dlq_topic
-    processing_completed_subscription = data.terraform_remote_state.platform.outputs.processing_completed_subscription
-    processing_completed_dlq_topic = data.terraform_remote_state.platform.outputs.processing_completed_dlq_topic
+    upload_status_subscription          = data.terraform_remote_state.platform.outputs.upload_status_subscription
+    image_processing_topic              = data.terraform_remote_state.platform.outputs.image_processing_topic
+    image_processing_dlq_topic          = data.terraform_remote_state.platform.outputs.image_processing_dlq_topic
+    processing_completed_subscription   = data.terraform_remote_state.platform.outputs.processing_completed_subscription
+    processing_completed_dlq_topic      = data.terraform_remote_state.platform.outputs.processing_completed_dlq_topic
 
     # Storage bucket info
     original_bucket_name  = data.terraform_remote_state.platform.outputs.original_bucket_name
