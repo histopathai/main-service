@@ -93,8 +93,9 @@ func main() {
 	engine := app.Router.SetupRoutes()
 
 	// Create HTTP server
+	// ✅ DEĞİŞİKLİK: 0.0.0.0 açıkça belirtildi
 	server := &http.Server{
-		Addr:         fmt.Sprintf(":%s", cfg.Server.Port),
+		Addr:         fmt.Sprintf("0.0.0.0:%s", cfg.Server.Port),
 		Handler:      engine,
 		ReadTimeout:  cfg.Server.ReadTimeout,
 		WriteTimeout: cfg.Server.WriteTimeout,
