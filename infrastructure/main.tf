@@ -116,17 +116,17 @@ resource "google_cloud_run_v2_service" "main_service" {
 
             env  {
                 name = "READ_TIMEOUT"
-                value = "15s"
+                value = var.read_timeout
             }
 
             env {
                 name  = "WRITE_TIMEOUT"
-                value = "30s"
+                value = var.write_timeout
             }
 
             env {
                 name  = "IDLE_TIMEOUT"
-                value = "120s"
+                value = var.idle_timeout
             }
 
             # --- Platform specific env variables ---
