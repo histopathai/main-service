@@ -38,6 +38,29 @@ variable "memory_limit" {
     default     = "512Mi"
 }
 
+
+# --------------------------------
+# Timeout Configuration
+# --------------------------------
+variable "read_timeout" {
+    description = "Read timeout in seconds"
+    type        = string
+    default     = "15"
+}
+
+variable "write_timeout" {
+    description = "Write timeout in seconds"
+    type        = string
+    default     = "15"
+}
+
+variable "idle_timeout" {
+    description = "Idle timeout in seconds"
+    type        = string
+    default     = "60"
+}
+
+
 # --------------------------------
 # Access Configuration
 # --------------------------------
@@ -46,6 +69,10 @@ variable "allow_public_access" {
   type        = bool
   default     = true
 }
+
+#--------------------------------
+# Logging Configuration
+#--------------------------------
 
 variable "log_levels" {
     description = "Log level (debug, info, warn, error)"
@@ -58,9 +85,22 @@ variable "log_levels" {
     }
 }
 
+variable "log_format" {
+    description = "Log format (json, text)"
+    type        = string
+    default     = "json"
+
+    validation {
+        condition     = contains(["json", "text"], var.log_format)
+        error_message = "Log format must be either 'json' or 'text'."
+    }
+  
+}
+
 variable "image_tag" {
-  description = "Docker image tag to deploy "
+  description = "Docker image tag to deploy"
   type        = string
+  default     = "latest"
 }
 
 
