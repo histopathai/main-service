@@ -45,19 +45,19 @@ variable "memory_limit" {
 variable "read_timeout" {
     description = "Read timeout in seconds"
     type        = string
-    default     = "15"
+    default     = "15s"
 }
 
 variable "write_timeout" {
     description = "Write timeout in seconds"
     type        = string
-    default     = "15"
+    default     = "15s"
 }
 
 variable "idle_timeout" {
     description = "Idle timeout in seconds"
     type        = string
-    default     = "60"
+    default     = "60s"
 }
 
 
