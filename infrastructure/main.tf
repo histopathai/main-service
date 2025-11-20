@@ -66,12 +66,13 @@ resource "google_cloud_run_v2_service" "main_service" {
         }
 
         containers {
-            image = local.image_name
+            image = var.image_tag
             resources {
                 limits = {
                     cpu     = var.cpu_limit
                     memory  = var.memory_limit
                 }
+                cpu_idle = true
             }
 
             ports {
@@ -84,13 +85,13 @@ resource "google_cloud_run_v2_service" "main_service" {
             }
 
             env {
-                name  = "PROJECT_NUMBER"
-                value = local.project_number
+                name  = "REGION"
+                value = local.region
             }
 
             env {
-                name  = "REGION"
-                value = local.region
+                name  = "PROJECT_NUMBER"
+                value = local.project_number
             }
 
             env {
@@ -110,22 +111,22 @@ resource "google_cloud_run_v2_service" "main_service" {
 
             env {
                 name = "LOG_FORMAT"
-                value = "json"
+                value = var.log_format
             }
 
             env  {
                 name = "READ_TIMEOUT"
-                value = "15s"
+                value = var.read_timeout
             }
 
             env {
                 name  = "WRITE_TIMEOUT"
-                value = "30s"
+                value = var.write_timeout
             }
 
             env {
                 name  = "IDLE_TIMEOUT"
-                value = "120s"
+                value = var.idle_timeout
             }
 
             # --- Platform specific env variables ---
