@@ -116,7 +116,7 @@ func (ath *AnnotationTypeHandler) CreateNewAnnotationType(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
-// @Router /annotation-types/{id} [get]
+// @Router /annotation-types/{annotation_type_id} [get]
 func (ath *AnnotationTypeHandler) GetAnnotationType(c *gin.Context) {
 	id := c.Param("annotation_type_id")
 
@@ -212,7 +212,7 @@ func (ath *AnnotationTypeHandler) ListAnnotationTypes(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
-// @Router /annotation-types/{id} [put]
+// @Router /annotation-types/{annotation_type_id} [put]
 func (ath *AnnotationTypeHandler) UpdateAnnotationType(c *gin.Context) {
 	id := c.Param("annotation_type_id")
 
@@ -257,7 +257,7 @@ func (ath *AnnotationTypeHandler) UpdateAnnotationType(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
-// @Router /annotation-types/{id} [delete]
+// @Router /annotation-types/{annotation_type_id} [delete]
 func (ath *AnnotationTypeHandler) DeleteAnnotationType(c *gin.Context) {
 	id := c.Param("annotation_type_id")
 
