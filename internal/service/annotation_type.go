@@ -27,11 +27,6 @@ func NewAnnotationTypeService(
 
 func (ats *AnnotationTypeService) ValidateAnnotationTypeCreation(ctx context.Context, input *CreateAnnotationTypeInput) error {
 
-	if input.ScoreEnabled && input.ClassificationEnabled {
-		details := map[string]interface{}{"annotation_type": "An annotation type cannot have both score and classification enabled."}
-		return errors.NewValidationError("invalid annotation type configuration", details)
-	}
-
 	if input.ScoreEnabled {
 		if input.ScoreName == nil || *input.ScoreName == "" {
 			details := map[string]interface{}{"score_name": "Score name must be provided when score is enabled."}
