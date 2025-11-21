@@ -161,9 +161,9 @@ func (r *Router) setupAnnotationTypeRoutes(rg *gin.RouterGroup) {
 	{
 		annotationTypes.POST("", r.annotationTypeHandler.CreateNewAnnotationType)
 		annotationTypes.GET("", r.annotationTypeHandler.ListAnnotationTypes)
-		annotationTypes.GET("/:id", r.annotationTypeHandler.GetAnnotationType)
-		annotationTypes.PUT("/:id", r.annotationTypeHandler.UpdateAnnotationType)
-		annotationTypes.DELETE("/:id", r.annotationTypeHandler.DeleteAnnotationType)
+		annotationTypes.GET("/:annotation_type_id", r.annotationTypeHandler.GetAnnotationType)
+		annotationTypes.PUT("/:annotation_type_id", r.annotationTypeHandler.UpdateAnnotationType)
+		annotationTypes.DELETE("/:annotation_type_id", r.annotationTypeHandler.DeleteAnnotationType)
 		annotationTypes.GET("/classification-enabled", r.annotationTypeHandler.GetClassificationOptionedAnnotationTypes)
 		annotationTypes.GET("/score-enabled", r.annotationTypeHandler.GetScoreOptionedAnnotationTypes)
 	}
