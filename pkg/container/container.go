@@ -138,7 +138,7 @@ func (c *Container) initRepositories() error {
 func (c *Container) initServices() error {
 	// Create event publisher
 	topicMap := map[events.EventType]string{
-		events.EventTypeImageProcessingRequested: c.Config.PubSub.ImageProcessingTopicID,
+		events.EventTypeImageProcessingRequested: c.Config.PubSub.ImageProcessingTopic,
 	}
 	c.EventPublisher = service.NewEventPublisher(c.PubSubClient, topicMap)
 
@@ -199,8 +199,8 @@ func (c *Container) initEventHandlers() error {
 
 func (c *Container) initOrchestrator() error {
 	orchestratorConfig := orchestrator.SubscriberConfig{
-		UploadStatusSubscriptionID:       c.Config.PubSub.UploadStatusSubscriptionID,
-		ImageProcessResultSubscriptionID: c.Config.PubSub.ImageProcessResultSubscriptionID,
+		UploadStatusSubscriptionID:       c.Config.PubSub.UploadStatusSubscription,
+		ImageProcessResultSubscriptionID: c.Config.PubSub.ProcessingCompletedSubscription,
 	}
 
 	c.ImageOrchestrator = orchestrator.NewImageOrchestrator(
@@ -289,34 +289,46 @@ func (c *Container) initHTTPLayer() error {
 	c.Logger.Info("HTTP layer initialized")
 	return nil
 }
-
 func (c *Container) Close() error {
 	c.Logger.Info("Closing container resources...")
+
+	var errs []error
+
+	if c.ImageOrchestrator != nil {
+		c.Logger.Info("Stopping Image Orchestrator")
+		if err := c.ImageOrchestrator.Stop(); err != nil {
+			c.Logger.Error("Error stopping orchestrator", slog.String("error", err.Error()))
+			errs = append(errs, fmt.Errorf("orchestrator stop: %w", err))
+		}
+	}
+
+	if c.PubSubClient != nil {
+		c.Logger.Info("Stopping Pub/Sub client")
+		if err := c.PubSubClient.Stop(); err != nil {
+			c.Logger.Error("Error stopping Pub/Sub client", slog.String("error", err.Error()))
+			errs = append(errs, fmt.Errorf("pubsub stop: %w", err))
+		}
+	}
 
 	if c.FirestoreClient != nil {
 		if err := c.FirestoreClient.Close(); err != nil {
 			c.Logger.Error("Failed to close Firestore client", slog.String("error", err.Error()))
+			errs = append(errs, fmt.Errorf("firestore close: %w", err))
 		}
 	}
 
 	if c.GCSClient != nil {
 		if err := c.GCSClient.Close(); err != nil {
 			c.Logger.Error("Failed to close GCS client", slog.String("error", err.Error()))
+			errs = append(errs, fmt.Errorf("gcs close: %w", err))
 		}
 	}
 
-	if c.PubSubClient != nil {
-		if err := c.PubSubClient.Stop(); err != nil {
-			c.Logger.Error("Failed to close PubSub client", slog.String("error", err.Error()))
-		}
+	if len(errs) > 0 {
+		c.Logger.Error("Container closed with errors", slog.Int("error_count", len(errs)))
+		return fmt.Errorf("container close errors: %v", errs)
 	}
 
-	if c.ImageOrchestrator != nil {
-		if err := c.ImageOrchestrator.Stop(); err != nil {
-			c.Logger.Error("Failed to stop orchestrator", slog.String("error", err.Error()))
-		}
-	}
-
-	c.Logger.Info("Container resources closed")
+	c.Logger.Info("Container resources closed successfully")
 	return nil
 }

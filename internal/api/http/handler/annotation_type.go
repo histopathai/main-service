@@ -118,7 +118,7 @@ func (ath *AnnotationTypeHandler) CreateNewAnnotationType(c *gin.Context) {
 // @Security BearerAuth
 // @Router /annotation-types/{id} [get]
 func (ath *AnnotationTypeHandler) GetAnnotationType(c *gin.Context) {
-	id := c.Param("id")
+	id := c.Param("annotation_type_id")
 
 	result, err := ath.annotationTypeService.GetAnnotationTypeByID(c.Request.Context(), id)
 	if err != nil {
@@ -214,7 +214,7 @@ func (ath *AnnotationTypeHandler) ListAnnotationTypes(c *gin.Context) {
 // @Security BearerAuth
 // @Router /annotation-types/{id} [put]
 func (ath *AnnotationTypeHandler) UpdateAnnotationType(c *gin.Context) {
-	id := c.Param("id")
+	id := c.Param("annotation_type_id")
 
 	var req request.UpdateAnnotationTypeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -259,7 +259,7 @@ func (ath *AnnotationTypeHandler) UpdateAnnotationType(c *gin.Context) {
 // @Security BearerAuth
 // @Router /annotation-types/{id} [delete]
 func (ath *AnnotationTypeHandler) DeleteAnnotationType(c *gin.Context) {
-	id := c.Param("id")
+	id := c.Param("annotation_type_id")
 
 	err := ath.annotationTypeService.DeleteAnnotationType(c.Request.Context(), id)
 	if err != nil {
