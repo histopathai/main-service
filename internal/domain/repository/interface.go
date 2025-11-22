@@ -15,6 +15,10 @@ type Repository[T any] interface {
 	Transfer(ctx context.Context, id string, newOwnerID string) error
 	FindByFilters(ctx context.Context, filters []query.Filter, paginationOpts *query.Pagination) (*query.Result[T], error)
 	FindByName(ctx context.Context, name string) (T, error)
+	BatchDelete(ctx context.Context, ids []string) error
+	BatchTransfer(ctx context.Context, ids []string, newOwnerID string) error
+	BatchUpdate(ctx context.Context, updates map[string]map[string]interface{}) error
+	Count(ctx context.Context, filters []query.Filter) (int64, error)
 }
 
 type WorkspaceRepository interface {
