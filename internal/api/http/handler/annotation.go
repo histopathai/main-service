@@ -236,3 +236,44 @@ func (ah *AnnotationHandler) DeleteAnnotation(c *gin.Context) {
 	// No content to return
 	ah.response.NoContent(c)
 }
+
+// BatchDeleteAnnotations godoc
+// @Summary Batch delete annotations by IDs
+// @Description Delete multiple annotations using their unique IDs
+// @Tags Annotations
+// @Accept json
+// @Produce json
+// @Param        request body request.BatchDeleteRequest true "Batch delete request"
+// @Success 204 "Annotations deleted successfully"
+// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /annotations/batch-delete [post]
+func (ah *AnnotationHandler) BatchDeleteAnnotations(c *gin.Context) {
+	var req request.BatchDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ah.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
+	}
+
+	if err := ah.validator.ValidateStruct(&req); err != nil {
+		ah.handleError(c, err)
+		return
+	}
+
+	err := ah.annotationService.BatchDeleteAnnotations(c.Request.Context(), req.IDs)
+	if err != nil {
+		ah.handleError(c, err)
+		return
+	}
+
+	ah.logger.Info("Batch annotations deleted successfully",
+		slog.Int("count", len(req.IDs)),
+	)
+
+	// No content to return
+	ah.response.NoContent(c)
+}
