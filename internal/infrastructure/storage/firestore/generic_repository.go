@@ -145,6 +145,11 @@ func (gr *GenericRepositoryImpl[T]) Transfer(ctx context.Context, id string, new
 	return nil
 }
 
+func (gr *GenericRepositoryImpl[T]) BatchTransfer(ctx context.Context, ids []string, newOwnerID string) error {
+	// Not applicable for generic repository, implement if needed
+	return nil
+}
+
 func (gr *GenericRepositoryImpl[T]) FindByFilters(ctx context.Context, filters []query.Filter, paginationOpts *query.Pagination) (*query.Result[T], error) {
 	// Map filters if needed
 	mappedFilters, err := gr.fnMapFilters(filters)
@@ -236,4 +241,82 @@ func (gr *GenericRepositoryImpl[T]) FindByName(ctx context.Context, name string)
 	}
 
 	return result.Data[0], nil
+}
+
+func (gr *GenericRepositoryImpl[T]) Count(ctx context.Context, filters []query.Filter) (int64, error) {
+	mappedFilters, err := gr.fnMapFilters(filters)
+	if err != nil {
+		return 0, err
+	}
+
+	fQuery := gr.client.Collection(gr.collection).Query
+	for _, f := range mappedFilters {
+		fQuery = fQuery.Where(f.Field, string(f.Operator), f.Value)
+	}
+
+	aggQuery := fQuery.NewAggregationQuery().WithCount("count")
+
+	results, err := aggQuery.Get(ctx)
+	if err != nil {
+		return 0, mapFirestoreError(err)
+	}
+
+	if val, found := results["count"]; found {
+		if count, ok := val.(int64); ok {
+			return count, nil
+		}
+	}
+
+	return 0, nil
+}
+
+func (gr *GenericRepositoryImpl[T]) BatchDelete(ctx context.Context, ids []string) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	bulkWriter := gr.client.BulkWriter(ctx)
+	collRef := gr.client.Collection(gr.collection)
+
+	for _, id := range ids {
+		docRef := collRef.Doc(id)
+		_, err := bulkWriter.Delete(docRef)
+		if err != nil {
+			bulkWriter.End()
+			return mapFirestoreError(err)
+		}
+	}
+
+	bulkWriter.End()
+
+	return nil
+}
+
+func (gr *GenericRepositoryImpl[T]) BatchUpdate(ctx context.Context, updates map[string]map[string]interface{}) error {
+	if len(updates) == 0 {
+		return nil
+	}
+
+	bulkWriter := gr.client.BulkWriter(ctx)
+	collRef := gr.client.Collection(gr.collection)
+
+	for id, updateFields := range updates {
+		mappedUpdates, err := gr.fnMapUpdates(updateFields)
+		if err != nil {
+			bulkWriter.End()
+			return err
+		}
+		mappedUpdates["updated_at"] = time.Now()
+
+		docRef := collRef.Doc(id)
+		_, err = bulkWriter.Set(docRef, mappedUpdates, firestore.MergeAll)
+		if err != nil {
+			bulkWriter.End()
+			return mapFirestoreError(err)
+		}
+	}
+
+	bulkWriter.End()
+
+	return nil
 }
