@@ -400,3 +400,47 @@ func (ath *AnnotationTypeHandler) GetScoreOptionedAnnotationTypes(c *gin.Context
 	ath.response.SuccessList(c, annotationResponses, paginationResp)
 
 }
+
+// BatchDeleteAnnotationTypes godoc
+// @Summary Batch delete annotation types
+// @Description Delete multiple annotation types by their IDs
+// @Tags Annotation Types
+// @Accept json
+// @Produce json
+// @Param        request body request.BatchDeleteRequest true "Batch delete request"
+// @Success 204 "Annotation Types deleted successfully"
+// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /annotation-types/batch-delete [delete]
+func (ath *AnnotationTypeHandler) BatchDeleteAnnotationTypes(c *gin.Context) {
+	user_role, err := middleware.GetAuthenticatedUserRole(c)
+	if err != nil {
+		ath.handleError(c, err)
+		return
+	}
+	if user_role != "admin" {
+		ath.handleError(c, errors.NewUnauthorizedError("only admin users can perform batch delete"))
+		return
+	}
+
+	var req request.BatchDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ath.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
+	}
+
+	err = ath.annotationTypeService.BatchDeleteAnnotationTypes(c.Request.Context(), req.IDs)
+	if err != nil {
+		ath.handleError(c, err)
+		return
+	}
+
+	ath.logger.Info("Annotation types batch deleted successfully")
+
+	// No content to return
+	ath.response.NoContent(c)
+}
