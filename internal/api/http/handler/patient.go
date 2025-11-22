@@ -376,3 +376,122 @@ func (ph *PatientHandler) TransferPatientWorkspace(c *gin.Context) {
 	)
 	ph.response.NoContent(c)
 }
+
+//CascadeDeletePatient godoc
+// @Summary Cascade delete patient by ID
+// @Description Cascade delete a patient along with associated images and annotations using their ID
+// @Tags Patients
+// @Accept json
+// @Produce json
+// @Param patient_id path string true "Patient ID"
+// @Success 204 "Patient cascade deleted successfully"
+// @Failure 400 {object} response.ErrorResponse "Invalid patient ID"
+// @Failure 404 {object} response.ErrorResponse "Patient not found"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /patients/{patient_id}/cascade-delete [delete]
+
+func (ph *PatientHandler) CascadeDeletePatient(c *gin.Context) {
+	user_role, err := middleware.GetAuthenticatedUserRole(c)
+	if err != nil {
+		ph.handleError(c, err)
+		return
+	}
+	if user_role != "admin" {
+		ph.handleError(c, errors.NewUnauthorizedError("only admin users can perform cascade delete"))
+		return
+	}
+	patientID := c.Param("patient_id")
+	err = ph.patientService.CascadeDelete(c.Request.Context(), patientID)
+	if err != nil {
+		ph.handleError(c, err)
+		return
+	}
+
+	ph.logger.Info("Patient cascade deleted successfully",
+		slog.String("patient_id", patientID),
+	)
+
+	ph.response.NoContent(c)
+}
+
+// BatchDeletePatients godoc
+// @Summary Batch delete patients
+// @Description Batch delete patients along with associated images and annotations using their IDs
+// @Tags Patients
+// @Accept json
+// @Produce json
+// @Param        request body request.BatchDeleteRequest true "Batch delete request"
+// @Success 204 "Patients batch deleted successfully"
+// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /patients/batch-delete [post]
+
+func (ph *PatientHandler) BatchDeletePatients(c *gin.Context) {
+	user_role, err := middleware.GetAuthenticatedUserRole(c)
+	if err != nil {
+		ph.handleError(c, err)
+		return
+	}
+	if user_role != "admin" {
+		ph.handleError(c, errors.NewUnauthorizedError("only admin users can perform batch delete"))
+		return
+	}
+
+	var req request.BatchDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ph.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
+	}
+
+	err = ph.patientService.BatchDelete(c.Request.Context(), req.IDs)
+	if err != nil {
+		ph.handleError(c, err)
+		return
+	}
+
+	ph.logger.Info("Patients batch deleted successfully")
+
+	ph.response.NoContent(c)
+}
+
+// BatchTransferPatients godoc
+// @Summary Batch transfer patients
+// @Description Batch transfer patients to a different workspace using their IDs
+// @Tags Patients
+// @Accept json
+// @Produce json
+// @Param        request body request.BatchTransferRequest true "Batch transfer request"
+// @Success 204 "Patients batch transferred successfully"
+// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /patients/batch-transfer [post]
+
+func (ph *PatientHandler) BatchTransferPatients(c *gin.Context) {
+	var req request.BatchTransferRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ph.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
+	}
+
+	err := ph.patientService.BatchTransfer(c.Request.Context(), req.IDs, req.TargetWorkspace)
+	if err != nil {
+		ph.handleError(c, err)
+		return
+	}
+
+	ph.logger.Info("Patients batch transferred successfully",
+		slog.String("target_workspace_id", req.TargetWorkspace),
+	)
+
+	ph.response.NoContent(c)
+}
