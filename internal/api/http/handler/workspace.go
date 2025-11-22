@@ -284,3 +284,84 @@ func (wh *WorkspaceHandler) ListWorkspaces(c *gin.Context) {
 
 	wh.response.SuccessList(c, workspaceResponses, paginationResp)
 }
+
+// BatchDeleteWorkspaces godoc
+// @Summary      Batch delete workspaces
+// @Description  Delete multiple workspaces by their IDs
+// @Tags         Workspaces
+// @Accept       json
+// @Produce      json
+// @Param        request body request.BatchDeleteRequest true "Batch delete workspaces request"
+// @Success      204 "Workspaces deleted successfully"
+// @Failure      400 {object} response.ErrorResponse "Invalid request payload"
+// @Failure      404 {object} response.ErrorResponse "One or more workspaces not found"
+// @Failure      409 {object} response.ErrorResponse "One or more workspaces associated with existing patients"
+// @Failure      500 {object} response.ErrorResponse "Internal server error"
+// @Failure      401 {object} response.ErrorResponse "Unauthorized"
+// @Security     BearerAuth
+// @Router       /workspaces/batch-delete [delete]
+
+func (wh *WorkspaceHandler) BatchDeleteWorkspaces(c *gin.Context) {
+	var req request.BatchDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		wh.handleError(c, errors.NewValidationError("invalid request payload",
+			map[string]interface{}{"error": err.Error()}))
+		return
+	}
+
+	if err := wh.validator.ValidateStruct(&req); err != nil {
+		wh.handleError(c, err)
+		return
+	}
+
+	err := wh.workspaceService.BatchDeleteWorkspaces(c.Request.Context(), req.IDs)
+	if err != nil {
+		wh.handleError(c, err)
+		return
+	}
+
+	wh.logger.Info("Workspaces batch deleted successfully",
+		slog.Int("count", len(req.IDs)),
+	)
+
+	// No content to return
+	wh.response.NoContent(c)
+}
+
+// CascadeDeleteWorkspace godoc
+// @Summary Cascade delete a workspace by ID
+// @Description Delete an existing workspace and all its associated data by its ID
+// @Tags Workspaces
+// @Accept json
+// @Produce json
+// @Param        id   path      string  true  "Workspace ID"
+// @Success 204 "Workspace and associated data deleted successfully"
+// @Failure 404 {object} response.ErrorResponse "Workspace not found"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /workspaces/{workspace_id}/cascade-delete [delete]
+func (wh *WorkspaceHandler) CascadeDeleteWorkspace(c *gin.Context) {
+	user_role, err := middleware.GetAuthenticatedUserRole(c)
+	if err != nil {
+		wh.handleError(c, err)
+		return
+	}
+	if user_role != "admin" {
+		wh.handleError(c, errors.NewUnauthorizedError("only admin users can perform cascade delete"))
+		return
+	}
+	workspaceID := c.Param("workspace_id")
+	err = wh.workspaceService.CascadeDeleteWorkspace(c.Request.Context(), workspaceID)
+	if err != nil {
+		wh.handleError(c, err)
+		return
+	}
+
+	wh.logger.Info("Workspace cascade deleted successfully",
+		slog.String("workspace_id", workspaceID),
+	)
+
+	// No content to return
+	wh.response.NoContent(c)
+}
