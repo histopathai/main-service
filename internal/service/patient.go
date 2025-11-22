@@ -209,3 +209,113 @@ func (ps *PatientService) TransferPatientWorkspace(ctx context.Context, patientI
 
 	return nil
 }
+
+func (ps *PatientService) CascadeDelete(ctx context.Context, patientID string) error {
+	return ps.uow.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+		imageIDs := make([]string, 0)
+		annotationIDs := make([]string, 0)
+
+		offset := 0
+		limit := 100
+
+		for {
+			imageFilters := []sharedQuery.Filter{
+				{
+					Field:    constants.ImagePatientIDField,
+					Operator: sharedQuery.OpEqual,
+					Value:    patientID,
+				},
+			}
+			pagination := &sharedQuery.Pagination{Limit: limit, Offset: offset}
+
+			imageResult, err := repos.ImageRepo.FindByFilters(txCtx, imageFilters, pagination)
+			if err != nil {
+				return errors.NewInternalError("failed to find images", err)
+			}
+
+			for _, image := range imageResult.Data {
+				imageIDs = append(imageIDs, image.ID)
+
+				annoOffset := 0
+				for {
+					annoFilters := []sharedQuery.Filter{
+						{
+							Field:    constants.AnnotationImageIDField,
+							Operator: sharedQuery.OpEqual,
+							Value:    image.ID,
+						},
+					}
+					annoPagination := &sharedQuery.Pagination{Limit: limit, Offset: annoOffset}
+
+					annoResult, err := repos.AnnotationRepo.FindByFilters(txCtx, annoFilters, annoPagination)
+					if err != nil {
+						return errors.NewInternalError("failed to find annotations", err)
+					}
+
+					for _, anno := range annoResult.Data {
+						annotationIDs = append(annotationIDs, anno.ID)
+					}
+
+					if !annoResult.HasMore {
+						break
+					}
+					annoOffset += limit
+				}
+			}
+
+			if !imageResult.HasMore {
+				break
+			}
+			offset += limit
+		}
+
+		if len(annotationIDs) > 0 {
+			if err := repos.AnnotationRepo.BatchDelete(txCtx, annotationIDs); err != nil {
+				return errors.NewInternalError("failed to batch delete annotations", err)
+			}
+		}
+
+		if len(imageIDs) > 0 {
+			if err := repos.ImageRepo.BatchDelete(txCtx, imageIDs); err != nil {
+				return errors.NewInternalError("failed to batch delete images", err)
+			}
+		}
+
+		if err := repos.PatientRepo.Delete(txCtx, patientID); err != nil {
+			return errors.NewInternalError("failed to delete patient", err)
+		}
+
+		return nil
+	})
+}
+
+func (ps *PatientService) BatchDelete(ctx context.Context, patientIDs []string) error {
+	for _, patientID := range patientIDs {
+		if err := ps.CascadeDelete(ctx, patientID); err != nil {
+			return errors.NewInternalError("failed to delete patient: "+patientID, err)
+		}
+	}
+	return nil
+}
+
+func (ps *PatientService) BatchTransfer(ctx context.Context, patientIDs []string, newWorkspaceID string) error {
+	return ps.uow.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+		_, err := repos.WorkspaceRepo.Read(txCtx, newWorkspaceID)
+		if err != nil {
+			return errors.NewValidationError("new workspace does not exist",
+				map[string]interface{}{"workspace_id": "Workspace not found"})
+		}
+
+		for _, patientID := range patientIDs {
+			if err := repos.PatientRepo.Transfer(txCtx, patientID, newWorkspaceID); err != nil {
+				return errors.NewInternalError("failed to transfer patient: "+patientID, err)
+			}
+		}
+
+		return nil
+	})
+}
+
+func (ps *PatientService) CountPatients(ctx context.Context, filters []sharedQuery.Filter) (int64, error) {
+	return ps.patientRepo.Count(ctx, filters)
+}
