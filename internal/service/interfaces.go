@@ -14,6 +14,9 @@ type IWorkspaceService interface {
 	GetWorkspaceByID(ctx context.Context, id string) (*model.Workspace, error)
 	DeleteWorkspace(ctx context.Context, id string) error
 	ListWorkspaces(ctx context.Context, pagination *query.Pagination) (*query.Result[*model.Workspace], error)
+	BatchDeleteWorkspaces(ctx context.Context, workspaceIDs []string) error
+	CascadeDeleteWorkspace(ctx context.Context, workspaceID string) error
+	CountWorkspaces(ctx context.Context, filters []query.Filter) (int64, error)
 }
 
 type IPatientService interface {
@@ -24,6 +27,11 @@ type IPatientService interface {
 	DeletePatientByID(ctx context.Context, patientId string) error
 	UpdatePatient(ctx context.Context, patientID string, input UpdatePatientInput) error
 	TransferPatientWorkspace(ctx context.Context, patientID string, newWorkspaceID string) error
+
+	CascadeDelete(ctx context.Context, patientID string) error
+	BatchDelete(ctx context.Context, patientIDs []string) error
+	BatchTransfer(ctx context.Context, patientIDs []string, newWorkspaceID string) error
+	CountPatients(ctx context.Context, filters []query.Filter) (int64, error)
 }
 
 type IImageService interface {
@@ -32,6 +40,9 @@ type IImageService interface {
 	GetImageByID(ctx context.Context, imageID string) (*model.Image, error)
 	ListImageByPatientID(ctx context.Context, patientID string, pagination *query.Pagination) (*query.Result[*model.Image], error)
 	DeleteImageByID(ctx context.Context, imageID string) error
+	BatchDeleteImages(ctx context.Context, imageIDs []string) error
+	BatchTransferImages(ctx context.Context, imageIDs []string, newPatientID string) error
+	CountImages(ctx context.Context, filters []query.Filter) (int64, error)
 }
 
 type IAnnotationService interface {
@@ -39,6 +50,8 @@ type IAnnotationService interface {
 	GetAnnotationByID(ctx context.Context, id string) (*model.Annotation, error)
 	GetAnnotationsByImageID(ctx context.Context, imageID string, pagination *query.Pagination) (*query.Result[*model.Annotation], error)
 	DeleteAnnotation(ctx context.Context, id string) error
+	BatchDeleteAnnotations(ctx context.Context, ids []string) error
+	CountAnnotations(ctx context.Context, filters []query.Filter) (int64, error)
 }
 
 type IAnnotationTypeService interface {
@@ -50,4 +63,5 @@ type IAnnotationTypeService interface {
 	GetScoreAnnotationTypes(ctx context.Context, paginationOpts *query.Pagination) (*query.Result[*model.AnnotationType], error)
 	UpdateAnnotationType(ctx context.Context, id string, input *UpdateAnnotationTypeInput) error
 	DeleteAnnotationType(ctx context.Context, id string) error
+	CountAnnotationTypes(ctx context.Context, filters []query.Filter) (int64, error)
 }
