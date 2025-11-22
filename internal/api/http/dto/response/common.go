@@ -20,3 +20,7 @@ type ListResponse[T any] struct {
 type DataResponse[T any] struct {
 	Data T `json:"data"`
 }
+
+type CountResponse struct {
+	Count int64 `json:"count" example:"100"`
+}
