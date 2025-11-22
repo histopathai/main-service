@@ -249,3 +249,199 @@ func TestGetScoreAnnotationTypes_Success(t *testing.T) {
 	require.Len(t, result.Data, 1)
 	assert.True(t, result.Data[0].ScoreEnabled)
 }
+
+func TestValidateAnnotationTypeCreation_ScoreMinGreaterThanMax(t *testing.T) {
+	aService, _, _, _ := setupAnnotationTypeService(t)
+	ctx := context.Background()
+
+	input := service.CreateAnnotationTypeInput{
+		Name:         "Bad Range",
+		ScoreEnabled: true,
+		ScoreName:    ptrString("Severity"),
+		ScoreMin:     ptrFloat64(10.0),
+		ScoreMax:     ptrFloat64(5.0),
+	}
+
+	err := aService.ValidateAnnotationTypeCreation(ctx, &input)
+
+	require.Error(t, err)
+	var valErr *errors.Err
+	require.True(t, stderrors.As(err, &valErr))
+	assert.Equal(t, errors.ErrorTypeValidation, valErr.Type)
+}
+
+func TestCreateNewAnnotationType_NameConflict(t *testing.T) {
+	aService, _, mockAnnotationTypeRepo, _ := setupAnnotationTypeService(t)
+	ctx := context.Background()
+
+	input := service.CreateAnnotationTypeInput{
+		Name: "Existing Type",
+	}
+
+	mockAnnotationTypeRepo.EXPECT().
+		FindByName(ctx, input.Name).
+		Return(&model.AnnotationType{ID: "existing-id"}, nil)
+
+	result, err := aService.CreateNewAnnotationType(ctx, &input)
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+	var conflictErr *errors.Err
+	require.True(t, stderrors.As(err, &conflictErr))
+	assert.Equal(t, errors.ErrorTypeConflict, conflictErr.Type)
+}
+
+func TestCreateNewAnnotationType_RepoFailure(t *testing.T) {
+	aService, _, mockAnnotationTypeRepo, _ := setupAnnotationTypeService(t)
+	ctx := context.Background()
+
+	input := service.CreateAnnotationTypeInput{
+		Name: "New Type",
+	}
+
+	mockAnnotationTypeRepo.EXPECT().
+		FindByName(ctx, input.Name).
+		Return(nil, nil)
+
+	mockAnnotationTypeRepo.EXPECT().
+		Create(ctx, gomock.Any()).
+		Return(nil, errors.NewInternalError("db error", nil))
+
+	result, err := aService.CreateNewAnnotationType(ctx, &input)
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+}
+
+func TestGetAnnotationTypeByID_Success(t *testing.T) {
+	aService, _, mockAnnotationTypeRepo, _ := setupAnnotationTypeService(t)
+	ctx := context.Background()
+	id := "at-123"
+
+	mockAnnotationTypeRepo.EXPECT().
+		Read(ctx, id).
+		Return(&model.AnnotationType{ID: id, Name: "Test"}, nil)
+
+	result, err := aService.GetAnnotationTypeByID(ctx, id)
+	require.NoError(t, err)
+	assert.Equal(t, id, result.ID)
+}
+
+func TestGetAnnotationTypeByID_Failure(t *testing.T) {
+	aService, _, mockAnnotationTypeRepo, _ := setupAnnotationTypeService(t)
+	ctx := context.Background()
+	id := "at-missing"
+
+	mockAnnotationTypeRepo.EXPECT().
+		Read(ctx, id).
+		Return(nil, errors.NewNotFoundError("not found"))
+
+	result, err := aService.GetAnnotationTypeByID(ctx, id)
+	require.Error(t, err)
+	assert.Nil(t, result)
+}
+
+func TestListAnnotationTypes_Success(t *testing.T) {
+	aService, _, mockAnnotationTypeRepo, _ := setupAnnotationTypeService(t)
+	ctx := context.Background()
+	pagination := &query.Pagination{Limit: 10}
+
+	mockAnnotationTypeRepo.EXPECT().
+		FindByFilters(ctx, []query.Filter{}, pagination).
+		Return(&query.Result[*model.AnnotationType]{Data: []*model.AnnotationType{{ID: "at-1"}}}, nil)
+
+	result, err := aService.ListAnnotationTypes(ctx, pagination)
+	require.NoError(t, err)
+	assert.Len(t, result.Data, 1)
+}
+
+func TestUpdateAnnotationType_ScoreRangeUpdate(t *testing.T) {
+	aService, _, mockAnnotationTypeRepo, _ := setupAnnotationTypeService(t)
+	ctx := context.Background()
+	id := "at-123"
+
+	input := &service.UpdateAnnotationTypeInput{
+		ScoreMin: ptrFloat64(1.0),
+		ScoreMax: ptrFloat64(10.0),
+	}
+
+	mockAnnotationTypeRepo.EXPECT().
+		Update(ctx, id, gomock.Any()).
+		DoAndReturn(func(ctx context.Context, id string, updates map[string]interface{}) error {
+			val, ok := updates[constants.AnnotationTypeScoreRangeField]
+			assert.True(t, ok)
+			arr, ok := val.([2]float64)
+			assert.True(t, ok)
+			assert.Equal(t, 1.0, arr[0])
+			assert.Equal(t, 10.0, arr[1])
+			return nil
+		})
+
+	err := aService.UpdateAnnotationType(ctx, id, input)
+	require.NoError(t, err)
+}
+
+func TestUpdateAnnotationType_NoFields(t *testing.T) {
+	aService, _, mockAnnotationTypeRepo, _ := setupAnnotationTypeService(t)
+	ctx := context.Background()
+	id := "at-123"
+	input := &service.UpdateAnnotationTypeInput{}
+
+	mockAnnotationTypeRepo.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
+
+	err := aService.UpdateAnnotationType(ctx, id, input)
+	require.NoError(t, err)
+}
+
+func TestDeleteAnnotationType_RepoCheckFailure(t *testing.T) {
+	aService, _, _, mockWorkspaceRepo := setupAnnotationTypeService(t)
+	ctx := context.Background()
+	id := "at-123"
+
+	mockWorkspaceRepo.EXPECT().
+		FindByFilters(ctx, gomock.Any(), gomock.Any()).
+		Return(nil, errors.NewInternalError("db error", nil))
+
+	err := aService.DeleteAnnotationType(ctx, id)
+	require.Error(t, err)
+}
+
+func TestBatchDeleteAnnotationTypes_Success(t *testing.T) {
+	aService, _, mockAnnotationTypeRepo, _ := setupAnnotationTypeService(t)
+	ctx := context.Background()
+	ids := []string{"at-1", "at-2"}
+
+	mockAnnotationTypeRepo.EXPECT().
+		BatchDelete(ctx, ids).
+		Return(nil)
+
+	err := aService.BatchDeleteAnnotationTypes(ctx, ids)
+	require.NoError(t, err)
+}
+
+func TestBatchDeleteAnnotationTypes_Failure(t *testing.T) {
+	aService, _, mockAnnotationTypeRepo, _ := setupAnnotationTypeService(t)
+	ctx := context.Background()
+	ids := []string{"at-1"}
+
+	mockAnnotationTypeRepo.EXPECT().
+		BatchDelete(ctx, ids).
+		Return(errors.NewInternalError("db error", nil))
+
+	err := aService.BatchDeleteAnnotationTypes(ctx, ids)
+	require.Error(t, err)
+}
+
+func TestCountAnnotationTypes_Success(t *testing.T) {
+	aService, _, mockAnnotationTypeRepo, _ := setupAnnotationTypeService(t)
+	ctx := context.Background()
+	filters := []query.Filter{{Field: "name", Value: "test"}}
+
+	mockAnnotationTypeRepo.EXPECT().
+		Count(ctx, filters).
+		Return(int64(5), nil)
+
+	count, err := aService.CountAnnotationTypes(ctx, filters)
+	require.NoError(t, err)
+	assert.Equal(t, int64(5), count)
+}
