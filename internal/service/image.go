@@ -175,7 +175,8 @@ func (is *ImageService) BatchDeleteImages(ctx context.Context, imageIDs []string
 
 func (is *ImageService) BatchTransferImages(ctx context.Context, imageIDs []string, newPatientID string) error {
 	uowerr := is.uow.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
-		_, err := repos.PatientRepo.Read(txCtx, newPatientID)
+		patientRepo := repos.PatientRepo
+		_, err := patientRepo.Read(txCtx, newPatientID)
 		if err != nil {
 			return err
 		}
