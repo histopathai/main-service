@@ -88,3 +88,11 @@ func (as *AnnotationService) GetAnnotationsByImageID(ctx context.Context, imageI
 func (as *AnnotationService) DeleteAnnotation(ctx context.Context, id string) error {
 	return as.annotationRepo.Delete(ctx, id)
 }
+
+func (as *AnnotationService) BatchDeleteAnnotations(ctx context.Context, ids []string) error {
+	return as.annotationRepo.BatchDelete(ctx, ids)
+}
+
+func (as *AnnotationService) CountAnnotations(ctx context.Context, filters []sharedQuery.Filter) (int64, error) {
+	return as.annotationRepo.Count(ctx, filters)
+}
