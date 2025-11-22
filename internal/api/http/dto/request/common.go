@@ -66,3 +66,12 @@ type JSONFilterRequest struct {
 	Operator string      `json:"operator" binding:"required" example:"=="`
 	Value    interface{} `json:"value" binding:"required" example:"Breast Cancer"`
 }
+
+type BatchDeleteRequest struct {
+	IDs []string `json:"ids" binding:"required,min=1,dive,required" example:"['id1', 'id2']"`
+}
+
+type BatchTransferRequest struct {
+	IDs             []string `json:"ids" binding:"required,min=1,dive,required" example:"['id1', 'id2']"`
+	TargetWorkspace string   `json:"target_workspace" binding:"required" example:"workspace-123"`
+}
