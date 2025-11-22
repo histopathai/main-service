@@ -121,6 +121,9 @@ func (r *Router) setupWorkspaceRoutes(rg *gin.RouterGroup) {
 		workspaces.PUT("/:workspace_id", r.workspaceHandler.UpdateWorkspace)
 		workspaces.DELETE("/:workspace_id", r.workspaceHandler.DeleteWorkspace)
 		workspaces.GET("/:workspace_id/patients", r.patientHandler.GetPatientsByWorkspaceID)
+		workspaces.DELETE("/:workspace_id/cascade-delete", r.workspaceHandler.CascadeDeleteWorkspace)
+		workspaces.DELETE("/batch-delete", r.workspaceHandler.BatchDeleteWorkspaces)
+		workspaces.GET("/count-v1", r.workspaceHandler.CountV1Workspaces)
 	}
 }
 
@@ -134,6 +137,11 @@ func (r *Router) setupPatientRoutes(rg *gin.RouterGroup) {
 		patients.DELETE("/:patient_id", r.patientHandler.DeletePatientByID)
 		patients.POST("/:patient_id/transfer/:workspace_id", r.patientHandler.TransferPatientWorkspace)
 		patients.GET("/:patient_id/images", r.imageHandler.ListImageByPatientID)
+		patients.GET("/count-v1", r.patientHandler.CountV1Patients)
+		patients.DELETE("/batch-delete", r.patientHandler.BatchDeletePatients)
+		patients.DELETE("/:patient_id/cascade-delete", r.patientHandler.CascadeDeletePatient)
+		patients.POST("/batch-transfer", r.patientHandler.BatchTransferPatients)
+
 	}
 }
 
@@ -143,6 +151,9 @@ func (r *Router) setupImageRoutes(rg *gin.RouterGroup) {
 		images.POST("", r.imageHandler.UploadImage)
 		images.GET("/:image_id", r.imageHandler.GetImageByID)
 		images.DELETE("/:image_id", r.imageHandler.DeleteImage)
+		images.DELETE("/batch-delete", r.imageHandler.BatchDeleteImages)
+		images.GET("/count-v1", r.imageHandler.CountV1Images)
+		images.POST("/batch-transfer", r.imageHandler.BatchTransferImages)
 	}
 }
 
@@ -153,6 +164,8 @@ func (r *Router) setupAnnotationRoutes(rg *gin.RouterGroup) {
 		annotations.GET("/:id", r.annotationHandler.GetAnnotationByID)
 		annotations.DELETE("/:id", r.annotationHandler.DeleteAnnotation)
 		annotations.GET("/image/:image_id", r.annotationHandler.GetAnnotationsByImageID)
+		annotations.DELETE("/batch-delete", r.annotationHandler.BatchDeleteAnnotations)
+		annotations.GET("/count-v1", r.annotationHandler.CountV1Annotations)
 	}
 }
 
@@ -166,6 +179,8 @@ func (r *Router) setupAnnotationTypeRoutes(rg *gin.RouterGroup) {
 		annotationTypes.DELETE("/:annotation_type_id", r.annotationTypeHandler.DeleteAnnotationType)
 		annotationTypes.GET("/classification-enabled", r.annotationTypeHandler.GetClassificationOptionedAnnotationTypes)
 		annotationTypes.GET("/score-enabled", r.annotationTypeHandler.GetScoreOptionedAnnotationTypes)
+		annotationTypes.GET("/count-v1", r.annotationTypeHandler.CountV1AnnotationTypes)
+		annotationTypes.DELETE("/batch-delete", r.annotationTypeHandler.BatchDeleteAnnotationTypes)
 	}
 }
 
