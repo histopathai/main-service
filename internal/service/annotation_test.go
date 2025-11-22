@@ -8,7 +8,9 @@ import (
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/mocks"
 	"github.com/histopathai/main-service/internal/service"
+	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
+	"github.com/histopathai/main-service/internal/shared/query"
 	sharedQuery "github.com/histopathai/main-service/internal/shared/query"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -241,4 +243,109 @@ func TestGetAnnotationByID_NotFound(t *testing.T) {
 
 	require.Error(t, err)
 	require.Nil(t, annotation)
+}
+
+func TestCreateAnnotation_RepoFailure(t *testing.T) {
+	aService, mockAnnotationRepo, _ := setupAnnotationService(t)
+	ctx := context.Background()
+	class := "Tumor"
+	input := &service.CreateAnnotationInput{
+		ImageID:     "img-1",
+		AnnotatorID: "user-1",
+		Polygon:     []model.Point{{X: 0, Y: 0}},
+		Class:       &class,
+	}
+
+	mockAnnotationRepo.EXPECT().
+		Create(ctx, gomock.Any()).
+		Return(nil, errors.NewInternalError("db error", nil))
+
+	created, err := aService.CreateNewAnnotation(ctx, input)
+
+	require.Error(t, err)
+	assert.Nil(t, created)
+}
+
+func TestGetAnnotationsByImageID_RepoFailure(t *testing.T) {
+	aService, mockAnnotationRepo, _ := setupAnnotationService(t)
+	ctx := context.Background()
+	imageID := "img-1"
+
+	mockAnnotationRepo.EXPECT().
+		FindByFilters(ctx, gomock.Any(), gomock.Any()).
+		Return(nil, errors.NewInternalError("db error", nil))
+
+	result, err := aService.GetAnnotationsByImageID(ctx, imageID, nil)
+
+	require.Error(t, err)
+	assert.Nil(t, result)
+}
+
+func TestBatchDeleteAnnotations_Success(t *testing.T) {
+	aService, mockAnnotationRepo, _ := setupAnnotationService(t)
+	ctx := context.Background()
+	ids := []string{"a1", "a2"}
+
+	mockAnnotationRepo.EXPECT().
+		BatchDelete(ctx, ids).
+		Return(nil)
+
+	err := aService.BatchDeleteAnnotations(ctx, ids)
+	require.NoError(t, err)
+}
+
+func TestBatchDeleteAnnotations_Failure(t *testing.T) {
+	aService, mockAnnotationRepo, _ := setupAnnotationService(t)
+	ctx := context.Background()
+	ids := []string{"a1"}
+
+	mockAnnotationRepo.EXPECT().
+		BatchDelete(ctx, ids).
+		Return(errors.NewInternalError("db fail", nil))
+
+	err := aService.BatchDeleteAnnotations(ctx, ids)
+	require.Error(t, err)
+}
+
+func TestCountAnnotations_Success(t *testing.T) {
+	aService, mockAnnotationRepo, _ := setupAnnotationService(t)
+	ctx := context.Background()
+	filters := []query.Filter{
+		{Field: constants.AnnotationImageIDField, Value: "img-1"},
+	}
+
+	mockAnnotationRepo.EXPECT().
+		Count(ctx, filters).
+		Return(int64(100), nil)
+
+	count, err := aService.CountAnnotations(ctx, filters)
+	require.NoError(t, err)
+	assert.Equal(t, int64(100), count)
+}
+
+func TestCountAnnotations_Failure(t *testing.T) {
+	aService, mockAnnotationRepo, _ := setupAnnotationService(t)
+	ctx := context.Background()
+	filters := []query.Filter{}
+
+	mockAnnotationRepo.EXPECT().
+		Count(ctx, filters).
+		Return(int64(0), errors.NewInternalError("db fail", nil))
+
+	count, err := aService.CountAnnotations(ctx, filters)
+	require.Error(t, err)
+	assert.Equal(t, int64(0), count)
+}
+
+func TestDeleteAnnotation_Failure(t *testing.T) {
+	aService, mockAnnotationRepo, _ := setupAnnotationService(t)
+	ctx := context.Background()
+	id := "anno-1"
+
+	mockAnnotationRepo.EXPECT().
+		Delete(ctx, id).
+		Return(errors.NewInternalError("failed delete", nil))
+
+	err := aService.DeleteAnnotation(ctx, id)
+	require.Error(t, err)
 }
