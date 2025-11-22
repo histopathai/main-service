@@ -259,3 +259,128 @@ func TestBatchTransferImage_PatientNotFound(t *testing.T) {
 	require.True(t, stderrors.As(err, &notFoundErr))
 	assert.Equal(t, errors.ErrorTypeNotFound, notFoundErr.Type)
 }
+
+func TestUploadImage_StorageFailure(t *testing.T) {
+	imgService, _, mockPatientRepo, mockStorage, _ := setupImageService(t)
+	ctx := context.Background()
+
+	input := &service.UploadImageInput{
+		PatientID:   "patient-123",
+		CreatorID:   "creator-123",
+		ContentType: "image/tiff",
+		Name:        "test.tiff",
+		Format:      "TIFF",
+	}
+
+	mockPatientRepo.EXPECT().
+		Read(ctx, input.PatientID).
+		Return(&model.Patient{ID: input.PatientID}, nil)
+
+	mockStorage.EXPECT().
+		GenerateSignedURL(ctx, "test-bucket", gomock.Any(), gomock.Any(), input.ContentType, gomock.Any()).
+		Return(nil, errors.NewInternalError("storage unreachable", nil))
+
+	url, err := imgService.UploadImage(ctx, input)
+
+	require.Error(t, err)
+	require.Nil(t, url)
+}
+
+func TestConfirmUpload_RepoCreateFailure(t *testing.T) {
+	imgService, mockImageRepo, _, _, mockPublisher := setupImageService(t)
+	ctx := context.Background()
+
+	input := &service.ConfirmUploadInput{
+		ImageID:    "image-123",
+		PatientID:  "patient-123",
+		CreatorID:  "creator-123",
+		Name:       "test.tiff",
+		Format:     "TIFF",
+		Status:     model.StatusUploaded,
+		OriginPath: "gcs://bucket/image-123-test.tiff",
+	}
+
+	mockImageRepo.EXPECT().
+		Create(ctx, gomock.Any()).
+		Return(nil, errors.NewInternalError("db insert failed", nil))
+
+	mockPublisher.EXPECT().
+		PublishImageProcessingRequested(gomock.Any(), gomock.Any()).
+		Times(0)
+
+	err := imgService.ConfirmUpload(ctx, input)
+
+	require.Error(t, err)
+}
+
+func TestGetImageByID_Success(t *testing.T) {
+	imgService, mockImageRepo, _, _, _ := setupImageService(t)
+	ctx := context.Background()
+	imageID := "img-123"
+
+	mockImageRepo.EXPECT().
+		Read(ctx, imageID).
+		Return(&model.Image{ID: imageID, Name: "Slide 1"}, nil)
+
+	img, err := imgService.GetImageByID(ctx, imageID)
+	require.NoError(t, err)
+	assert.Equal(t, imageID, img.ID)
+}
+
+func TestBatchDeleteImages_Success(t *testing.T) {
+	imgService, mockImageRepo, _, _, _ := setupImageService(t)
+	ctx := context.Background()
+	ids := []string{"img-1", "img-2"}
+
+	mockImageRepo.EXPECT().
+		BatchDelete(ctx, ids).
+		Return(nil)
+
+	err := imgService.BatchDeleteImages(ctx, ids)
+	require.NoError(t, err)
+}
+
+func TestBatchDeleteImages_Failure(t *testing.T) {
+	imgService, mockImageRepo, _, _, _ := setupImageService(t)
+	ctx := context.Background()
+	ids := []string{"img-1"}
+
+	mockImageRepo.EXPECT().
+		BatchDelete(ctx, ids).
+		Return(errors.NewInternalError("db fail", nil))
+
+	err := imgService.BatchDeleteImages(ctx, ids)
+	require.Error(t, err)
+}
+
+func TestBatchTransferImages_RepoFailure(t *testing.T) {
+	imgService, mockImageRepo, mockPatientRepo, _, _ := setupImageService(t)
+	ctx := context.Background()
+	imageIDs := []string{"img-1"}
+	newPatientID := "pat-new"
+
+	mockPatientRepo.EXPECT().
+		Read(ctx, newPatientID).
+		Return(&model.Patient{ID: newPatientID}, nil)
+
+	mockImageRepo.EXPECT().
+		BatchTransfer(ctx, imageIDs, newPatientID).
+		Return(errors.NewInternalError("update failed", nil))
+
+	err := imgService.BatchTransferImages(ctx, imageIDs, newPatientID)
+	require.Error(t, err)
+}
+
+func TestCountImages_Success(t *testing.T) {
+	imgService, mockImageRepo, _, _, _ := setupImageService(t)
+	ctx := context.Background()
+	filters := []query.Filter{{Field: constants.ImagePatientIDField, Value: "p1"}}
+
+	mockImageRepo.EXPECT().
+		Count(ctx, filters).
+		Return(int64(15), nil)
+
+	count, err := imgService.CountImages(ctx, filters)
+	require.NoError(t, err)
+	assert.Equal(t, int64(15), count)
+}
