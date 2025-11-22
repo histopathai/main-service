@@ -207,3 +207,7 @@ func (ats *AnnotationTypeService) DeleteAnnotationType(ctx context.Context, id s
 func (ats *AnnotationTypeService) CountAnnotationTypes(ctx context.Context, filters []sharedQuery.Filter) (int64, error) {
 	return ats.annotationTypeRepo.Count(ctx, filters)
 }
+
+func (ats *AnnotationTypeService) BatchDeleteAnnotationTypes(ctx context.Context, ids []string) error {
+	return ats.annotationTypeRepo.BatchDelete(ctx, ids)
+}
