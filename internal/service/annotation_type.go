@@ -138,6 +138,10 @@ func (ats *AnnotationTypeService) GetScoreAnnotationTypes(ctx context.Context, p
 type UpdateAnnotationTypeInput struct {
 	Name        *string
 	Description *string
+	ScoreName   *string
+	ScoreMin    *float64
+	ScoreMax    *float64
+	ClassList   *[]string
 }
 
 func (ats *AnnotationTypeService) UpdateAnnotationType(ctx context.Context, id string, input *UpdateAnnotationTypeInput) error {
@@ -148,6 +152,16 @@ func (ats *AnnotationTypeService) UpdateAnnotationType(ctx context.Context, id s
 	}
 	if input.Description != nil {
 		updates[constants.AnnotationTypeDescField] = *input.Description
+	}
+	if input.ScoreName != nil {
+		updates[constants.AnnotationTypeScoreNameField] = *input.ScoreName
+	}
+	if input.ScoreMin != nil && input.ScoreMax != nil {
+		scoreRange := [2]float64{*input.ScoreMin, *input.ScoreMax}
+		updates[constants.AnnotationTypeScoreRangeField] = scoreRange
+	}
+	if input.ClassList != nil {
+		updates[constants.AnnotationTypeClassListField] = *input.ClassList
 	}
 
 	if len(updates) == 0 {
@@ -188,4 +202,8 @@ func (ats *AnnotationTypeService) DeleteAnnotationType(ctx context.Context, id s
 	})
 
 	return uowErr
+}
+
+func (ats *AnnotationTypeService) CountAnnotationTypes(ctx context.Context, filters []sharedQuery.Filter) (int64, error) {
+	return ats.annotationTypeRepo.Count(ctx, filters)
 }
