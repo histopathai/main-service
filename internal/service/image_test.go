@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/domain/repository"
 	"github.com/histopathai/main-service/internal/domain/storage"
 	"github.com/histopathai/main-service/internal/mocks"
 	"github.com/histopathai/main-service/internal/service"
@@ -32,6 +33,15 @@ func setupImageService(t *testing.T) (
 	mockStorage := mocks.NewMockObjectStorage(ctrl)
 	mockPublisher := mocks.NewMockImageEventPublisher(ctrl)
 	mockUOW := mocks.NewMockUnitOfWorkFactory(ctrl)
+
+	mockUOW.EXPECT().WithTx(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
+		func(ctx context.Context, fn func(ctx context.Context, repos *repository.Repositories) error) error {
+			return fn(ctx, &repository.Repositories{
+				ImageRepo:   mockImageRepo,
+				PatientRepo: mockPatientRepo,
+			})
+		},
+	)
 
 	imgService := service.NewImageService(
 		mockImageRepo,
@@ -210,6 +220,41 @@ func TestGetImageByID_NotFound(t *testing.T) {
 	img, err := imgService.GetImageByID(ctx, imageID)
 	require.Error(t, err)
 	require.Nil(t, img)
+	var notFoundErr *errors.Err
+	require.True(t, stderrors.As(err, &notFoundErr))
+	assert.Equal(t, errors.ErrorTypeNotFound, notFoundErr.Type)
+}
+
+func TestBatchTransferImage_Success(t *testing.T) {
+	imgService, mockImageRepo, mockPatientRepo, _, _ := setupImageService(t)
+	ctx := context.Background()
+	imageIDs := []string{"img-1", "img-2", "img-3"}
+	newPatientID := "new-patient-123"
+
+	mockImageRepo.EXPECT().
+		BatchTransfer(ctx, imageIDs, newPatientID).
+		Return(nil)
+
+	mockPatientRepo.EXPECT().
+		Read(ctx, newPatientID).
+		Return(&model.Patient{ID: newPatientID}, nil)
+
+	err := imgService.BatchTransferImages(ctx, imageIDs, newPatientID)
+	require.NoError(t, err)
+}
+
+func TestBatchTransferImage_PatientNotFound(t *testing.T) {
+	imgService, _, mockPatientRepo, _, _ := setupImageService(t)
+	ctx := context.Background()
+	imageIDs := []string{"img-1", "img-2", "img-3"}
+	newPatientID := "nonexistent-patient"
+
+	mockPatientRepo.EXPECT().
+		Read(ctx, newPatientID).
+		Return(nil, errors.NewNotFoundError("patient not found"))
+
+	err := imgService.BatchTransferImages(ctx, imageIDs, newPatientID)
+	require.Error(t, err)
 	var notFoundErr *errors.Err
 	require.True(t, stderrors.As(err, &notFoundErr))
 	assert.Equal(t, errors.ErrorTypeNotFound, notFoundErr.Type)
