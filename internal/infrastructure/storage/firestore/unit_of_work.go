@@ -5,7 +5,6 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"github.com/histopathai/main-service/internal/domain/repository"
-	// Gerekliyse eklendi
 )
 
 type txKey struct{}
