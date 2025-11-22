@@ -444,3 +444,33 @@ func (ath *AnnotationTypeHandler) BatchDeleteAnnotationTypes(c *gin.Context) {
 	// No content to return
 	ath.response.NoContent(c)
 }
+
+// CountAnnotationTypes V1 godoc
+// @Summary Count annotation types
+// @Description Retrieve the total count of annotation types
+// @Tags Annotation Types
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.CountResponse "Total count of annotation types retrieved successfully"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /annotation-types/count [get]
+func (ath *AnnotationTypeHandler) CountV1AnnotationTypes(c *gin.Context) {
+
+	count, err := ath.annotationTypeService.CountAnnotationTypes(c.Request.Context(), []query.Filter{})
+	if err != nil {
+		ath.handleError(c, err)
+		return
+	}
+
+	ath.logger.Info("Annotation types count retrieved successfully",
+		slog.Int64("count", count),
+	)
+
+	countResp := &response.CountResponse{
+		Count: count,
+	}
+
+	ath.response.Success(c, http.StatusOK, countResp)
+}

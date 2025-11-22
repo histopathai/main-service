@@ -277,3 +277,28 @@ func (ah *AnnotationHandler) BatchDeleteAnnotations(c *gin.Context) {
 	// No content to return
 	ah.response.NoContent(c)
 }
+
+// CountAnnotations godoc
+// @Summary Count annotations
+// @Description Get the total count of annotations in the system
+// @Tags Annotations
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.CountResponse "Total count of annotations"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /annotations/count-v1 [get]
+func (ah *AnnotationHandler) CountV1Annotations(c *gin.Context) {
+	count, err := ah.annotationService.CountAnnotations(c.Request.Context(), []query.Filter{})
+	if err != nil {
+		ah.handleError(c, err)
+		return
+	}
+
+	countResp := response.CountResponse{
+		Count: count,
+	}
+
+	ah.response.Success(c, http.StatusOK, countResp)
+}

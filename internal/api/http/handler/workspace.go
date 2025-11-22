@@ -365,3 +365,23 @@ func (wh *WorkspaceHandler) CascadeDeleteWorkspace(c *gin.Context) {
 	// No content to return
 	wh.response.NoContent(c)
 }
+
+// Count V1 Workspaces godoc
+// @Summary      Count workspaces
+// @Description  Get the total count of workspaces
+// @Tags         Workspaces
+// @Accept       json
+// @Produce      json
+// @Success      200 {object}  response.CountResponse "Total count of workspaces"
+// @Failure      500 {object} response.ErrorResponse "Internal server error"
+// @Router       /workspaces/count-v1 [get]
+func (wh *WorkspaceHandler) CountV1Workspaces(c *gin.Context) {
+	// Currently, no filters are applied. An empty slice is passed.
+	count, err := wh.workspaceService.CountWorkspaces(c.Request.Context(), []query.Filter{})
+	if err != nil {
+		wh.handleError(c, err)
+		return
+	}
+
+	wh.response.Success(c, http.StatusOK, response.CountResponse{Count: count})
+}

@@ -307,3 +307,27 @@ func (ih *ImageHandler) BatchTransferImages(c *gin.Context) {
 	ih.logger.Info("Images batch transferred", slog.Int("count", len(req.IDs)), slog.String("target_workspace", req.TargetWorkspace))
 	ih.response.NoContent(c)
 }
+
+// CountImages V1 godoc
+// @Summary Count images
+// @Description Get the total count of images in the system
+// @Tags Images
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.CountResponse "Total image count retrieved successfully"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /images/count-v1 [get]
+func (ih *ImageHandler) CountV1Images(c *gin.Context) {
+	count, err := ih.imageService.CountImages(c.Request.Context(), []query.Filter{})
+	if err != nil {
+		ih.handleError(c, err)
+		return
+	}
+
+	respPayload := response.CountResponse{
+		Count: count,
+	}
+	ih.response.Success(c, http.StatusOK, respPayload)
+}

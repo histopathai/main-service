@@ -495,3 +495,32 @@ func (ph *PatientHandler) BatchTransferPatients(c *gin.Context) {
 
 	ph.response.NoContent(c)
 }
+
+// CountPatients  V1 	godoc
+// @Summary Count patients
+// @Description Get the total count of patients in the system
+// @Tags Patients
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.CountResponse "Total count of patients"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /patients/count-v1 [get]
+
+func (ph *PatientHandler) CountV1Patients(c *gin.Context) {
+
+	count, err := ph.patientService.CountPatients(c.Request.Context(), []query.Filter{})
+	if err != nil {
+		ph.handleError(c, err)
+		return
+	}
+
+	ph.logger.Info("Patients counted successfully")
+
+	countResp := response.CountResponse{
+		Count: count,
+	}
+
+	ph.response.Success(c, http.StatusOK, countResp)
+}
