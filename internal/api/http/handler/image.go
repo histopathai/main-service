@@ -221,3 +221,89 @@ func (ih *ImageHandler) DeleteImage(c *gin.Context) {
 	ih.logger.Info("Image deleted", slog.String("image_id", image_id))
 	ih.response.NoContent(c)
 }
+
+// BatchDeleteImages godoc
+// @Summary Batch delete images by IDs
+// @Description Delete multiple images using their IDs
+// @Tags Images
+// @Accept json
+// @Produce json
+// @Param        request body request.BatchDeleteRequest true "Batch delete request"
+// @Success 204 {string} string "Images deleted successfully"
+// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /images/batch-delete [post]
+func (ih *ImageHandler) BatchDeleteImages(c *gin.Context) {
+
+	user_role, err := middleware.GetAuthenticatedUserRole(c)
+	if err != nil {
+		ih.handleError(c, err)
+		return
+	}
+	if user_role != "admin" {
+		ih.handleError(c, errors.NewUnauthorizedError("only admin users can perform batch delete"))
+		return
+	}
+
+	var req request.BatchDeleteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ih.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
+	}
+
+	if err := ih.validator.ValidateStruct(&req); err != nil {
+		ih.handleError(c, err)
+		return
+	}
+
+	err = ih.imageService.BatchDeleteImages(c.Request.Context(), req.IDs)
+	if err != nil {
+		ih.handleError(c, err)
+		return
+	}
+
+	ih.logger.Info("Images batch deleted", slog.Int("count", len(req.IDs)))
+	ih.response.NoContent(c)
+}
+
+// BatchTransferImages godoc
+// @Summary Batch transfer images to a new patient
+// @Description Transfer multiple images to a different patient using their IDs
+// @Tags Images
+// @Accept json
+// @Produce json
+// @Param        request body request.BatchTransferRequest true "Batch transfer request"
+// @Success 204 {string} string "Images transferred successfully"
+// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /images/batch-transfer [post]
+func (ih *ImageHandler) BatchTransferImages(c *gin.Context) {
+
+	var req request.BatchTransferRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ih.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
+	}
+
+	if err := ih.validator.ValidateStruct(&req); err != nil {
+		ih.handleError(c, err)
+		return
+	}
+
+	err := ih.imageService.BatchTransferImages(c.Request.Context(), req.IDs, req.TargetWorkspace)
+	if err != nil {
+		ih.handleError(c, err)
+		return
+	}
+
+	ih.logger.Info("Images batch transferred", slog.Int("count", len(req.IDs)), slog.String("target_workspace", req.TargetWorkspace))
+	ih.response.NoContent(c)
+}
