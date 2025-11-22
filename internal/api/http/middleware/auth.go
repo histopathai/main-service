@@ -46,9 +46,27 @@ func (am *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 			return
 		}
 
+		// Get User Role from Header
+		userRole := c.GetHeader("X-User-Role")
+		if userRole == "" {
+			debugUserRole, exists := c.Get("user_role")
+			if !exists {
+				c.JSON(http.StatusUnauthorized, response.ErrorResponse{
+					ErrorType: string(errors.ErrorTypeUnauthorized),
+					Message:   "Authentication required (Role Header or context missing)",
+				})
+				c.Abort()
+				return
+			}
+			userRole = debugUserRole.(string)
+		}
+
+		c.Set("user_role", userRole)
+
 		// Set typed value back to context
 		c.Set("authenticated_user_id", userID)
 		c.Next()
+
 	}
 }
 
