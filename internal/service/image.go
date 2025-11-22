@@ -21,6 +21,7 @@ type ImageService struct {
 	storage     storage.ObjectStorage
 	bucketName  string
 	publisher   events.ImageEventPublisher
+	uow         repository.UnitOfWorkFactory
 }
 
 func NewImageService(
@@ -37,6 +38,7 @@ func NewImageService(
 		storage:     storage,
 		bucketName:  bucketName,
 		publisher:   publisher,
+		uow:         uow,
 	}
 }
 
@@ -165,4 +167,29 @@ func (is *ImageService) ListImageByPatientID(ctx context.Context, patientID stri
 
 func (is *ImageService) DeleteImageByID(ctx context.Context, imageID string) error {
 	return is.imgRepo.Delete(ctx, imageID)
+}
+
+func (is *ImageService) BatchDeleteImages(ctx context.Context, imageIDs []string) error {
+	return is.imgRepo.BatchDelete(ctx, imageIDs)
+}
+
+func (is *ImageService) BatchTransferImages(ctx context.Context, imageIDs []string, newPatientID string) error {
+	uowerr := is.uow.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+		_, err := repos.PatientRepo.Read(txCtx, newPatientID)
+		if err != nil {
+			return err
+		}
+
+		return repos.ImageRepo.BatchTransfer(txCtx, imageIDs, newPatientID)
+	})
+
+	if uowerr != nil {
+		return uowerr
+	}
+
+	return nil
+}
+
+func (is *ImageService) CountImages(ctx context.Context, filters []sharedQuery.Filter) (int64, error) {
+	return is.imgRepo.Count(ctx, filters)
 }
