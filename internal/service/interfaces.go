@@ -64,4 +64,5 @@ type IAnnotationTypeService interface {
 	UpdateAnnotationType(ctx context.Context, id string, input *UpdateAnnotationTypeInput) error
 	DeleteAnnotationType(ctx context.Context, id string) error
 	CountAnnotationTypes(ctx context.Context, filters []query.Filter) (int64, error)
+	BatchDeleteAnnotationTypes(ctx context.Context, ids []string) error
 }
