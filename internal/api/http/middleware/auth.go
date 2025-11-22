@@ -78,3 +78,11 @@ func GetAuthenticatedUserID(c *gin.Context) (string, error) {
 	}
 	return userID.(string), nil
 }
+
+func GetAuthenticatedUserRole(c *gin.Context) (string, error) {
+	userRole, exists := c.Get("user_role")
+	if !exists {
+		return "", errors.NewUnauthorizedError("user role not found in context")
+	}
+	return userRole.(string), nil
+}
