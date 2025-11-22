@@ -9,7 +9,9 @@ import (
 	"github.com/histopathai/main-service/internal/domain/repository"
 	"github.com/histopathai/main-service/internal/mocks"
 	"github.com/histopathai/main-service/internal/service"
+	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
+	"github.com/histopathai/main-service/internal/shared/query"
 	sharedQuery "github.com/histopathai/main-service/internal/shared/query"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -19,11 +21,16 @@ import (
 func ptrString(s string) *string {
 	return &s
 }
+func ptrInt(i int) *int {
+	return &i
+}
 
 func setupWorkspaceService(t *testing.T) (
 	*service.WorkspaceService,
 	*mocks.MockWorkspaceRepository,
 	*mocks.MockPatientRepository,
+	*mocks.MockImageRepository,
+	*mocks.MockAnnotationRepository,
 	*mocks.MockUnitOfWorkFactory,
 ) {
 	ctrl := gomock.NewController(t)
@@ -31,23 +38,27 @@ func setupWorkspaceService(t *testing.T) (
 
 	mockWorkspaceRepo := mocks.NewMockWorkspaceRepository(ctrl)
 	mockPatientRepo := mocks.NewMockPatientRepository(ctrl)
+	mockImageRepo := mocks.NewMockImageRepository(ctrl)
+	mockAnnotationRepo := mocks.NewMockAnnotationRepository(ctrl)
 	mockUOW := mocks.NewMockUnitOfWorkFactory(ctrl)
 
 	mockUOW.EXPECT().WithTx(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
 		func(ctx context.Context, fn func(ctx context.Context, repos *repository.Repositories) error) error {
 			return fn(ctx, &repository.Repositories{
-				WorkspaceRepo: mockWorkspaceRepo,
-				PatientRepo:   mockPatientRepo,
+				WorkspaceRepo:  mockWorkspaceRepo,
+				PatientRepo:    mockPatientRepo,
+				ImageRepo:      mockImageRepo,
+				AnnotationRepo: mockAnnotationRepo,
 			})
 		},
 	)
 
 	wsService := service.NewWorkspaceService(mockWorkspaceRepo, mockUOW)
-	return wsService, mockWorkspaceRepo, mockPatientRepo, mockUOW
+	return wsService, mockWorkspaceRepo, mockPatientRepo, mockImageRepo, mockAnnotationRepo, mockUOW
 }
 
 func TestCreateNewWorkspace_Success(t *testing.T) {
-	wsService, mockWorkspaceRepo, _, _ := setupWorkspaceService(t)
+	wsService, mockWorkspaceRepo, _, _, _, _ := setupWorkspaceService(t)
 
 	ctx := context.Background()
 
@@ -82,7 +93,7 @@ func TestCreateNewWorkspace_Success(t *testing.T) {
 }
 
 func TestCreateNewWorkspace_Conflict(t *testing.T) {
-	wsService, mockWorkspaceRepo, _, _ := setupWorkspaceService(t)
+	wsService, mockWorkspaceRepo, _, _, _, _ := setupWorkspaceService(t)
 	ctx := context.Background()
 
 	input := service.CreateWorkspaceInput{
@@ -111,7 +122,7 @@ func TestCreateNewWorkspace_Conflict(t *testing.T) {
 
 func TestDeleteWorkspace_Success_NoPatients(t *testing.T) {
 
-	wsService, mockWorkspaceRepo, mockPatientRepo, _ := setupWorkspaceService(t)
+	wsService, mockWorkspaceRepo, mockPatientRepo, _, _, _ := setupWorkspaceService(t)
 	ctx := context.Background()
 	workspaceID := "workspace-123"
 
@@ -133,7 +144,7 @@ func TestDeleteWorkspace_Success_NoPatients(t *testing.T) {
 
 func TestDeleteWorkspace_Failure_HasPatients(t *testing.T) {
 
-	wsService, _, mockPatientRepo, _ := setupWorkspaceService(t)
+	wsService, _, mockPatientRepo, _, _, _ := setupWorkspaceService(t)
 	ctx := context.Background()
 	workspaceID := "workspace-123"
 
@@ -156,7 +167,7 @@ func TestDeleteWorkspace_Failure_HasPatients(t *testing.T) {
 
 func TestUpdateWorkspace_Success(t *testing.T) {
 
-	wsService, mockWorkspaceRepo, _, _ := setupWorkspaceService(t)
+	wsService, mockWorkspaceRepo, _, _, _, _ := setupWorkspaceService(t)
 	ctx := context.Background()
 	workspaceID := "workspace-123"
 
@@ -186,7 +197,7 @@ func TestUpdateWorkspace_Success(t *testing.T) {
 
 func TestUpdateWorkspace_Failure_IDNotFound(t *testing.T) {
 
-	wsService, mockWorkspaceRepo, _, _ := setupWorkspaceService(t)
+	wsService, mockWorkspaceRepo, _, _, _, _ := setupWorkspaceService(t)
 	ctx := context.Background()
 	workspaceID := "nonexistent-workspace"
 
@@ -209,7 +220,7 @@ func TestUpdateWorkspace_Failure_IDNotFound(t *testing.T) {
 
 func TestUpdateWorkspace_Failure_NameConflict(t *testing.T) {
 
-	wsService, mockWorkspaceRepo, _, _ := setupWorkspaceService(t)
+	wsService, mockWorkspaceRepo, _, _, _, _ := setupWorkspaceService(t)
 	ctx := context.Background()
 	workspaceID := "workspace-123"
 
@@ -238,7 +249,7 @@ func TestUpdateWorkspace_Failure_NameConflict(t *testing.T) {
 }
 
 func TestListWorkspaces_Success(t *testing.T) {
-	wsService, mockWorkspaceRepo, _, _ := setupWorkspaceService(t)
+	wsService, mockWorkspaceRepo, _, _, _, _ := setupWorkspaceService(t)
 	ctx := context.Background()
 	pagination := &sharedQuery.Pagination{Limit: 10}
 
@@ -254,7 +265,7 @@ func TestListWorkspaces_Success(t *testing.T) {
 }
 
 func TestGetWorkspaceByID_NotFound(t *testing.T) {
-	wsService, mockWorkspaceRepo, _, _ := setupWorkspaceService(t)
+	wsService, mockWorkspaceRepo, _, _, _, _ := setupWorkspaceService(t)
 	ctx := context.Background()
 	workspaceID := "ws-not-found"
 
@@ -265,4 +276,167 @@ func TestGetWorkspaceByID_NotFound(t *testing.T) {
 	ws, err := wsService.GetWorkspaceByID(ctx, workspaceID)
 	require.Error(t, err)
 	require.Nil(t, ws)
+}
+
+func TestCreateNewWorkspace_InvalidYear(t *testing.T) {
+	wsService, mockWorkspaceRepo, _, _, _, _ := setupWorkspaceService(t)
+	ctx := context.Background()
+
+	input := service.CreateWorkspaceInput{
+		Name:        "Test Workspace",
+		ReleaseYear: ptrInt(1800),
+	}
+
+	mockWorkspaceRepo.EXPECT().
+		FindByName(ctx, input.Name).
+		Return(nil, nil)
+
+	createdWS, err := wsService.CreateNewWorkspace(ctx, &input)
+
+	require.Error(t, err)
+	assert.Nil(t, createdWS)
+	var valErr *errors.Err
+	require.True(t, stderrors.As(err, &valErr))
+	assert.Equal(t, errors.ErrorTypeValidation, valErr.Type)
+}
+
+func TestGetWorkspaceByID_Success(t *testing.T) {
+	wsService, mockWorkspaceRepo, _, _, _, _ := setupWorkspaceService(t)
+	ctx := context.Background()
+	workspaceID := "ws-123"
+
+	mockWorkspaceRepo.EXPECT().
+		Read(ctx, workspaceID).
+		Return(&model.Workspace{ID: workspaceID, Name: "Found"}, nil)
+
+	ws, err := wsService.GetWorkspaceByID(ctx, workspaceID)
+	require.NoError(t, err)
+	assert.NotNil(t, ws)
+	assert.Equal(t, workspaceID, ws.ID)
+}
+
+func TestUpdateWorkspace_NoUpdates(t *testing.T) {
+	wsService, mockWorkspaceRepo, _, _, _, _ := setupWorkspaceService(t)
+	ctx := context.Background()
+	workspaceID := "ws-123"
+
+	mockWorkspaceRepo.EXPECT().
+		Read(ctx, workspaceID).
+		Return(&model.Workspace{ID: workspaceID}, nil)
+
+	err := wsService.UpdateWorkspace(ctx, workspaceID, service.UpdateWorkspaceInput{})
+	require.NoError(t, err)
+}
+
+func TestUpdateWorkspace_InvalidYear(t *testing.T) {
+	wsService, mockWorkspaceRepo, _, _, _, _ := setupWorkspaceService(t)
+	ctx := context.Background()
+	workspaceID := "ws-123"
+	invalidYear := 2200
+
+	mockWorkspaceRepo.EXPECT().
+		Read(ctx, workspaceID).
+		Return(&model.Workspace{ID: workspaceID}, nil)
+
+	err := wsService.UpdateWorkspace(ctx, workspaceID, service.UpdateWorkspaceInput{
+		ReleaseYear: &invalidYear,
+	})
+	require.Error(t, err)
+}
+
+func TestCascadeDeleteWorkspace_Complex(t *testing.T) {
+	wsService, mockWorkspaceRepo, mockPatientRepo, mockImageRepo, mockAnnotationRepo, _ := setupWorkspaceService(t)
+	ctx := context.Background()
+	workspaceID := "ws-complex"
+
+	mockWorkspaceRepo.EXPECT().Read(ctx, workspaceID).Return(&model.Workspace{ID: workspaceID}, nil)
+
+	patient1 := &model.Patient{ID: "p1"}
+	patient2 := &model.Patient{ID: "p2"}
+
+	mockPatientRepo.EXPECT().
+		FindByFilters(gomock.Any(),
+			[]query.Filter{{Field: constants.PatientWorkspaceIDField, Operator: query.OpEqual, Value: workspaceID}},
+			&query.Pagination{Limit: 100, Offset: 0}).
+		Return(&query.Result[*model.Patient]{Data: []*model.Patient{patient1}, HasMore: true}, nil)
+
+	mockPatientRepo.EXPECT().
+		FindByFilters(gomock.Any(),
+			[]query.Filter{{Field: constants.PatientWorkspaceIDField, Operator: query.OpEqual, Value: workspaceID}},
+			&query.Pagination{Limit: 100, Offset: 100}).
+		Return(&query.Result[*model.Patient]{Data: []*model.Patient{patient2}, HasMore: false}, nil)
+
+	image1 := &model.Image{ID: "img1"}
+	mockImageRepo.EXPECT().
+		FindByFilters(gomock.Any(),
+			[]query.Filter{{Field: constants.ImagePatientIDField, Operator: query.OpEqual, Value: patient1.ID}},
+			gomock.Any()).
+		Return(&query.Result[*model.Image]{Data: []*model.Image{image1}, HasMore: false}, nil)
+
+	mockImageRepo.EXPECT().
+		FindByFilters(gomock.Any(),
+			[]query.Filter{{Field: constants.ImagePatientIDField, Operator: query.OpEqual, Value: patient2.ID}},
+			gomock.Any()).
+		Return(&query.Result[*model.Image]{Data: []*model.Image{}, HasMore: false}, nil)
+
+	anno1 := &model.Annotation{ID: "anno1"}
+	mockAnnotationRepo.EXPECT().
+		FindByFilters(gomock.Any(),
+			[]query.Filter{{Field: constants.AnnotationImageIDField, Operator: query.OpEqual, Value: image1.ID}},
+			gomock.Any()).
+		Return(&query.Result[*model.Annotation]{Data: []*model.Annotation{anno1}, HasMore: false}, nil)
+
+	mockAnnotationRepo.EXPECT().BatchDelete(gomock.Any(), []string{"anno1"}).Return(nil)
+	mockImageRepo.EXPECT().BatchDelete(gomock.Any(), []string{"img1"}).Return(nil)
+	mockPatientRepo.EXPECT().BatchDelete(gomock.Any(), []string{"p1", "p2"}).Return(nil)
+	mockWorkspaceRepo.EXPECT().Delete(gomock.Any(), workspaceID).Return(nil)
+
+	err := wsService.CascadeDeleteWorkspace(ctx, workspaceID)
+	require.NoError(t, err)
+}
+
+func TestBatchDeleteWorkspaces_Success(t *testing.T) {
+	wsService, mockWorkspaceRepo, mockPatientRepo, _, _, _ := setupWorkspaceService(t)
+	ctx := context.Background()
+	ids := []string{"ws-1", "ws-2"}
+
+	for _, id := range ids {
+		mockWorkspaceRepo.EXPECT().Read(ctx, id).Return(&model.Workspace{ID: id}, nil)
+
+		mockPatientRepo.EXPECT().
+			FindByFilters(gomock.Any(),
+				[]query.Filter{{Field: constants.PatientWorkspaceIDField, Operator: query.OpEqual, Value: id}},
+				gomock.Any()).
+			Return(&query.Result[*model.Patient]{Data: []*model.Patient{}, HasMore: false}, nil)
+
+		mockWorkspaceRepo.EXPECT().Delete(gomock.Any(), id).Return(nil)
+	}
+
+	err := wsService.BatchDeleteWorkspaces(ctx, ids)
+	require.NoError(t, err)
+}
+
+func TestBatchDeleteWorkspaces_Failure(t *testing.T) {
+	wsService, mockWorkspaceRepo, _, _, _, _ := setupWorkspaceService(t)
+	ctx := context.Background()
+	ids := []string{"ws-1"}
+
+	mockWorkspaceRepo.EXPECT().Read(ctx, "ws-1").Return(nil, errors.NewInternalError("db fail", nil))
+
+	err := wsService.BatchDeleteWorkspaces(ctx, ids)
+	require.Error(t, err)
+}
+
+func TestCountWorkspaces_Success(t *testing.T) {
+	wsService, mockWorkspaceRepo, _, _, _, _ := setupWorkspaceService(t)
+	ctx := context.Background()
+	filters := []query.Filter{{Field: "organ_type", Value: "Lung"}}
+
+	mockWorkspaceRepo.EXPECT().
+		Count(ctx, filters).
+		Return(int64(5), nil)
+
+	count, err := wsService.CountWorkspaces(ctx, filters)
+	require.NoError(t, err)
+	assert.Equal(t, int64(5), count)
 }
