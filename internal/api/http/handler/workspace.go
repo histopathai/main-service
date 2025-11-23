@@ -301,7 +301,7 @@ func (wh *WorkspaceHandler) DeleteWorkspace(c *gin.Context) {
 	wh.response.NoContent(c)
 }
 
-// BatchDeleteWorkspaces [delete] godoc
+// BatchDeleteWorkspaces [post] godoc
 // @Summary      Batch delete workspaces
 // @Description  Delete multiple workspaces by their IDs
 // @Tags         Workspaces
@@ -315,7 +315,7 @@ func (wh *WorkspaceHandler) DeleteWorkspace(c *gin.Context) {
 // @Failure      500 {object} response.ErrorResponse "Internal server error"
 // @Failure      401 {object} response.ErrorResponse "Unauthorized"
 // @Security     BearerAuth
-// @Router       /workspaces/batch-delete [delete]
+// @Router       /workspaces/batch-delete [post]
 func (wh *WorkspaceHandler) BatchDeleteWorkspaces(c *gin.Context) {
 	var req request.BatchDeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
