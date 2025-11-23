@@ -13,6 +13,7 @@ const (
 	EventTypeImageProcessingRequested EventType = "image.processing.requested.v1"
 	EventTypeImageProcessingCompleted EventType = "image.processing.completed.v1"
 	EventTypeImageProcessingFailed    EventType = "image.processing.failed.v1"
+	EventTypeImageDeletionRequested   EventType = "image.deletion.requested.v1"
 )
 
 type BaseEvent struct {
@@ -109,6 +110,18 @@ func NewImageProcessingFailedEvent(imageID, failureReason string) ImageProcessin
 		BaseEvent:     NewBaseEvent(EventTypeImageProcessingFailed),
 		ImageID:       imageID,
 		FailureReason: failureReason,
+	}
+}
+
+type ImageDeletionRequestedEvent struct {
+	BaseEvent
+	ImageID string `json:"image-id"`
+}
+
+func NewImageDeletionRequestedEvent(imageID string) ImageDeletionRequestedEvent {
+	return ImageDeletionRequestedEvent{
+		BaseEvent: NewBaseEvent(EventType("image.deletion.requested.v1")),
+		ImageID:   imageID,
 	}
 }
 
