@@ -11,8 +11,9 @@ import (
 )
 
 type SubscriberConfig struct {
-	UploadStatusSubscriptionID       string
-	ImageProcessResultSubscriptionID string
+	UploadStatusSubscriptionID           string
+	ImageProcessResultSubscriptionID     string
+	ImageDeletionRequestedSubscriptionID string
 }
 
 type ImageOrchestrator struct {
@@ -37,6 +38,7 @@ func NewImageOrchestrator(
 
 	registry.Register(events.EventTypeImageProcessingCompleted, processHandler.Handle)
 	registry.Register(events.EventTypeImageProcessingFailed, processHandler.Handle)
+	registry.Register(events.EventTypeImageDeletionRequested, processHandler.Handle)
 
 	return &ImageOrchestrator{
 		pubsubClient:   pubsubClient,
@@ -60,6 +62,12 @@ func (io *ImageOrchestrator) Start(ctx context.Context) error {
 
 	if io.config.ImageProcessResultSubscriptionID != "" {
 		if err := io.startSubscription(ctx, io.config.ImageProcessResultSubscriptionID, io.registry.Handle); err != nil {
+			return err
+		}
+	}
+
+	if io.config.ImageDeletionRequestedSubscriptionID != "" {
+		if err := io.startSubscription(ctx, io.config.ImageDeletionRequestedSubscriptionID, io.registry.Handle); err != nil {
 			return err
 		}
 	}
