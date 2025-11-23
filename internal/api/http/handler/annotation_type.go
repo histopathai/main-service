@@ -431,7 +431,7 @@ func (ath *AnnotationTypeHandler) DeleteAnnotationType(c *gin.Context) {
 	ath.response.NoContent(c)
 }
 
-// BatchDeleteAnnotationTypes [delete] godoc
+// BatchDeleteAnnotationTypes [post] godoc
 // @Summary Batch delete annotation types
 // @Description Delete multiple annotation types by their IDs
 // @Tags Annotation Types
@@ -443,7 +443,7 @@ func (ath *AnnotationTypeHandler) DeleteAnnotationType(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
-// @Router /annotation-types/batch-delete [delete]
+// @Router /annotation-types/batch-delete [post]
 func (ath *AnnotationTypeHandler) BatchDeleteAnnotationTypes(c *gin.Context) {
 	user_role, err := middleware.GetAuthenticatedUserRole(c)
 	if err != nil {
