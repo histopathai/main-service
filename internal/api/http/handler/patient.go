@@ -364,7 +364,7 @@ func (ph *PatientHandler) TransferPatientWorkspace(c *gin.Context) {
 
 	ph.logger.Info("Patient transferred successfully",
 		slog.String("patient_id", patientID),
-		slog.String("target_workspace_id", workspaceID),
+		slog.String("target_id", workspaceID),
 	)
 	ph.response.NoContent(c)
 }
@@ -391,14 +391,14 @@ func (ph *PatientHandler) BatchTransferPatients(c *gin.Context) {
 		return
 	}
 
-	err := ph.patientService.BatchTransfer(c.Request.Context(), req.IDs, req.TargetWorkspace)
+	err := ph.patientService.BatchTransfer(c.Request.Context(), req.IDs, req.Target)
 	if err != nil {
 		ph.handleError(c, err)
 		return
 	}
 
 	ph.logger.Info("Patients batch transferred successfully",
-		slog.String("target_workspace_id", req.TargetWorkspace),
+		slog.String("target_id", req.Target),
 	)
 
 	ph.response.NoContent(c)
@@ -472,7 +472,7 @@ func (ph *PatientHandler) CascadeDeletePatient(c *gin.Context) {
 	ph.response.NoContent(c)
 }
 
-// BatchDeletePatients [delete] godoc
+// BatchDeletePatients [post] godoc
 // @Summary Batch delete patients
 // @Description Batch delete patients along with associated images and annotations using their IDs
 // @Tags Patients
@@ -484,7 +484,7 @@ func (ph *PatientHandler) CascadeDeletePatient(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
-// @Router /patients/batch-delete [delete]
+// @Router /patients/batch-delete [post]
 func (ph *PatientHandler) BatchDeletePatients(c *gin.Context) {
 	user_role, err := middleware.GetAuthenticatedUserRole(c)
 	if err != nil {
