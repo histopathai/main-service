@@ -43,6 +43,7 @@ type IImageService interface {
 	BatchDeleteImages(ctx context.Context, imageIDs []string) error
 	BatchTransferImages(ctx context.Context, imageIDs []string, newPatientID string) error
 	CountImages(ctx context.Context, filters []query.Filter) (int64, error)
+	TransferImage(ctx context.Context, imageID string, newPatientID string) error
 }
 
 type IAnnotationService interface {
