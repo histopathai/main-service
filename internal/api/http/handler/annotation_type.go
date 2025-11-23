@@ -104,7 +104,7 @@ func (ath *AnnotationTypeHandler) CreateNewAnnotationType(c *gin.Context) {
 
 }
 
-// GetAnnotationType godoc
+// GetAnnotationType [get] godoc
 // @Summary Get an annotation type by ID
 // @Description Retrieve the details of an annotation type using its ID
 // @Tags Annotation Types
@@ -137,7 +137,7 @@ func (ath *AnnotationTypeHandler) GetAnnotationType(c *gin.Context) {
 
 }
 
-// ListAnnotationTypes godoc
+// ListAnnotationTypes [get] godoc
 // @Summary List all annotation types
 // @Description Retrieve a list of all annotation types
 // @Tags Annotation Types
@@ -198,84 +198,7 @@ func (ath *AnnotationTypeHandler) ListAnnotationTypes(c *gin.Context) {
 
 }
 
-// UpdateAnnotationType godoc
-// @Summary Update an annotation type
-// @Description Update the details of an existing annotation type
-// @Tags Annotation Types
-// @Accept json
-// @Produce json
-// @Param id path string true "Annotation Type ID"
-// @Param        request body request.UpdateAnnotationTypeRequest true "Annotation Type update request"
-// @Success 204  "Annotation Type updated successfully"
-// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
-// @Failure 404 {object} response.ErrorResponse "Annotation Type not found"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
-// @Security BearerAuth
-// @Router /annotation-types/{annotation_type_id} [put]
-func (ath *AnnotationTypeHandler) UpdateAnnotationType(c *gin.Context) {
-	id := c.Param("annotation_type_id")
-
-	var req request.UpdateAnnotationTypeRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ath.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
-			"error": err.Error(),
-		}))
-		return
-	}
-
-	// DTO -> Service Input
-	input := service.UpdateAnnotationTypeInput{
-		Name:        req.Name,
-		Description: req.Description,
-	}
-
-	err := ath.annotationTypeService.UpdateAnnotationType(c.Request.Context(), id, &input)
-	if err != nil {
-		ath.handleError(c, err)
-		return
-	}
-
-	ath.logger.Info("Annotation type updated successfully",
-		slog.String("annotation_type_id", id),
-	)
-
-	// No content to return
-	ath.response.NoContent(c)
-}
-
-// DeleteAnnotationType godoc
-// @Summary Delete an annotation type
-// @Description Delete an existing annotation type by ID
-// @Tags Annotation Types
-// @Accept json
-// @Produce json
-// @Param id path string true "Annotation Type ID"
-// @Success 204 "Annotation Type deleted successfully"
-// @Failure 404 {object} response.ErrorResponse "Annotation Type not found"
-// @Failure 409 {object} response.ErrorResponse "Annotation Type in use"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
-// @Security BearerAuth
-// @Router /annotation-types/{annotation_type_id} [delete]
-func (ath *AnnotationTypeHandler) DeleteAnnotationType(c *gin.Context) {
-	id := c.Param("annotation_type_id")
-
-	err := ath.annotationTypeService.DeleteAnnotationType(c.Request.Context(), id)
-	if err != nil {
-		ath.handleError(c, err)
-		return
-	}
-
-	ath.logger.Info("Annotation type deleted successfully",
-		slog.String("annotation_type_id", id),
-	)
-
-	// No content to return
-	ath.response.NoContent(c)
-}
-
-// Get Classification Optionied Annotation Types godoc
+// Get Classification Optionied Annotation Types [get] godoc
 // @Summary Get annotation types with classification enabled
 // @Description Retrieve a list of annotation types that have classification enabled
 // @Tags Annotation Types
@@ -338,7 +261,7 @@ func (ath *AnnotationTypeHandler) GetClassificationOptionedAnnotationTypes(c *gi
 
 }
 
-// Get Score Optionied Annotation Types godoc
+// Get Score Optionied Annotation Types [get] godoc
 // @Summary Get annotation types with score enabled
 // @Description Retrieve a list of annotation types that have score enabled
 // @Tags Annotation Types
@@ -401,7 +324,114 @@ func (ath *AnnotationTypeHandler) GetScoreOptionedAnnotationTypes(c *gin.Context
 
 }
 
-// BatchDeleteAnnotationTypes godoc
+// CountAnnotationTypes V1 godoc
+// @Summary Count annotation types
+// @Description Retrieve the total count of annotation types
+// @Tags Annotation Types
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.CountResponse "Total count of annotation types retrieved successfully"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /annotation-types/count [get]
+func (ath *AnnotationTypeHandler) CountV1AnnotationTypes(c *gin.Context) {
+
+	count, err := ath.annotationTypeService.CountAnnotationTypes(c.Request.Context(), []query.Filter{})
+	if err != nil {
+		ath.handleError(c, err)
+		return
+	}
+
+	ath.logger.Info("Annotation types count retrieved successfully",
+		slog.Int64("count", count),
+	)
+
+	countResp := &response.CountResponse{
+		Count: count,
+	}
+
+	ath.response.Success(c, http.StatusOK, countResp)
+}
+
+// UpdateAnnotationType [put] godoc
+// @Summary Update an annotation type
+// @Description Update the details of an existing annotation type
+// @Tags Annotation Types
+// @Accept json
+// @Produce json
+// @Param id path string true "Annotation Type ID"
+// @Param        request body request.UpdateAnnotationTypeRequest true "Annotation Type update request"
+// @Success 204  "Annotation Type updated successfully"
+// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
+// @Failure 404 {object} response.ErrorResponse "Annotation Type not found"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /annotation-types/{annotation_type_id} [put]
+func (ath *AnnotationTypeHandler) UpdateAnnotationType(c *gin.Context) {
+	id := c.Param("annotation_type_id")
+
+	var req request.UpdateAnnotationTypeRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ath.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
+	}
+
+	// DTO -> Service Input
+	input := service.UpdateAnnotationTypeInput{
+		Name:        req.Name,
+		Description: req.Description,
+	}
+
+	err := ath.annotationTypeService.UpdateAnnotationType(c.Request.Context(), id, &input)
+	if err != nil {
+		ath.handleError(c, err)
+		return
+	}
+
+	ath.logger.Info("Annotation type updated successfully",
+		slog.String("annotation_type_id", id),
+	)
+
+	// No content to return
+	ath.response.NoContent(c)
+}
+
+// DeleteAnnotationType [delete] godoc
+// @Summary Delete an annotation type
+// @Description Delete an existing annotation type by ID
+// @Tags Annotation Types
+// @Accept json
+// @Produce json
+// @Param id path string true "Annotation Type ID"
+// @Success 204 "Annotation Type deleted successfully"
+// @Failure 404 {object} response.ErrorResponse "Annotation Type not found"
+// @Failure 409 {object} response.ErrorResponse "Annotation Type in use"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /annotation-types/{annotation_type_id} [delete]
+func (ath *AnnotationTypeHandler) DeleteAnnotationType(c *gin.Context) {
+	id := c.Param("annotation_type_id")
+
+	err := ath.annotationTypeService.DeleteAnnotationType(c.Request.Context(), id)
+	if err != nil {
+		ath.handleError(c, err)
+		return
+	}
+
+	ath.logger.Info("Annotation type deleted successfully",
+		slog.String("annotation_type_id", id),
+	)
+
+	// No content to return
+	ath.response.NoContent(c)
+}
+
+// BatchDeleteAnnotationTypes [delete] godoc
 // @Summary Batch delete annotation types
 // @Description Delete multiple annotation types by their IDs
 // @Tags Annotation Types
@@ -443,34 +473,4 @@ func (ath *AnnotationTypeHandler) BatchDeleteAnnotationTypes(c *gin.Context) {
 
 	// No content to return
 	ath.response.NoContent(c)
-}
-
-// CountAnnotationTypes V1 godoc
-// @Summary Count annotation types
-// @Description Retrieve the total count of annotation types
-// @Tags Annotation Types
-// @Accept json
-// @Produce json
-// @Success 200 {object} response.CountResponse "Total count of annotation types retrieved successfully"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
-// @Security BearerAuth
-// @Router /annotation-types/count [get]
-func (ath *AnnotationTypeHandler) CountV1AnnotationTypes(c *gin.Context) {
-
-	count, err := ath.annotationTypeService.CountAnnotationTypes(c.Request.Context(), []query.Filter{})
-	if err != nil {
-		ath.handleError(c, err)
-		return
-	}
-
-	ath.logger.Info("Annotation types count retrieved successfully",
-		slog.Int64("count", count),
-	)
-
-	countResp := &response.CountResponse{
-		Count: count,
-	}
-
-	ath.response.Success(c, http.StatusOK, countResp)
 }
