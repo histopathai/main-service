@@ -122,7 +122,7 @@ func (r *Router) setupWorkspaceRoutes(rg *gin.RouterGroup) {
 		workspaces.DELETE("/:workspace_id", r.workspaceHandler.DeleteWorkspace)
 		workspaces.GET("/:workspace_id/patients", r.patientHandler.GetPatientsByWorkspaceID)
 		workspaces.DELETE("/:workspace_id/cascade-delete", r.workspaceHandler.CascadeDeleteWorkspace)
-		workspaces.DELETE("/batch-delete", r.workspaceHandler.BatchDeleteWorkspaces)
+		workspaces.POST("/batch-delete", r.workspaceHandler.BatchDeleteWorkspaces)
 		workspaces.GET("/count-v1", r.workspaceHandler.CountV1Workspaces)
 	}
 }
@@ -135,12 +135,12 @@ func (r *Router) setupPatientRoutes(rg *gin.RouterGroup) {
 		patients.GET("/:patient_id", r.patientHandler.GetPatientByID)
 		patients.PUT("/:patient_id", r.patientHandler.UpdatePatientByID)
 		patients.DELETE("/:patient_id", r.patientHandler.DeletePatientByID)
-		patients.POST("/:patient_id/transfer/:workspace_id", r.patientHandler.TransferPatientWorkspace)
+		patients.PUT("/:patient_id/transfer/:workspace_id", r.patientHandler.TransferPatientWorkspace)
 		patients.GET("/:patient_id/images", r.imageHandler.ListImageByPatientID)
 		patients.GET("/count-v1", r.patientHandler.CountV1Patients)
-		patients.DELETE("/batch-delete", r.patientHandler.BatchDeletePatients)
+		patients.POST("/batch-delete", r.patientHandler.BatchDeletePatients)
 		patients.DELETE("/:patient_id/cascade-delete", r.patientHandler.CascadeDeletePatient)
-		patients.POST("/batch-transfer", r.patientHandler.BatchTransferPatients)
+		patients.PUT("/batch-transfer", r.patientHandler.BatchTransferPatients)
 
 	}
 }
@@ -151,9 +151,10 @@ func (r *Router) setupImageRoutes(rg *gin.RouterGroup) {
 		images.POST("", r.imageHandler.UploadImage)
 		images.GET("/:image_id", r.imageHandler.GetImageByID)
 		images.DELETE("/:image_id", r.imageHandler.DeleteImage)
-		images.DELETE("/batch-delete", r.imageHandler.BatchDeleteImages)
+		images.POST("/batch-delete", r.imageHandler.BatchDeleteImages)
 		images.GET("/count-v1", r.imageHandler.CountV1Images)
-		images.POST("/batch-transfer", r.imageHandler.BatchTransferImages)
+		images.PUT("/:image_id/transfer/:patient_id", r.imageHandler.TransferImage)
+		images.PUT("/batch-transfer", r.imageHandler.BatchTransferImages)
 	}
 }
 
@@ -161,10 +162,10 @@ func (r *Router) setupAnnotationRoutes(rg *gin.RouterGroup) {
 	annotations := rg.Group("/annotations")
 	{
 		annotations.POST("", r.annotationHandler.CreateNewAnnotation)
-		annotations.GET("/:id", r.annotationHandler.GetAnnotationByID)
-		annotations.DELETE("/:id", r.annotationHandler.DeleteAnnotation)
+		annotations.GET("/:annotation_id", r.annotationHandler.GetAnnotationByID)
+		annotations.DELETE("/:annotation_id", r.annotationHandler.DeleteAnnotation)
 		annotations.GET("/image/:image_id", r.annotationHandler.GetAnnotationsByImageID)
-		annotations.DELETE("/batch-delete", r.annotationHandler.BatchDeleteAnnotations)
+		annotations.POST("/batch-delete", r.annotationHandler.BatchDeleteAnnotations)
 		annotations.GET("/count-v1", r.annotationHandler.CountV1Annotations)
 	}
 }
