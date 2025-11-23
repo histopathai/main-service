@@ -105,13 +105,7 @@ func (ws *WorkspaceService) UpdateWorkspace(ctx context.Context, id string, inpu
 	}
 
 	updates := make(map[string]interface{})
-	if input.Name != nil {
-		updates[constants.WorkspaceNameField] = *input.Name
-		validateerr := ws.validateWorkspaceInput(ctx, &CreateWorkspaceInput{Name: *input.Name})
-		if validateerr != nil {
-			return validateerr
-		}
-	}
+
 	if input.OrganType != nil {
 		updates[constants.WorkspaceOrganTypeField] = *input.OrganType
 	}
