@@ -29,6 +29,13 @@ func (ep *EventPublisher) PublishImageProcessingRequested(ctx context.Context, e
 	}
 	return nil
 }
+func (ep *EventPublisher) PublishImageDeletionRequested(ctx context.Context, event *events.ImageDeletionRequestedEvent) error {
+	err := ep.publishEvent(ctx, event)
+	if err != nil {
+		return errors.NewInternalError("Failed to publish ImageDeletionRequested event: %v", err)
+	}
+	return nil
+}
 
 func (ep *EventPublisher) publishEvent(ctx context.Context, event events.Event) error {
 
