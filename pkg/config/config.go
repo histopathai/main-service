@@ -40,11 +40,14 @@ type GCPConfig struct {
 }
 
 type PubSubConfig struct {
-	UploadStatusSubscription        string
-	ImageProcessingTopic            string
-	ImageProcessingDLQTopic         string
-	ProcessingCompletedSubscription string
-	ProcessingCompletedDLQTopic     string
+	UploadStatusSubscription           string
+	ImageProcessingTopic               string
+	ImageProcessingDLQTopic            string
+	ImageDeletionRequestedTopic        string
+	ImageDeletionRequestedDLQTopic     string
+	ImageDeletionRequestedSubscription string
+	ProcessingCompletedSubscription    string
+	ProcessingCompletedDLQTopic        string
 }
 
 type LoggingConfig struct {
@@ -88,11 +91,14 @@ func Load() (*Config, error) {
 			ProcessedBucketName: getEnv("PROCESSED_BUCKET_NAME", ""),
 		},
 		PubSub: PubSubConfig{
-			UploadStatusSubscription:        getEnv("UPLOAD_STATUS_SUBSCRIPTION", "upload-status-sub"),
-			ImageProcessingTopic:            getEnv("IMAGE_PROCESSING_TOPIC", "image-processing"),
-			ImageProcessingDLQTopic:         getEnv("IMAGE_PROCESSING_DLQ_TOPIC", "image-processing-dlq"),
-			ProcessingCompletedSubscription: getEnv("PROCESSING_COMPLETED_SUBSCRIPTION", "image-process-result-sub"),
-			ProcessingCompletedDLQTopic:     getEnv("PROCESSING_COMPLETED_DLQ_TOPIC", "image-process-result-dlq"),
+			UploadStatusSubscription:           getEnv("UPLOAD_STATUS_SUBSCRIPTION", "upload-status-sub"),
+			ImageProcessingTopic:               getEnv("IMAGE_PROCESSING_TOPIC", "image-processing"),
+			ImageProcessingDLQTopic:            getEnv("IMAGE_PROCESSING_DLQ_TOPIC", "image-processing-dlq"),
+			ProcessingCompletedSubscription:    getEnv("PROCESSING_COMPLETED_SUBSCRIPTION", "image-process-result-sub"),
+			ProcessingCompletedDLQTopic:        getEnv("PROCESSING_COMPLETED_DLQ_TOPIC", "image-process-result-dlq"),
+			ImageDeletionRequestedTopic:        getEnv("IMAGE_DELETION_REQUESTED_TOPIC", "image-deletion-requests"),
+			ImageDeletionRequestedDLQTopic:     getEnv("IMAGE_DELETION_REQUESTED_DLQ_TOPIC", "image-deletion-dlq"),
+			ImageDeletionRequestedSubscription: getEnv("IMAGE_DELETION_REQUESTED_SUBSCRIPTION", "image-deletion-requests-sub"),
 		},
 		Logging: LoggingConfig{
 			Level:  getEnv("LOG_LEVEL", "info"),
