@@ -72,6 +72,6 @@ type BatchDeleteRequest struct {
 }
 
 type BatchTransferRequest struct {
-	IDs             []string `json:"ids" binding:"required,min=1,dive,required" example:"['id1', 'id2']"`
-	TargetWorkspace string   `json:"target_workspace" binding:"required" example:"workspace-123"`
+	IDs    []string `json:"ids" binding:"required,min=1,dive,required" example:"['id1', 'id2']"`
+	Target string   `json:"target" binding:"required" example:"workspace-123"`
 }
