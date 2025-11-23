@@ -27,6 +27,10 @@ type ObjectStorage interface {
 	ObjectExists(ctx context.Context, bucketName string, objectKey string) (bool, error)
 	//DeleteObject(ctx context.Context, bucketName string, objectKey string) error // (Uncomment if needed in future)
 	ListObjects(ctx context.Context, bucketName string, prefix string) ([]string, error)
+
+	DeleteObject(ctx context.Context, bucketName string, objectKey string) error
+	DeleteObjects(ctx context.Context, bucketName string, objectKeys []string) error
+	DeleteByPrefix(ctx context.Context, bucketName string, prefix string) error
 }
 
 type ObjectMetadata struct {
