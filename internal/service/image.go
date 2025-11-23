@@ -172,6 +172,24 @@ func (is *ImageService) DeleteImageByID(ctx context.Context, imageID string) err
 
 }
 
+func (is *ImageService) TransferImage(ctx context.Context, imageID string, newPatientID string) error {
+	uowerr := is.uow.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+		patientRepo := repos.PatientRepo
+		_, err := patientRepo.Read(txCtx, newPatientID)
+		if err != nil {
+			return err
+		}
+
+		return repos.ImageRepo.Transfer(txCtx, imageID, newPatientID)
+	})
+
+	if uowerr != nil {
+		return uowerr
+	}
+
+	return nil
+}
+
 func (is *ImageService) BatchDeleteImages(ctx context.Context, imageIDs []string) error {
 
 	for _, imageID := range imageIDs {
