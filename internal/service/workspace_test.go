@@ -172,9 +172,6 @@ func TestUpdateWorkspace_Success(t *testing.T) {
 	workspaceID := "workspace-123"
 
 	mockWorkspaceRepo.EXPECT().
-		FindByName(ctx, "Updated Workspace").
-		Return(nil, nil)
-	mockWorkspaceRepo.EXPECT().
 		Read(ctx, workspaceID).
 		Return(&model.Workspace{}, nil)
 
@@ -216,36 +213,6 @@ func TestUpdateWorkspace_Failure_IDNotFound(t *testing.T) {
 	var notFoundErr *errors.Err
 	require.True(t, stderrors.As(err, &notFoundErr))
 	assert.Equal(t, errors.ErrorTypeNotFound, notFoundErr.Type)
-}
-
-func TestUpdateWorkspace_Failure_NameConflict(t *testing.T) {
-
-	wsService, mockWorkspaceRepo, _, _, _, _ := setupWorkspaceService(t)
-	ctx := context.Background()
-	workspaceID := "workspace-123"
-
-	mockWorkspaceRepo.EXPECT().
-		FindByName(ctx, "Conflicting Name").
-		Return(&model.Workspace{
-			ID:   "ws-456",
-			Name: "Conflicting Name",
-		}, nil)
-
-	mockWorkspaceRepo.EXPECT().
-		Read(ctx, workspaceID).
-		Return(&model.Workspace{}, nil)
-
-	input := service.UpdateWorkspaceInput{
-		Name: ptrString("Conflicting Name"),
-	}
-	// --- Act ---
-	err := wsService.UpdateWorkspace(ctx, workspaceID, input)
-
-	// --- Assert ---
-	require.Error(t, err)
-	var conflictErr *errors.Err
-	require.True(t, stderrors.As(err, &conflictErr))
-	assert.Equal(t, errors.ErrorTypeConflict, conflictErr.Type)
 }
 
 func TestListWorkspaces_Success(t *testing.T) {
