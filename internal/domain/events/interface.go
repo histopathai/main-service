@@ -20,4 +20,5 @@ type PubSubClient interface {
 
 type ImageEventPublisher interface {
 	PublishImageProcessingRequested(ctx context.Context, event *ImageProcessingRequestedEvent) error
+	PublishImageDeletionRequested(ctx context.Context, event *ImageDeletionRequestedEvent) error
 }
