@@ -262,7 +262,7 @@ func (ah *AnnotationHandler) DeleteAnnotation(c *gin.Context) {
 	ah.response.NoContent(c)
 }
 
-// BatchDeleteAnnotations [delete] godoc
+// BatchDeleteAnnotations [post] godoc
 // @Summary Batch delete annotations by IDs
 // @Description Delete multiple annotations using their unique IDs
 // @Tags Annotations
@@ -274,7 +274,7 @@ func (ah *AnnotationHandler) DeleteAnnotation(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
-// @Router /annotations/batch-delete [delete]
+// @Router /annotations/batch-delete [post]
 func (ah *AnnotationHandler) BatchDeleteAnnotations(c *gin.Context) {
 	var req request.BatchDeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
