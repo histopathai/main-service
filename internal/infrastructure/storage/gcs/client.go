@@ -5,7 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"cloud.google.com/go/storage"
@@ -167,4 +169,143 @@ func (g *GCSClient) ListObjects(ctx context.Context, bucketName, prefix string) 
 
 func (g *GCSClient) Close() error {
 	return g.client.Close()
+}
+
+func (g *GCSClient) DeleteObject(ctx context.Context, bucketName string, objectKey string) error {
+	obj := g.client.Bucket(bucketName).Object(objectKey)
+
+	if err := obj.Delete(ctx); err != nil {
+		if errors.Is(err, storage.ErrObjectNotExist) {
+			g.logger.Warn("Object not found, already deleted",
+				"bucket", bucketName,
+				"objectKey", objectKey,
+			)
+			return nil // Already deleted, not an error
+		}
+		g.logger.Error("Failed to delete object",
+			"error", err,
+			"bucket", bucketName,
+			"objectKey", objectKey,
+		)
+		return mapGCSError(err, "deleting object")
+	}
+
+	g.logger.Info("Object deleted successfully",
+		"bucket", bucketName,
+		"objectKey", objectKey,
+	)
+	return nil
+}
+
+func (g *GCSClient) DeleteObjects(ctx context.Context, bucketName string, objectKeys []string) error {
+	if len(objectKeys) == 0 {
+		return nil
+	}
+
+	var (
+		wg     sync.WaitGroup
+		mu     sync.Mutex
+		errors []error
+	)
+
+	// Concurrent deletion with worker pool (max 10 concurrent deletions)
+	semaphore := make(chan struct{}, 10)
+
+	for _, key := range objectKeys {
+		wg.Add(1)
+		go func(objectKey string) {
+			defer wg.Done()
+
+			semaphore <- struct{}{}        // Acquire
+			defer func() { <-semaphore }() // Release
+
+			if err := g.DeleteObject(ctx, bucketName, objectKey); err != nil {
+				mu.Lock()
+				errors = append(errors, fmt.Errorf("failed to delete %s: %w", objectKey, err))
+				mu.Unlock()
+			}
+		}(key)
+	}
+
+	wg.Wait()
+
+	if len(errors) > 0 {
+		g.logger.Error("Some objects failed to delete",
+			"bucket", bucketName,
+			"totalObjects", len(objectKeys),
+			"failedCount", len(errors),
+		)
+		return fmt.Errorf("failed to delete %d/%d objects: %v", len(errors), len(objectKeys), errors[0])
+	}
+
+	g.logger.Info("All objects deleted successfully",
+		"bucket", bucketName,
+		"count", len(objectKeys),
+	)
+	return nil
+}
+
+func (g *GCSClient) DeleteByPrefix(ctx context.Context, bucketName string, prefix string) error {
+	if prefix == "" {
+		return fmt.Errorf("prefix cannot be empty for safety reasons")
+	}
+
+	// List all objects with the prefix
+	objects, err := g.ListObjects(ctx, bucketName, prefix)
+	if err != nil {
+		return fmt.Errorf("failed to list objects with prefix %s: %w", prefix, err)
+	}
+
+	if len(objects) == 0 {
+		g.logger.Info("No objects found with prefix",
+			"bucket", bucketName,
+			"prefix", prefix,
+		)
+		return nil
+	}
+
+	g.logger.Info("Deleting objects by prefix",
+		"bucket", bucketName,
+		"prefix", prefix,
+		"count", len(objects),
+	)
+
+	// Use batch delete
+	return g.DeleteObjects(ctx, bucketName, objects)
+}
+
+func (g *GCSClient) DeleteImageFiles(ctx context.Context, bucketName string, originPath string) error {
+	var deletionErrors []error
+
+	// Delete origin file
+	if err := g.DeleteObject(ctx, bucketName, originPath); err != nil {
+		deletionErrors = append(deletionErrors, fmt.Errorf("origin file: %w", err))
+	}
+
+	// Delete DZI files (assuming DZI folder has same name without extension)
+	// Example: "uuid-image.svs" -> "uuid-image/" or "uuid-image_files/"
+	baseName := strings.TrimSuffix(originPath, filepath.Ext(originPath))
+
+	// Common DZI patterns
+	dziPrefixes := []string{
+		baseName + "/",       // folder structure
+		baseName + "_files/", // DZI tiles folder
+		baseName + ".dzi",    // DZI descriptor file
+	}
+
+	for _, prefix := range dziPrefixes {
+		if err := g.DeleteByPrefix(ctx, bucketName, prefix); err != nil {
+			g.logger.Warn("Failed to delete DZI files",
+				"prefix", prefix,
+				"error", err,
+			)
+			// Don't add to errors, DZI might not exist
+		}
+	}
+
+	if len(deletionErrors) > 0 {
+		return fmt.Errorf("deletion errors occurred: %v", deletionErrors)
+	}
+
+	return nil
 }
