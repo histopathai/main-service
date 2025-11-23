@@ -222,13 +222,13 @@ func (ih *ImageHandler) CountV1Images(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param image_id path string true "Image ID"
-// @Param        request body request.TransferImageRequest true "Transfer image request"
+// @Param patient_id path string true "New Patient ID"
 // @Success 204 {string} string "Image transferred successfully"
 // @Failure 400 {object} response.ErrorResponse "Invalid request payload"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
-// @Router /images/{image_id}/transfer/patient_id [put]
+// @Router /images/{image_id}/transfer/{patient_id} [put]
 func (ih *ImageHandler) TransferImage(c *gin.Context) {
 	image_id := c.Param("image_id")
 	if image_id == "" {
