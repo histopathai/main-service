@@ -38,7 +38,7 @@ func NewWorkspaceHandler(workspaceService service.IWorkspaceService, validator *
 	}
 }
 
-// CreateNewWorkspace godoc
+// CreateNewWorkspace [post] godoc
 // @Summary Create a new workspace
 // @Description Create a new workspace with the provided details
 // @Tags Workspaces
@@ -52,7 +52,6 @@ func NewWorkspaceHandler(workspaceService service.IWorkspaceService, validator *
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
 // @Router /workspaces [post]
-
 func (wh *WorkspaceHandler) CreateNewWorkspace(c *gin.Context) {
 
 	creator_id, err := middleware.GetAuthenticatedUserID(c)
@@ -110,66 +109,7 @@ func (wh *WorkspaceHandler) CreateNewWorkspace(c *gin.Context) {
 
 }
 
-//UpdateWorkspace godoc
-// @Summary Update an existing workspace
-// @Description Update the details of an existing workspace by ID
-// @Tags Workspaces
-// @Accept json
-// @Produce json
-// @Param        id   path      string                      true  "Workspace ID"
-// @Param        request body request.UpdateWorkspaceRequest true "Workspace update request"
-// @Success 204 "Workspace updated successfully"
-// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
-// @Failure 404 {object} response.ErrorResponse "Workspace not found"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
-// @Security BearerAuth
-// @Router /workspaces/{workspace_id} [put]
-
-func (wh *WorkspaceHandler) UpdateWorkspace(c *gin.Context) {
-
-	workspaceID := c.Param("workspace_id")
-
-	var req request.UpdateWorkspaceRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		wh.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
-			"error": err.Error(),
-		}))
-		return
-	}
-
-	if err := wh.validator.ValidateStruct(&req); err != nil {
-		wh.handleError(c, err)
-		return
-	}
-
-	// DTO -> Service Input
-	input := service.UpdateWorkspaceInput{
-		Name:             req.Name,
-		OrganType:        req.OrganType,
-		Organization:     req.Organization,
-		Description:      req.Description,
-		License:          req.License,
-		ResourceURL:      req.ResourceURL,
-		ReleaseYear:      req.ReleaseYear,
-		AnnotationTypeID: req.AnnotationTypeID,
-	}
-
-	err := wh.workspaceService.UpdateWorkspace(c.Request.Context(), workspaceID, input)
-	if err != nil {
-		wh.handleError(c, err)
-		return
-	}
-
-	wh.logger.Info("Workspace updated successfully",
-		slog.String("workspace_id", workspaceID),
-	)
-
-	// No content to return
-	wh.response.NoContent(c)
-}
-
-// GetWorkspaceByID godoc
+// GetWorkspaceByID [get] godoc
 // @Summary Get workspace details by ID
 // @Description Retrieve the details of a workspace by its ID
 // @Tags Workspaces
@@ -180,7 +120,6 @@ func (wh *WorkspaceHandler) UpdateWorkspace(c *gin.Context) {
 // @Failure 404 {object} response.ErrorResponse "Workspace not found"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Router /workspaces/{workspace_id} [get]
-
 func (wh *WorkspaceHandler) GetWorkspaceByID(c *gin.Context) {
 
 	workspaceID := c.Param("workspace_id")
@@ -194,38 +133,7 @@ func (wh *WorkspaceHandler) GetWorkspaceByID(c *gin.Context) {
 	wh.response.Success(c, http.StatusOK, workspaceResp)
 }
 
-// DeleteWorkspace godoc
-// @Summary Delete a workspace by ID
-// @Description Delete an existing workspace by its ID
-// @Tags Workspaces
-// @Accept json
-// @Produce json
-// @Param        id   path      string  true  "Workspace ID"
-// @Success 204 "Workspace deleted successfully"
-// @Failure 404 {object} response.ErrorResponse "Workspace not found"
-// @Failure 409 {object} response.ErrorResponse "Workspace associated with existing patients"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
-// @Security BearerAuth
-// @Router /workspaces/{workspace_id} [delete]
-func (wh *WorkspaceHandler) DeleteWorkspace(c *gin.Context) {
-	workspaceID := c.Param("workspace_id")
-
-	err := wh.workspaceService.DeleteWorkspace(c.Request.Context(), workspaceID)
-	if err != nil {
-		wh.handleError(c, err)
-		return
-	}
-
-	wh.logger.Info("Workspace deleted successfully",
-		slog.String("workspace_id", workspaceID),
-	)
-
-	// No content to return
-	wh.response.NoContent(c)
-}
-
-// ListWorkspaces godoc
+// ListWorkspaces [get] godoc
 // @Summary      List workspaces
 // @Description  Get paginated list of workspaces
 // @Tags         Workspaces
@@ -241,7 +149,6 @@ func (wh *WorkspaceHandler) DeleteWorkspace(c *gin.Context) {
 // @Failure      500 {object} response.ErrorResponse "Internal server error"
 // @Security     BearerAuth
 // @Router       /workspaces [get]
-
 func (wh *WorkspaceHandler) ListWorkspaces(c *gin.Context) {
 	var queryReq request.QueryPaginationRequest
 	if err := c.ShouldBindQuery(&queryReq); err != nil {
@@ -285,7 +192,116 @@ func (wh *WorkspaceHandler) ListWorkspaces(c *gin.Context) {
 	wh.response.SuccessList(c, workspaceResponses, paginationResp)
 }
 
-// BatchDeleteWorkspaces godoc
+// Count V1 Workspaces [get] godoc
+// @Summary      Count workspaces
+// @Description  Get the total count of workspaces
+// @Tags         Workspaces
+// @Accept       json
+// @Produce      json
+// @Success      200 {object}  response.CountResponse "Total count of workspaces"
+// @Failure      500 {object} response.ErrorResponse "Internal server error"
+// @Router       /workspaces/count-v1 [get]
+func (wh *WorkspaceHandler) CountV1Workspaces(c *gin.Context) {
+	// Currently, no filters are applied. An empty slice is passed.
+	count, err := wh.workspaceService.CountWorkspaces(c.Request.Context(), []query.Filter{})
+	if err != nil {
+		wh.handleError(c, err)
+		return
+	}
+
+	wh.response.Success(c, http.StatusOK, response.CountResponse{Count: count})
+}
+
+// UpdateWorkspace [put] godoc
+// @Summary Update an existing workspace
+// @Description Update the details of an existing workspace by ID
+// @Tags Workspaces
+// @Accept json
+// @Produce json
+// @Param        id   path      string                      true  "Workspace ID"
+// @Param        request body request.UpdateWorkspaceRequest true "Workspace update request"
+// @Success 204 "Workspace updated successfully"
+// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
+// @Failure 404 {object} response.ErrorResponse "Workspace not found"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /workspaces/{workspace_id} [put]
+func (wh *WorkspaceHandler) UpdateWorkspace(c *gin.Context) {
+
+	workspaceID := c.Param("workspace_id")
+
+	var req request.UpdateWorkspaceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		wh.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
+	}
+
+	if err := wh.validator.ValidateStruct(&req); err != nil {
+		wh.handleError(c, err)
+		return
+	}
+
+	// DTO -> Service Input
+	input := service.UpdateWorkspaceInput{
+		Name:             req.Name,
+		OrganType:        req.OrganType,
+		Organization:     req.Organization,
+		Description:      req.Description,
+		License:          req.License,
+		ResourceURL:      req.ResourceURL,
+		ReleaseYear:      req.ReleaseYear,
+		AnnotationTypeID: req.AnnotationTypeID,
+	}
+
+	err := wh.workspaceService.UpdateWorkspace(c.Request.Context(), workspaceID, input)
+	if err != nil {
+		wh.handleError(c, err)
+		return
+	}
+
+	wh.logger.Info("Workspace updated successfully",
+		slog.String("workspace_id", workspaceID),
+	)
+
+	// No content to return
+	wh.response.NoContent(c)
+}
+
+// DeleteWorkspace [delete] godoc
+// @Summary Delete a workspace by ID
+// @Description Delete an existing workspace by its ID
+// @Tags Workspaces
+// @Accept json
+// @Produce json
+// @Param        id   path      string  true  "Workspace ID"
+// @Success 204 "Workspace deleted successfully"
+// @Failure 404 {object} response.ErrorResponse "Workspace not found"
+// @Failure 409 {object} response.ErrorResponse "Workspace associated with existing patients"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /workspaces/{workspace_id} [delete]
+func (wh *WorkspaceHandler) DeleteWorkspace(c *gin.Context) {
+	workspaceID := c.Param("workspace_id")
+
+	err := wh.workspaceService.DeleteWorkspace(c.Request.Context(), workspaceID)
+	if err != nil {
+		wh.handleError(c, err)
+		return
+	}
+
+	wh.logger.Info("Workspace deleted successfully",
+		slog.String("workspace_id", workspaceID),
+	)
+
+	// No content to return
+	wh.response.NoContent(c)
+}
+
+// BatchDeleteWorkspaces [delete] godoc
 // @Summary      Batch delete workspaces
 // @Description  Delete multiple workspaces by their IDs
 // @Tags         Workspaces
@@ -300,7 +316,6 @@ func (wh *WorkspaceHandler) ListWorkspaces(c *gin.Context) {
 // @Failure      401 {object} response.ErrorResponse "Unauthorized"
 // @Security     BearerAuth
 // @Router       /workspaces/batch-delete [delete]
-
 func (wh *WorkspaceHandler) BatchDeleteWorkspaces(c *gin.Context) {
 	var req request.BatchDeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -314,21 +329,42 @@ func (wh *WorkspaceHandler) BatchDeleteWorkspaces(c *gin.Context) {
 		return
 	}
 
-	err := wh.workspaceService.BatchDeleteWorkspaces(c.Request.Context(), req.IDs)
+	user_role, err := middleware.GetAuthenticatedUserRole(c)
 	if err != nil {
 		wh.handleError(c, err)
 		return
 	}
 
-	wh.logger.Info("Workspaces batch deleted successfully",
-		slog.Int("count", len(req.IDs)),
-	)
+	if user_role != "admin" {
+
+		err := wh.workspaceService.BatchDeleteWorkspaces(c.Request.Context(), req.IDs)
+		if err != nil {
+			wh.handleError(c, err)
+			return
+		}
+
+		wh.logger.Info("Workspaces batch deleted successfully",
+			slog.Int("count", len(req.IDs)),
+		)
+
+	} else {
+		for _, id := range req.IDs {
+			err := wh.workspaceService.CascadeDeleteWorkspace(c.Request.Context(), id)
+			if err != nil {
+				wh.handleError(c, err)
+				return
+			}
+			wh.logger.Info("Workspace cascade deleted successfully",
+				slog.String("workspace_id", id),
+			)
+		}
+	}
 
 	// No content to return
 	wh.response.NoContent(c)
 }
 
-// CascadeDeleteWorkspace godoc
+// CascadeDeleteWorkspace [delete] godoc
 // @Summary Cascade delete a workspace by ID
 // @Description Delete an existing workspace and all its associated data by its ID
 // @Tags Workspaces
@@ -364,24 +400,4 @@ func (wh *WorkspaceHandler) CascadeDeleteWorkspace(c *gin.Context) {
 
 	// No content to return
 	wh.response.NoContent(c)
-}
-
-// Count V1 Workspaces godoc
-// @Summary      Count workspaces
-// @Description  Get the total count of workspaces
-// @Tags         Workspaces
-// @Accept       json
-// @Produce      json
-// @Success      200 {object}  response.CountResponse "Total count of workspaces"
-// @Failure      500 {object} response.ErrorResponse "Internal server error"
-// @Router       /workspaces/count-v1 [get]
-func (wh *WorkspaceHandler) CountV1Workspaces(c *gin.Context) {
-	// Currently, no filters are applied. An empty slice is passed.
-	count, err := wh.workspaceService.CountWorkspaces(c.Request.Context(), []query.Filter{})
-	if err != nil {
-		wh.handleError(c, err)
-		return
-	}
-
-	wh.response.Success(c, http.StatusOK, response.CountResponse{Count: count})
 }
