@@ -215,6 +215,43 @@ func (ih *ImageHandler) CountV1Images(c *gin.Context) {
 	ih.response.Success(c, http.StatusOK, respPayload)
 }
 
+// TransferImage [put] godoc
+// @Summary Transfer image to a new patient
+// @Description Transfer an image to a different patient using its ID
+// @Tags Images
+// @Accept json
+// @Produce json
+// @Param image_id path string true "Image ID"
+// @Param        request body request.TransferImageRequest true "Transfer image request"
+// @Success 204 {string} string "Image transferred successfully"
+// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /images/{image_id}/transfer/patient_id [put]
+func (ih *ImageHandler) TransferImage(c *gin.Context) {
+	image_id := c.Param("image_id")
+	if image_id == "" {
+		ih.handleError(c, errors.NewValidationError("image_id is required", nil))
+		return
+	}
+
+	patient_id := c.Param("patient_id")
+	if patient_id == "" {
+		ih.handleError(c, errors.NewValidationError("patient_id is required", nil))
+		return
+	}
+
+	err := ih.imageService.TransferImage(c.Request.Context(), image_id, patient_id)
+	if err != nil {
+		ih.handleError(c, err)
+		return
+	}
+
+	ih.logger.Info("Image transferred", slog.String("image_id", image_id), slog.String("new_patient_id", patient_id))
+	ih.response.NoContent(c)
+}
+
 // BatchTransferImages [put] godoc
 // @Summary Batch transfer images to a new patient
 // @Description Transfer multiple images to a different patient using their IDs
@@ -243,13 +280,13 @@ func (ih *ImageHandler) BatchTransferImages(c *gin.Context) {
 		return
 	}
 
-	err := ih.imageService.BatchTransferImages(c.Request.Context(), req.IDs, req.TargetWorkspace)
+	err := ih.imageService.BatchTransferImages(c.Request.Context(), req.IDs, req.Target)
 	if err != nil {
 		ih.handleError(c, err)
 		return
 	}
 
-	ih.logger.Info("Images batch transferred", slog.Int("count", len(req.IDs)), slog.String("target_workspace", req.TargetWorkspace))
+	ih.logger.Info("Images batch transferred", slog.Int("count", len(req.IDs)), slog.String("target", req.Target))
 	ih.response.NoContent(c)
 }
 
@@ -284,7 +321,7 @@ func (ih *ImageHandler) DeleteImage(c *gin.Context) {
 	ih.response.NoContent(c)
 }
 
-// BatchDeleteImages [delete] godoc
+// BatchDeleteImages [post] godoc
 // @Summary Batch delete images by IDs
 // @Description Delete multiple images using their IDs
 // @Tags Images
@@ -296,7 +333,7 @@ func (ih *ImageHandler) DeleteImage(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
-// @Router /images/batch-delete [delete]
+// @Router /images/batch-delete [post]
 func (ih *ImageHandler) BatchDeleteImages(c *gin.Context) {
 
 	user_role, err := middleware.GetAuthenticatedUserRole(c)
