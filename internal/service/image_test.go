@@ -200,11 +200,13 @@ func TestListImageByPatientID_Success(t *testing.T) {
 }
 
 func TestDeleteImageByID_Success(t *testing.T) {
-	imgService, mockImageRepo, _, _, _ := setupImageService(t)
+	imgService, _, _, _, mockPublisher := setupImageService(t)
 	ctx := context.Background()
 	imageID := "img-123"
 
-	mockImageRepo.EXPECT().Delete(ctx, imageID).Return(nil)
+	mockPublisher.EXPECT().
+		PublishImageDeletionRequested(ctx, gomock.Any()).
+		Return(nil)
 
 	err := imgService.DeleteImageByID(ctx, imageID)
 	require.NoError(t, err)
@@ -328,29 +330,32 @@ func TestGetImageByID_Success(t *testing.T) {
 }
 
 func TestBatchDeleteImages_Success(t *testing.T) {
-	imgService, mockImageRepo, _, _, _ := setupImageService(t)
+	imgService, _, _, _, mockPublisher := setupImageService(t)
 	ctx := context.Background()
 	ids := []string{"img-1", "img-2"}
 
-	mockImageRepo.EXPECT().
-		BatchDelete(ctx, ids).
+	mockPublisher.EXPECT().
+		PublishImageDeletionRequested(ctx, gomock.Any()).
+		Times(len(ids)).
 		Return(nil)
 
 	err := imgService.BatchDeleteImages(ctx, ids)
 	require.NoError(t, err)
 }
-
 func TestBatchDeleteImages_Failure(t *testing.T) {
-	imgService, mockImageRepo, _, _, _ := setupImageService(t)
+	imgService, _, _, _, mockPublisher := setupImageService(t)
 	ctx := context.Background()
 	ids := []string{"img-1"}
 
-	mockImageRepo.EXPECT().
-		BatchDelete(ctx, ids).
-		Return(errors.NewInternalError("db fail", nil))
+	mockPublisher.EXPECT().
+		PublishImageDeletionRequested(ctx, gomock.Any()).
+		Return(errors.NewInternalError("failed to publish event", nil))
 
 	err := imgService.BatchDeleteImages(ctx, ids)
 	require.Error(t, err)
+
+	var internalErr *errors.Err
+	require.True(t, stderrors.As(err, &internalErr))
 }
 
 func TestBatchTransferImages_RepoFailure(t *testing.T) {
