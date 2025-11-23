@@ -38,7 +38,7 @@ func NewImageHandler(imageService service.IImageService, validator *validator.Re
 	}
 }
 
-// UploadImage godoc
+// UploadImage [post] godoc
 // @Summary Upload a new image
 // @Description Upload a new image with the provided details
 // @Tags Images
@@ -97,7 +97,7 @@ func (ih *ImageHandler) UploadImage(c *gin.Context) {
 	ih.response.Created(c, respPayload)
 }
 
-// GetImageByID godoc
+// GetImageByID [get] godoc
 // @Summary Get image by ID
 // @Description Retrieve image details by its ID
 // @Tags Images
@@ -128,7 +128,7 @@ func (ih *ImageHandler) GetImageByID(c *gin.Context) {
 	ih.response.Success(c, http.StatusOK, imageResp)
 }
 
-// ListImageByPatientID godoc
+// ListImageByPatientID [get] godoc
 // @Summary List images by Patient ID
 // @Description Retrieve a list of images associated with a specific Patient ID
 // @Tags Images
@@ -191,7 +191,69 @@ func (ih *ImageHandler) ListImageByPatientID(c *gin.Context) {
 	ih.response.SuccessList(c, imageResponses, paginationResp)
 }
 
-// DeleteImage godoc
+// CountImages V1  [get] godoc
+// @Summary Count images
+// @Description Get the total count of images in the system
+// @Tags Images
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.CountResponse "Total image count retrieved successfully"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /images/count-v1 [get]
+func (ih *ImageHandler) CountV1Images(c *gin.Context) {
+	count, err := ih.imageService.CountImages(c.Request.Context(), []query.Filter{})
+	if err != nil {
+		ih.handleError(c, err)
+		return
+	}
+
+	respPayload := response.CountResponse{
+		Count: count,
+	}
+	ih.response.Success(c, http.StatusOK, respPayload)
+}
+
+// BatchTransferImages [put] godoc
+// @Summary Batch transfer images to a new patient
+// @Description Transfer multiple images to a different patient using their IDs
+// @Tags Images
+// @Accept json
+// @Produce json
+// @Param        request body request.BatchTransferRequest true "Batch transfer request"
+// @Success 204 {string} string "Images transferred successfully"
+// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /images/batch-transfer [put]
+func (ih *ImageHandler) BatchTransferImages(c *gin.Context) {
+
+	var req request.BatchTransferRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ih.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
+	}
+
+	if err := ih.validator.ValidateStruct(&req); err != nil {
+		ih.handleError(c, err)
+		return
+	}
+
+	err := ih.imageService.BatchTransferImages(c.Request.Context(), req.IDs, req.TargetWorkspace)
+	if err != nil {
+		ih.handleError(c, err)
+		return
+	}
+
+	ih.logger.Info("Images batch transferred", slog.Int("count", len(req.IDs)), slog.String("target_workspace", req.TargetWorkspace))
+	ih.response.NoContent(c)
+}
+
+// DeleteImage [delete] godoc
 // @Summary Delete image by ID
 // @Description Delete an image using its ID
 // @Tags Images
@@ -222,7 +284,7 @@ func (ih *ImageHandler) DeleteImage(c *gin.Context) {
 	ih.response.NoContent(c)
 }
 
-// BatchDeleteImages godoc
+// BatchDeleteImages [delete] godoc
 // @Summary Batch delete images by IDs
 // @Description Delete multiple images using their IDs
 // @Tags Images
@@ -234,7 +296,7 @@ func (ih *ImageHandler) DeleteImage(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
-// @Router /images/batch-delete [post]
+// @Router /images/batch-delete [delete]
 func (ih *ImageHandler) BatchDeleteImages(c *gin.Context) {
 
 	user_role, err := middleware.GetAuthenticatedUserRole(c)
@@ -268,66 +330,4 @@ func (ih *ImageHandler) BatchDeleteImages(c *gin.Context) {
 
 	ih.logger.Info("Images batch deleted", slog.Int("count", len(req.IDs)))
 	ih.response.NoContent(c)
-}
-
-// BatchTransferImages godoc
-// @Summary Batch transfer images to a new patient
-// @Description Transfer multiple images to a different patient using their IDs
-// @Tags Images
-// @Accept json
-// @Produce json
-// @Param        request body request.BatchTransferRequest true "Batch transfer request"
-// @Success 204 {string} string "Images transferred successfully"
-// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
-// @Security BearerAuth
-// @Router /images/batch-transfer [post]
-func (ih *ImageHandler) BatchTransferImages(c *gin.Context) {
-
-	var req request.BatchTransferRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ih.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
-			"error": err.Error(),
-		}))
-		return
-	}
-
-	if err := ih.validator.ValidateStruct(&req); err != nil {
-		ih.handleError(c, err)
-		return
-	}
-
-	err := ih.imageService.BatchTransferImages(c.Request.Context(), req.IDs, req.TargetWorkspace)
-	if err != nil {
-		ih.handleError(c, err)
-		return
-	}
-
-	ih.logger.Info("Images batch transferred", slog.Int("count", len(req.IDs)), slog.String("target_workspace", req.TargetWorkspace))
-	ih.response.NoContent(c)
-}
-
-// CountImages V1 godoc
-// @Summary Count images
-// @Description Get the total count of images in the system
-// @Tags Images
-// @Accept json
-// @Produce json
-// @Success 200 {object} response.CountResponse "Total image count retrieved successfully"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
-// @Security BearerAuth
-// @Router /images/count-v1 [get]
-func (ih *ImageHandler) CountV1Images(c *gin.Context) {
-	count, err := ih.imageService.CountImages(c.Request.Context(), []query.Filter{})
-	if err != nil {
-		ih.handleError(c, err)
-		return
-	}
-
-	respPayload := response.CountResponse{
-		Count: count,
-	}
-	ih.response.Success(c, http.StatusOK, respPayload)
 }
