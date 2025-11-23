@@ -166,11 +166,23 @@ func (is *ImageService) ListImageByPatientID(ctx context.Context, patientID stri
 }
 
 func (is *ImageService) DeleteImageByID(ctx context.Context, imageID string) error {
-	return is.imgRepo.Delete(ctx, imageID)
+	event := events.NewImageDeletionRequestedEvent(imageID)
+
+	return is.publisher.PublishImageDeletionRequested(ctx, &event)
+
 }
 
 func (is *ImageService) BatchDeleteImages(ctx context.Context, imageIDs []string) error {
-	return is.imgRepo.BatchDelete(ctx, imageIDs)
+
+	for _, imageID := range imageIDs {
+		event := events.NewImageDeletionRequestedEvent(imageID)
+
+		if err := is.publisher.PublishImageDeletionRequested(ctx, &event); err != nil {
+			return errors.NewInternalError("Failed to publish image deletion event for image ID ", err)
+		}
+	}
+
+	return nil
 }
 
 func (is *ImageService) BatchTransferImages(ctx context.Context, imageIDs []string, newPatientID string) error {
