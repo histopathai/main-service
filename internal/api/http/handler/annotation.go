@@ -36,7 +36,7 @@ func NewAnnotationHandler(annotationService service.IAnnotationService, validato
 	}
 }
 
-// CreateNewAnnotation godoc
+// CreateNewAnnotation [post] godoc
 // @Summary Create a new annotation
 // @Description Create a new annotation with the provided details
 // @Tags Annotations
@@ -96,7 +96,7 @@ func (ah *AnnotationHandler) CreateNewAnnotation(c *gin.Context) {
 
 }
 
-// GetAnnotationByID godoc
+// GetAnnotationByID [get] godoc
 // @Summary Get an annotation by ID
 // @Description Retrieve an annotation using its unique ID
 // @Tags Annotations
@@ -131,7 +131,7 @@ func (ah *AnnotationHandler) GetAnnotationByID(c *gin.Context) {
 	ah.response.Success(c, http.StatusOK, annotationResp)
 }
 
-// GetAnnotationsByImageID godoc
+// GetAnnotationsByImageID [get] godoc
 // @Summary Get annotations by Image ID
 // @Description Retrieve annotations associated with a specific image ID
 // @Tags Annotations
@@ -200,7 +200,32 @@ func (ah *AnnotationHandler) GetAnnotationsByImageID(c *gin.Context) {
 	ah.response.SuccessList(c, annotationsResp, paginationResp)
 }
 
-// DeleteAnnotation godoc
+// CountAnnotations [get] godoc
+// @Summary Count annotations
+// @Description Get the total count of annotations in the system
+// @Tags Annotations
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.CountResponse "Total count of annotations"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /annotations/count-v1 [get]
+func (ah *AnnotationHandler) CountV1Annotations(c *gin.Context) {
+	count, err := ah.annotationService.CountAnnotations(c.Request.Context(), []query.Filter{})
+	if err != nil {
+		ah.handleError(c, err)
+		return
+	}
+
+	countResp := response.CountResponse{
+		Count: count,
+	}
+
+	ah.response.Success(c, http.StatusOK, countResp)
+}
+
+// DeleteAnnotation [delete] godoc
 // @Summary Delete an annotation by ID
 // @Description Delete an annotation using its unique ID
 // @Tags Annotations
@@ -237,7 +262,7 @@ func (ah *AnnotationHandler) DeleteAnnotation(c *gin.Context) {
 	ah.response.NoContent(c)
 }
 
-// BatchDeleteAnnotations godoc
+// BatchDeleteAnnotations [delete] godoc
 // @Summary Batch delete annotations by IDs
 // @Description Delete multiple annotations using their unique IDs
 // @Tags Annotations
@@ -249,7 +274,7 @@ func (ah *AnnotationHandler) DeleteAnnotation(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
-// @Router /annotations/batch-delete [post]
+// @Router /annotations/batch-delete [delete]
 func (ah *AnnotationHandler) BatchDeleteAnnotations(c *gin.Context) {
 	var req request.BatchDeleteRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -276,29 +301,4 @@ func (ah *AnnotationHandler) BatchDeleteAnnotations(c *gin.Context) {
 
 	// No content to return
 	ah.response.NoContent(c)
-}
-
-// CountAnnotations godoc
-// @Summary Count annotations
-// @Description Get the total count of annotations in the system
-// @Tags Annotations
-// @Accept json
-// @Produce json
-// @Success 200 {object} response.CountResponse "Total count of annotations"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
-// @Security BearerAuth
-// @Router /annotations/count-v1 [get]
-func (ah *AnnotationHandler) CountV1Annotations(c *gin.Context) {
-	count, err := ah.annotationService.CountAnnotations(c.Request.Context(), []query.Filter{})
-	if err != nil {
-		ah.handleError(c, err)
-		return
-	}
-
-	countResp := response.CountResponse{
-		Count: count,
-	}
-
-	ah.response.Success(c, http.StatusOK, countResp)
 }
