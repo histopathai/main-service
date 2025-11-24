@@ -40,7 +40,11 @@ func (qpr *QueryPaginationRequest) ApplyDefaults() {
 }
 
 func (qpr *QueryPaginationRequest) ValidateSortFields(validFields map[string]bool) error {
-	if validFields[qpr.SortBy] {
+	if qpr.SortBy == "" {
+		return nil
+	}
+
+	if _, ok := validFields[qpr.SortBy]; ok {
 		return nil
 	}
 
