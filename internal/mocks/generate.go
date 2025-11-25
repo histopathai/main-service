@@ -3,7 +3,9 @@
 
 package mocks
 
-//go:generate mockgen -destination=repository.go -package=mocks -source=../domain/repository/interface.go
-//go:generate mockgen -destination=storage.go -package=mocks -source=../domain/storage/interface.go
-//go:generate mockgen -destination=publisher.go -package=mocks -source=../domain/events/interface.go Publisher,Subscriber,ImageEventPublisher
-//go:generate mockgen -destination=service.go -package=mocks github.com/histopathai/main-service/internal/service IWorkspaceService,IPatientService,IImageService,IAnnotationService,IAnnotationTypeService
+//go:generate mockgen -destination=repository.go -package=mocks -source=../domain/port/repository.go
+//go:generate mockgen -destination=service.go -package=mocks -source=../domain/port/service.go
+//go:generate mockgen -destination=storage.go -package=mocks -source=../domain/port/storage.go
+//go:generate mockgen -destination=event.go -package=mocks -source=../domain/port/event.go
+//go:generate mockgen -destination=telemetry.go -package=mocks -source=../domain/port/telemetry.go
+//go:generate mockgen -destination=worker.go -package=mocks -source=../domain/port/worker.go
