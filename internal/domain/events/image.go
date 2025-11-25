@@ -6,6 +6,12 @@ const (
 
 type ImageUploadedEvent struct {
 	BaseEvent
+	Name     string                `json:"name"`
+	Bucket   string                `json:"bucket"`
+	Metadata ImageUploadedMetadata `json:"metadata"`
+}
+
+type ImageUploadedMetadata struct {
 	ImageID    string `json:"image-id"`
 	PatientID  string `json:"patient-id"`
 	CreatorID  string `json:"creator-id"`
@@ -19,22 +25,27 @@ type ImageUploadedEvent struct {
 }
 
 func NewImageUploadedEvent(
-	imageID, patientID, creatorID, Name, format string,
-	width *int, height *int, size *int64,
-	originPath, status string,
+	imageID, patientID, creatorID, name, format, originPath, status, bucket string,
+	width *int,
+	height *int,
+	size *int64,
 ) ImageUploadedEvent {
 	return ImageUploadedEvent{
-		BaseEvent:  NewBaseEvent(EventTypeImageUploaded),
-		ImageID:    imageID,
-		PatientID:  patientID,
-		CreatorID:  creatorID,
-		Name:       Name,
-		Format:     format,
-		Width:      width,
-		Height:     height,
-		Size:       size,
-		OriginPath: originPath,
-		Status:     status,
+		BaseEvent: NewBaseEvent(EventTypeImageUploaded),
+		Name:      originPath,
+		Bucket:    bucket,
+		Metadata: ImageUploadedMetadata{
+			ImageID:    imageID,
+			PatientID:  patientID,
+			CreatorID:  creatorID,
+			Name:       name,
+			Format:     format,
+			Width:      width,
+			Height:     height,
+			Size:       size,
+			OriginPath: originPath,
+			Status:     status,
+		},
 	}
 }
 
