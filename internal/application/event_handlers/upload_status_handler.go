@@ -2,17 +2,17 @@ package eventhandlers
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"log/slog"
-	"strconv"
 
+	"github.com/histopathai/main-service/internal/domain/events"
 	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/service"
-	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
 type UploadStatusHandler struct {
+	*BaseEventHandler
 	imageService service.IImageService
 	logger       *slog.Logger
 }
@@ -20,78 +20,80 @@ type UploadStatusHandler struct {
 func NewUploadStatusHandler(
 	imageService service.IImageService,
 	logger *slog.Logger,
+	serializer events.EventSerializer,
+	telemetryPublisher port.TelemetryEventPublisher,
 ) *UploadStatusHandler {
 	return &UploadStatusHandler{
+		BaseEventHandler: NewBaseEventHandler(
+			logger,
+			serializer,
+			telemetryPublisher,
+			DefaultRetryConfig(),
+		),
 		imageService: imageService,
 		logger:       logger,
 	}
 }
 
-type GCSNotification struct {
-	Name     string            `json:"name"`
-	Bucket   string            `json:"bucket"`
-	Metadata map[string]string `json:"metadata"`
+func (h *UploadStatusHandler) Handle(ctx context.Context, data []byte, attributes map[string]string) error {
+	return h.HandleWithRetry(ctx, data, attributes, h.processEvent)
 }
 
-func (h *UploadStatusHandler) Handle(ctx context.Context, data []byte, attributes map[string]string) error {
-	h.logger.Info("Processing GCS upload event",
-		"EventID", attributes["event_id"],
-	)
-
-	var n GCSNotification
-	if err := json.Unmarshal(data, &n); err != nil {
-		h.logger.Error("Failed to unmarshal GCS notification, dropping message", slog.String("error", err.Error()), "data", string(data))
-		return nil
+func (h *UploadStatusHandler) processEvent(ctx context.Context, data []byte, attributes map[string]string) error {
+	// Deserialize event
+	var event events.ImageUploadedEvent
+	if err := h.DeserializeEvent(data, &event); err != nil {
+		return err
 	}
 
-	metadata := n.Metadata
-	if metadata == nil {
-		h.logger.Error("GCS notification missing metadata block, dropping message", "data", string(data))
-		return nil
+	h.logger.Info("Processing upload status notification",
+		slog.String("file_name", event.Name),
+		slog.String("bucket", event.Bucket))
+
+	width := intPointerToInt(event.Metadata.Width)
+	height := intPointerToInt(event.Metadata.Height)
+	size := int64PointerToInt64(event.Metadata.Size)
+
+	status := model.ImageStatus(event.Metadata.Status)
+
+	confirm := service.ConfirmUploadInput{
+		ImageID:   event.Metadata.ImageID,
+		PatientID: event.Metadata.PatientID,
+		CreatorID: event.Metadata.CreatorID,
+		Name:      event.Metadata.Name,
+		Format:    event.Metadata.Format,
+		Width:     width,
+		Height:    height,
+		Size:      size,
+		Status:    status,
 	}
 
-	imageID, ok := metadata["image-id"]
-	if !ok {
-		msg := "GCS metadata missing 'image-id', dropping message"
-		h.logger.Error(msg, "data", string(data))
-		return nil
+	if err := h.imageService.ConfirmUpload(ctx, &confirm); err != nil {
+		h.logger.Error("Failed to confirm upload status",
+			slog.String("image_id", event.Metadata.ImageID),
+			slog.Any("error", err))
+		return fmt.Errorf("failed to confirm upload status: %w", err)
 	}
 
-	input := &service.ConfirmUploadInput{
-		ImageID:    imageID,
-		PatientID:  metadata["patient-id"],
-		CreatorID:  metadata["creator-id"],
-		Name:       metadata["file-name"],
-		Format:     metadata["format"],
-		OriginPath: metadata["origin-path"],
-		Status:     model.ImageStatus(metadata["status"]),
-	}
-
-	if widthStr, ok := metadata["width"]; ok {
-		if width, err := strconv.Atoi(widthStr); err == nil {
-			input.Width = &width
-		}
-	}
-	if heightStr, ok := metadata["height"]; ok {
-		if height, err := strconv.Atoi(heightStr); err == nil {
-			input.Height = &height
-		}
-	}
-	if sizeStr, ok := metadata["size"]; ok {
-		if size, err := strconv.ParseInt(sizeStr, 10, 64); err == nil {
-			input.Size = &size
-		}
-	}
-
-	if err := h.imageService.ConfirmUpload(ctx, input); err != nil {
-		h.logger.Error("Failed to confirm image upload after GCS event, will retry", slog.String("error", err.Error()), "imageID", imageID)
-		return errors.NewInternalError(fmt.Sprintf("Failed to confirm image upload: %v", err), err)
-	}
-
-	h.logger.Info("Successfully confirmed upload from GCS event",
-		"ImageID", imageID,
-		"Status", input.Status,
-	)
+	h.logger.Info("Successfully processed upload status notification",
+		slog.String("image_id", event.Metadata.ImageID),
+		slog.String("status", event.Metadata.Status))
 
 	return nil
+}
+
+func intPointerToInt(ptr *int) *int {
+	if ptr == nil {
+		return nil
+	}
+	val := *ptr
+	return &val
+}
+
+func int64PointerToInt64(ptr *int64) *int64 {
+	if ptr == nil {
+		return nil
+	}
+	val := *ptr
+	return &val
 }
