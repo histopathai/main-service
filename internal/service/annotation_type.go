@@ -4,20 +4,20 @@ import (
 	"context"
 
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	errors "github.com/histopathai/main-service/internal/shared/errors"
 	sharedQuery "github.com/histopathai/main-service/internal/shared/query"
 )
 
 type AnnotationTypeService struct {
-	annotationTypeRepo repository.AnnotationTypeRepository
-	uow                repository.UnitOfWorkFactory
+	annotationTypeRepo port.AnnotationTypeRepository
+	uow                port.UnitOfWorkFactory
 }
 
 func NewAnnotationTypeService(
-	annotationTypeRepo repository.AnnotationTypeRepository,
-	uow repository.UnitOfWorkFactory,
+	annotationTypeRepo port.AnnotationTypeRepository,
+	uow port.UnitOfWorkFactory,
 ) *AnnotationTypeService {
 	return &AnnotationTypeService{
 		annotationTypeRepo: annotationTypeRepo,
@@ -50,18 +50,6 @@ func (ats *AnnotationTypeService) ValidateAnnotationTypeCreation(ctx context.Con
 	}
 
 	return nil
-}
-
-type CreateAnnotationTypeInput struct {
-	CreatorID             string
-	Name                  string
-	Description           *string
-	ScoreEnabled          bool
-	ScoreName             *string
-	ScoreMin              *float64
-	ScoreMax              *float64
-	ClassificationEnabled bool
-	ClassList             []string
 }
 
 func (ats *AnnotationTypeService) CreateNewAnnotationType(ctx context.Context, input *CreateAnnotationTypeInput) (*model.AnnotationType, error) {
@@ -135,15 +123,6 @@ func (ats *AnnotationTypeService) GetScoreAnnotationTypes(ctx context.Context, p
 	return ats.annotationTypeRepo.FindByFilters(ctx, filters, paginationOpts)
 }
 
-type UpdateAnnotationTypeInput struct {
-	Name        *string
-	Description *string
-	ScoreName   *string
-	ScoreMin    *float64
-	ScoreMax    *float64
-	ClassList   *[]string
-}
-
 func (ats *AnnotationTypeService) UpdateAnnotationType(ctx context.Context, id string, input *UpdateAnnotationTypeInput) error {
 	updates := make(map[string]interface{})
 
@@ -173,7 +152,7 @@ func (ats *AnnotationTypeService) UpdateAnnotationType(ctx context.Context, id s
 
 func (ats *AnnotationTypeService) DeleteAnnotationType(ctx context.Context, id string) error {
 
-	uowErr := ats.uow.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+	uowErr := ats.uow.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
 		wsRepo := repos.WorkspaceRepo
 		annotationTypeRepo := repos.AnnotationTypeRepo
 
