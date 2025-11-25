@@ -9,7 +9,7 @@ import (
 	"github.com/histopathai/main-service/internal/api/http/dto/response"
 	"github.com/histopathai/main-service/internal/api/http/middleware"
 	"github.com/histopathai/main-service/internal/api/http/validator"
-	"github.com/histopathai/main-service/internal/service"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -25,12 +25,12 @@ var allowedWorkspaceSortFields = map[string]bool{
 }
 
 type WorkspaceHandler struct {
-	workspaceService service.IWorkspaceService
+	workspaceService port.IWorkspaceService
 	validator        *validator.RequestValidator
 	BaseHandler      // Embed the BaseHandler
 }
 
-func NewWorkspaceHandler(workspaceService service.IWorkspaceService, validator *validator.RequestValidator, logger *slog.Logger) *WorkspaceHandler {
+func NewWorkspaceHandler(workspaceService port.IWorkspaceService, validator *validator.RequestValidator, logger *slog.Logger) *WorkspaceHandler {
 	return &WorkspaceHandler{
 		workspaceService: workspaceService,
 		validator:        validator,
@@ -80,7 +80,7 @@ func (wh *WorkspaceHandler) CreateNewWorkspace(c *gin.Context) {
 	}
 
 	// DTO -> Service Input
-	input := service.CreateWorkspaceInput{
+	input := port.CreateWorkspaceInput{
 		CreatorID:        creator_id,
 		Name:             req.Name,
 		OrganType:        req.OrganType,
@@ -245,7 +245,7 @@ func (wh *WorkspaceHandler) UpdateWorkspace(c *gin.Context) {
 	}
 
 	// DTO -> Service Input
-	input := service.UpdateWorkspaceInput{
+	input := port.UpdateWorkspaceInput{
 		Name:             req.Name,
 		OrganType:        req.OrganType,
 		Organization:     req.Organization,
