@@ -39,20 +39,48 @@ type GCPConfig struct {
 	ProcessedBucketName string
 }
 
+// TopicConfig represents a PubSub topic with its DLQ
+type TopicConfig struct {
+	Name    string
+	DLQName string
+}
+
+// SubscriptionConfig represents a PubSub subscription with its DLQ
+type SubscriptionConfig struct {
+	Name    string
+	Topic   string
+	DLQName string
+}
+
 type PubSubConfig struct {
-	UploadStatusSubscription           string
-	ImageProcessingTopic               string
-	ImageProcessingDLQTopic            string
-	ImageDeletionRequestedTopic        string
-	ImageDeletionRequestedDLQTopic     string
-	ImageDeletionRequestedSubscription string
-	ProcessingCompletedSubscription    string
-	ProcessingCompletedDLQTopic        string
+	// Upload Status (GCS → Main Service)
+	UploadStatus SubscriptionConfig
+
+	// Image Processing Request (Main Service → Processing Function)
+	ImageProcessingRequest TopicSubscriptionConfig
+
+	// Image Processing Result (Processing Function → Main Service)
+	ImageProcessingResult TopicSubscriptionConfig
+
+	// Image Processing Failure (Processing Function → Main Service + Telemetry)
+	ImageProcessingFailure TopicSubscriptionConfig
+
+	// Image Deletion (Main Service → Deletion Function)
+	ImageDeletion TopicSubscriptionConfig
+
+	// Telemetry Topic (All DLQ messages → Telemetry Service)
+	TelemetryTopic TopicConfig
+}
+
+// TopicSubscriptionConfig bundles topic and subscription together
+type TopicSubscriptionConfig struct {
+	Topic        TopicConfig
+	Subscription SubscriptionConfig
 }
 
 type LoggingConfig struct {
 	Level  string
-	Format string // "json" or "text"
+	Format string
 }
 
 func Load() (*Config, error) {
@@ -91,14 +119,59 @@ func Load() (*Config, error) {
 			ProcessedBucketName: getEnv("PROCESSED_BUCKET_NAME", ""),
 		},
 		PubSub: PubSubConfig{
-			UploadStatusSubscription:           getEnv("UPLOAD_STATUS_SUBSCRIPTION", "upload-status-sub"),
-			ImageProcessingTopic:               getEnv("IMAGE_PROCESSING_TOPIC", "image-processing"),
-			ImageProcessingDLQTopic:            getEnv("IMAGE_PROCESSING_DLQ_TOPIC", "image-processing-dlq"),
-			ProcessingCompletedSubscription:    getEnv("PROCESSING_COMPLETED_SUBSCRIPTION", "image-process-result-sub"),
-			ProcessingCompletedDLQTopic:        getEnv("PROCESSING_COMPLETED_DLQ_TOPIC", "image-process-result-dlq"),
-			ImageDeletionRequestedTopic:        getEnv("IMAGE_DELETION_REQUESTED_TOPIC", "image-deletion-requests"),
-			ImageDeletionRequestedDLQTopic:     getEnv("IMAGE_DELETION_REQUESTED_DLQ_TOPIC", "image-deletion-dlq"),
-			ImageDeletionRequestedSubscription: getEnv("IMAGE_DELETION_REQUESTED_SUBSCRIPTION", "image-deletion-requests-sub"),
+			UploadStatus: SubscriptionConfig{
+				Name:    getEnv("UPLOAD_STATUS_SUBSCRIPTION", "upload-status-sub"),
+				Topic:   getEnv("UPLOAD_STATUS_TOPIC", "upload-status"),
+				DLQName: getEnv("UPLOAD_STATUS_DLQ", "upload-status-dlq"),
+			},
+			ImageProcessingRequest: TopicSubscriptionConfig{
+				Topic: TopicConfig{
+					Name:    getEnv("IMAGE_PROCESSING_REQUEST_TOPIC", "image-processing-requests"),
+					DLQName: getEnv("IMAGE_PROCESSING_REQUEST_DLQ", "image-processing-requests-dlq"),
+				},
+				Subscription: SubscriptionConfig{
+					Name:    getEnv("IMAGE_PROCESSING_REQUEST_SUB", "image-processing-requests-sub"),
+					Topic:   getEnv("IMAGE_PROCESSING_REQUEST_TOPIC", "image-processing-requests"),
+					DLQName: getEnv("IMAGE_PROCESSING_REQUEST_SUB_DLQ", "image-processing-requests-sub-dlq"),
+				},
+			},
+			ImageProcessingResult: TopicSubscriptionConfig{
+				Topic: TopicConfig{
+					Name:    getEnv("IMAGE_PROCESSING_RESULT_TOPIC", "image-processing-results"),
+					DLQName: getEnv("IMAGE_PROCESSING_RESULT_DLQ", "image-processing-results-dlq"),
+				},
+				Subscription: SubscriptionConfig{
+					Name:    getEnv("IMAGE_PROCESSING_RESULT_SUB", "image-processing-results-sub"),
+					Topic:   getEnv("IMAGE_PROCESSING_RESULT_TOPIC", "image-processing-results"),
+					DLQName: getEnv("IMAGE_PROCESSING_RESULT_SUB_DLQ", "image-processing-results-sub-dlq"),
+				},
+			},
+			ImageProcessingFailure: TopicSubscriptionConfig{
+				Topic: TopicConfig{
+					Name:    getEnv("IMAGE_PROCESSING_FAILURE_TOPIC", "image-processing-failures"),
+					DLQName: getEnv("IMAGE_PROCESSING_FAILURE_DLQ", "image-processing-failures-dlq"),
+				},
+				Subscription: SubscriptionConfig{
+					Name:    getEnv("IMAGE_PROCESSING_FAILURE_SUB", "image-processing-failures-sub"),
+					Topic:   getEnv("IMAGE_PROCESSING_FAILURE_TOPIC", "image-processing-failures"),
+					DLQName: getEnv("IMAGE_PROCESSING_FAILURE_SUB_DLQ", "image-processing-failures-sub-dlq"),
+				},
+			},
+			ImageDeletion: TopicSubscriptionConfig{
+				Topic: TopicConfig{
+					Name:    getEnv("IMAGE_DELETION_TOPIC", "image-deletion-requests"),
+					DLQName: getEnv("IMAGE_DELETION_DLQ", "image-deletion-requests-dlq"),
+				},
+				Subscription: SubscriptionConfig{
+					Name:    getEnv("IMAGE_DELETION_SUB", "image-deletion-requests-sub"),
+					Topic:   getEnv("IMAGE_DELETION_TOPIC", "image-deletion-requests"),
+					DLQName: getEnv("IMAGE_DELETION_SUB_DLQ", "image-deletion-requests-sub-dlq"),
+				},
+			},
+			TelemetryTopic: TopicConfig{
+				Name:    getEnv("TELEMETRY_TOPIC", "telemetry-events"),
+				DLQName: getEnv("TELEMETRY_DLQ", "telemetry-events-dlq"),
+			},
 		},
 		Logging: LoggingConfig{
 			Level:  getEnv("LOG_LEVEL", "info"),
