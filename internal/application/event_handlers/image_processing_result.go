@@ -11,15 +11,29 @@ import (
 	"github.com/histopathai/main-service/internal/domain/port"
 )
 
-// ImageProcessingResultHandler handles processing completion events
+type ImageProcessingResult struct {
+	events.BaseEvent
+	ImageID       string  `json:"image-id"`
+	Success       bool    `json:"success"`
+	ProcessedPath *string `json:"processed-path,omitempty"`
+	Width         *int    `json:"width,omitempty"`
+	Height        *int    `json:"height,omitempty"`
+	Size          *int64  `json:"size,omitempty"`
+	FailureReason *string `json:"failure-reason,omitempty"`
+	Retryable     *bool   `json:"retryable,omitempty"`
+}
+
+// ImageProcessingResultHandler handles both success and failure processing results
 type ImageProcessingResultHandler struct {
 	*BaseEventHandler
-	imageRepo port.ImageRepository
-	logger    *slog.Logger
+	imageRepo      port.ImageRepository
+	imagePublisher port.ImageEventPublisher
+	logger         *slog.Logger
 }
 
 func NewImageProcessingResultHandler(
 	imageRepo port.ImageRepository,
+	imagePublisher port.ImageEventPublisher,
 	serializer events.EventSerializer,
 	telemetryPublisher port.TelemetryEventPublisher,
 	logger *slog.Logger,
@@ -31,8 +45,9 @@ func NewImageProcessingResultHandler(
 			telemetryPublisher,
 			DefaultRetryConfig(),
 		),
-		imageRepo: imageRepo,
-		logger:    logger,
+		imageRepo:      imageRepo,
+		imagePublisher: imagePublisher,
+		logger:         logger,
 	}
 }
 
@@ -41,106 +56,95 @@ func (h *ImageProcessingResultHandler) Handle(ctx context.Context, data []byte, 
 }
 
 func (h *ImageProcessingResultHandler) processEvent(ctx context.Context, data []byte, attributes map[string]string) error {
-	// Deserialize event
-	var event events.ImageProcessingCompletedEvent
-	if err := h.DeserializeEvent(data, &event); err != nil {
+	// Deserialize event - can be either success or failure
+	var resultEvent ImageProcessingResult
+
+	if err := h.DeserializeEvent(data, &resultEvent); err != nil {
 		return err
 	}
 
-	h.logger.Info("Processing image processing completed event",
-		slog.String("image_id", event.ImageID),
-		slog.String("processed_path", event.ProcessedPath),
-		slog.Int("width", event.Width),
-		slog.Int("height", event.Height),
-		slog.Int64("size", event.Size))
+	// Handle based on success flag
+	if resultEvent.Success {
+		return h.handleSuccess(ctx, &resultEvent)
+	}
+	return h.handleFailure(ctx, &resultEvent)
+}
+
+func (h *ImageProcessingResultHandler) handleSuccess(ctx context.Context, result *ImageProcessingResult) error {
+	h.logger.Info("Processing successful image processing result",
+		slog.String("image_id", result.ImageID),
+		slog.String("processed_path", *result.ProcessedPath),
+		slog.Int("width", *result.Width),
+		slog.Int("height", *result.Height),
+		slog.Int64("size", *result.Size))
+
+	// Validate required fields for success
+	if result.ProcessedPath == nil || result.Width == nil || result.Height == nil || result.Size == nil {
+		return NewNonRetryableError(
+			fmt.Errorf("missing required fields for successful processing"),
+			events.CategoryValidation,
+			events.SeverityHigh,
+		).WithContext("image_id", result.ImageID)
+	}
 
 	// Update image in database
 	now := time.Now()
 	updates := map[string]interface{}{
 		"Status":          model.StatusProcessed,
-		"ProcessedPath":   event.ProcessedPath,
-		"Width":           event.Width,
-		"Height":          event.Height,
-		"Size":            event.Size,
+		"ProcessedPath":   *result.ProcessedPath,
+		"Width":           *result.Width,
+		"Height":          *result.Height,
+		"Size":            *result.Size,
 		"LastProcessedAt": &now,
 		"UpdatedAt":       now,
 	}
 
-	if err := h.imageRepo.Update(ctx, event.ImageID, updates); err != nil {
+	if err := h.imageRepo.Update(ctx, result.ImageID, updates); err != nil {
 		return NewRetryableError(
 			fmt.Errorf("failed to update image after successful processing: %w", err),
 			events.CategoryDatabase,
 			events.SeverityHigh,
-		).WithContext("image_id", event.ImageID).
-			WithContext("processed_path", event.ProcessedPath)
+		).WithContext("image_id", result.ImageID).
+			WithContext("processed_path", *result.ProcessedPath)
 	}
 
 	h.logger.Info("Successfully updated image status to PROCESSED",
-		slog.String("image_id", event.ImageID))
+		slog.String("image_id", result.ImageID))
 
 	return nil
 }
 
-type ImageProcessingFailureHandler struct {
-	*BaseEventHandler
-	imageRepo port.ImageRepository
-	publisher port.ImageEventPublisher
-	logger    *slog.Logger
-}
-
-// NewImageProcessingFailureHandler creates a new handler
-func NewImageProcessingFailureHandler(
-	imageRepo port.ImageRepository,
-	publisher port.ImageEventPublisher,
-	serializer events.EventSerializer,
-	telemetryPublisher port.TelemetryEventPublisher,
-	logger *slog.Logger,
-) *ImageProcessingFailureHandler {
-	return &ImageProcessingFailureHandler{
-		BaseEventHandler: NewBaseEventHandler(
-			logger,
-			serializer,
-			telemetryPublisher,
-			DefaultRetryConfig(),
-		),
-		imageRepo: imageRepo,
-		publisher: publisher,
-		logger:    logger,
+func (h *ImageProcessingResultHandler) handleFailure(ctx context.Context, result *ImageProcessingResult) error {
+	failureReason := "Unknown error"
+	if result.FailureReason != nil {
+		failureReason = *result.FailureReason
 	}
-}
 
-// Handle processes image processing failed events
-func (h *ImageProcessingFailureHandler) Handle(ctx context.Context, data []byte, attributes map[string]string) error {
-	return h.HandleWithRetry(ctx, data, attributes, h.processEvent)
-}
-
-func (h *ImageProcessingFailureHandler) processEvent(ctx context.Context, data []byte, attributes map[string]string) error {
-	// Deserialize event
-	var event events.ImageProcessingFailedEvent
-	if err := h.DeserializeEvent(data, &event); err != nil {
-		return err
+	retryable := true
+	if result.Retryable != nil {
+		retryable = *result.Retryable
 	}
 
 	h.logger.Error("Image processing failed",
-		slog.String("image_id", event.ImageID),
-		slog.String("failure_reason", event.FailureReason),
-		slog.Bool("retryable", event.Retryable))
+		slog.String("image_id", result.ImageID),
+		slog.String("failure_reason", failureReason),
+		slog.Bool("retryable", retryable))
 
 	// Read current image state
-	image, err := h.imageRepo.Read(ctx, event.ImageID)
+	image, err := h.imageRepo.Read(ctx, result.ImageID)
 	if err != nil {
 		return NewRetryableError(
 			fmt.Errorf("failed to read image: %w", err),
 			events.CategoryDatabase,
 			events.SeverityHigh,
-		).WithContext("image_id", event.ImageID)
+		).WithContext("image_id", result.ImageID)
 	}
 
 	// Check if retryable and under max retry limit
-	maxRetries := 3 // Configure as needed
-	if event.Retryable && image.RetryCount < maxRetries {
+	maxRetries := 3
+	if retryable && image.RetryCount < maxRetries {
 		h.logger.Info("Scheduling retry for failed image processing",
-			slog.String("image_id", event.ImageID),
+			slog.String("image_id", result.ImageID),
 			slog.Int("retry_count", image.RetryCount+1),
 			slog.Int("max_retries", maxRetries))
 
@@ -151,17 +155,17 @@ func (h *ImageProcessingFailureHandler) processEvent(ctx context.Context, data [
 		updates := map[string]interface{}{
 			"Status":          image.Status,
 			"RetryCount":      image.RetryCount,
-			"FailureReason":   event.FailureReason,
+			"FailureReason":   failureReason,
 			"LastProcessedAt": &now,
 			"UpdatedAt":       now,
 		}
 
-		if err := h.imageRepo.Update(ctx, event.ImageID, updates); err != nil {
+		if err := h.imageRepo.Update(ctx, result.ImageID, updates); err != nil {
 			return NewRetryableError(
 				fmt.Errorf("failed to update image for retry: %w", err),
 				events.CategoryDatabase,
 				events.SeverityHigh,
-			).WithContext("image_id", event.ImageID)
+			).WithContext("image_id", result.ImageID)
 		}
 
 		// Re-publish processing request
@@ -170,41 +174,41 @@ func (h *ImageProcessingFailureHandler) processEvent(ctx context.Context, data [
 			image.OriginPath,
 		)
 
-		if err := h.publisher.PublishImageProcessingRequested(ctx, &retryEvent); err != nil {
+		if err := h.imagePublisher.PublishImageProcessingRequested(ctx, &retryEvent); err != nil {
 			return NewRetryableError(
 				fmt.Errorf("failed to publish retry event: %w", err),
 				events.CategoryProcessing,
 				events.SeverityHigh,
-			).WithContext("image_id", event.ImageID)
+			).WithContext("image_id", result.ImageID)
 		}
 
 		h.logger.Info("Successfully scheduled retry",
-			slog.String("image_id", event.ImageID))
+			slog.String("image_id", result.ImageID))
 
 		return nil
 	}
 
 	// Non-retryable or max retries exceeded - mark as permanently failed
 	h.logger.Error("Image processing permanently failed",
-		slog.String("image_id", event.ImageID),
+		slog.String("image_id", result.ImageID),
 		slog.Int("retry_count", image.RetryCount),
-		slog.Bool("retryable", event.Retryable))
+		slog.Bool("retryable", retryable))
 
 	now := time.Now()
 	updates := map[string]interface{}{
 		"Status":          model.StatusFailed,
-		"FailureReason":   event.FailureReason,
+		"FailureReason":   failureReason,
 		"RetryCount":      image.RetryCount + 1,
 		"LastProcessedAt": &now,
 		"UpdatedAt":       now,
 	}
 
-	if err := h.imageRepo.Update(ctx, event.ImageID, updates); err != nil {
+	if err := h.imageRepo.Update(ctx, result.ImageID, updates); err != nil {
 		return NewRetryableError(
 			fmt.Errorf("failed to update image permanent failure: %w", err),
 			events.CategoryDatabase,
 			events.SeverityHigh,
-		).WithContext("image_id", event.ImageID)
+		).WithContext("image_id", result.ImageID)
 	}
 
 	return nil
