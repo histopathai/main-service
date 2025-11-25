@@ -17,7 +17,6 @@ import (
 	"github.com/histopathai/main-service/pkg/config"
 	"github.com/histopathai/main-service/pkg/container"
 	"github.com/histopathai/main-service/pkg/logger"
-	"github.com/histopathai/main-service/pkg/seeder"
 )
 
 // @title Histopath AI API
@@ -69,18 +68,6 @@ func main() {
 		os.Exit(1)
 	}
 	defer app.Close()
-
-	// Run database seeder (only in local/dev environments)
-	if cfg.IsLocal() || cfg.IsDevelopment() {
-		if shouldSeed() {
-			loggerInstance.Info("Running database seeder...")
-			seederInstance := seeder.NewSeeder(app.Repos, loggerInstance.Logger)
-			if err := seederInstance.Seed(ctx); err != nil {
-				loggerInstance.Error("Failed to seed database",
-					slog.String("error", err.Error()))
-			}
-		}
-	}
 
 	// Setup HTTP router
 	engine := app.Router.SetupRoutes()
