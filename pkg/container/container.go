@@ -58,7 +58,6 @@ type Container struct {
 	UploadStatusHandler           *eventhandlers.UploadStatusHandler
 	ImageProcessingRequestHandler *eventhandlers.ImageProcessingRequestHandler
 	ImageProcessingResultHandler  *eventhandlers.ImageProcessingResultHandler
-	ImageProcessingFailureHandler *eventhandlers.ImageProcessingFailureHandler
 	ImageDeletionHandler          *eventhandlers.ImageDeletionHandler
 	TelemetryDLQHandler           *eventhandlers.TelemetryDLQHandler
 	TelemetryErrorHandler         *eventhandlers.TelemetryErrorHandler
@@ -206,18 +205,10 @@ func (c *Container) initEventHandlers(ctx context.Context) error {
 	// Image Processing Result Handler
 	c.ImageProcessingResultHandler = eventhandlers.NewImageProcessingResultHandler(
 		c.Repos.ImageRepo,
-		serializer,
-		c.TelemetryEventPublisher,
-		c.Logger.WithGroup("image_processing_result_handler"),
-	)
-
-	// Image Processing Failure Handler
-	c.ImageProcessingFailureHandler = eventhandlers.NewImageProcessingFailureHandler(
-		c.Repos.ImageRepo,
 		c.ImageEventPublisher,
 		serializer,
 		c.TelemetryEventPublisher,
-		c.Logger.WithGroup("image_processing_failure_handler"),
+		c.Logger.WithGroup("image_processing_result_handler"),
 	)
 
 	// Image Deletion Handler
@@ -335,21 +326,6 @@ func (c *Container) initSubscribers(ctx context.Context) error {
 			c.ImageProcessingResultHandler.Handle,
 		); err != nil {
 			c.Logger.Error("Image processing result subscriber error",
-				slog.String("error", err.Error()))
-		}
-	}()
-
-	// Subscribe to Image Processing Failures
-	go func() {
-		c.Logger.Info("Starting image processing failure subscriber",
-			slog.String("subscription", c.Config.PubSub.ImageProcessingFailure.Subscription.Name))
-
-		if err := c.PubSubClient.Subscribe(
-			ctx,
-			c.Config.PubSub.ImageProcessingFailure.Subscription.Name,
-			c.ImageProcessingFailureHandler.Handle,
-		); err != nil {
-			c.Logger.Error("Image processing failure subscriber error",
 				slog.String("error", err.Error()))
 		}
 	}()
