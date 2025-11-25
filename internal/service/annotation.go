@@ -4,19 +4,19 @@ import (
 	"context"
 
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	sharedQuery "github.com/histopathai/main-service/internal/shared/query"
 )
 
 type AnnotationService struct {
-	annotationRepo repository.AnnotationRepository
+	annotationRepo port.AnnotationRepository
 }
 
 func NewAnnotationService(
-	annotationRepo repository.AnnotationRepository,
-	uow repository.UnitOfWorkFactory,
+	annotationRepo port.AnnotationRepository,
+	uow port.UnitOfWorkFactory,
 ) *AnnotationService {
 	return &AnnotationService{
 		annotationRepo: annotationRepo,
@@ -29,15 +29,6 @@ func (as *AnnotationService) validateAnnotationInput(ctx context.Context, input 
 		return errors.NewValidationError("invalid annotation input", details)
 	}
 	return nil
-}
-
-type CreateAnnotationInput struct {
-	ImageID     string
-	AnnotatorID string
-	Polygon     []model.Point
-	Score       *float64
-	Class       *string
-	Description *string
 }
 
 func (as *AnnotationService) CreateNewAnnotation(ctx context.Context, input *CreateAnnotationInput) (*model.Annotation, error) {

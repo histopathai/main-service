@@ -3,10 +3,35 @@ package service
 import (
 	"context"
 
+	"github.com/histopathai/main-service/internal/domain/events"
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/storage"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/shared/query"
+	sharedQuery "github.com/histopathai/main-service/internal/shared/query"
 )
+
+type CreateWorkspaceInput struct {
+	CreatorID        string
+	Name             string
+	OrganType        string
+	AnnotationTypeID *string
+	Organization     string
+	Description      string
+	License          string
+	ResourceURL      *string
+	ReleaseYear      *int
+}
+
+type UpdateWorkspaceInput struct {
+	Name             *string
+	OrganType        *string
+	Organization     *string
+	Description      *string
+	License          *string
+	ResourceURL      *string
+	ReleaseYear      *int
+	AnnotationTypeID *string
+}
 
 type IWorkspaceService interface {
 	CreateNewWorkspace(ctx context.Context, input *CreateWorkspaceInput) (*model.Workspace, error)
@@ -19,6 +44,30 @@ type IWorkspaceService interface {
 	CountWorkspaces(ctx context.Context, filters []query.Filter) (int64, error)
 }
 
+type CreatePatientInput struct {
+	WorkspaceID string
+	CreatorID   string
+	Name        string
+	Age         *int
+	Gender      *string
+	Race        *string
+	Disease     *string
+	Subtype     *string
+	Grade       *int
+	History     *string
+}
+
+type UpdatePatientInput struct {
+	Name    *string
+	Age     *int
+	Gender  *string
+	Race    *string
+	Disease *string
+	Subtype *string
+	Grade   *int
+	History *string
+}
+
 type IPatientService interface {
 	CreateNewPatient(ctx context.Context, input CreatePatientInput) (*model.Patient, error)
 	GetPatientByID(ctx context.Context, patientID string) (*model.Patient, error)
@@ -27,15 +76,38 @@ type IPatientService interface {
 	DeletePatientByID(ctx context.Context, patientId string) error
 	UpdatePatient(ctx context.Context, patientID string, input UpdatePatientInput) error
 	TransferPatientWorkspace(ctx context.Context, patientID string, newWorkspaceID string) error
-
 	CascadeDelete(ctx context.Context, patientID string) error
 	BatchDelete(ctx context.Context, patientIDs []string) error
 	BatchTransfer(ctx context.Context, patientIDs []string, newWorkspaceID string) error
 	CountPatients(ctx context.Context, filters []query.Filter) (int64, error)
 }
 
+type UploadImageInput struct {
+	PatientID   string
+	CreatorID   string
+	ContentType string
+	Name        string
+	Format      string
+	Width       *int
+	Height      *int
+	Size        *int64
+}
+
+type ConfirmUploadInput struct {
+	ImageID    string
+	PatientID  string
+	CreatorID  string
+	Name       string
+	Format     string
+	Width      *int
+	Height     *int
+	Size       *int64
+	Status     model.ImageStatus
+	OriginPath string
+}
+
 type IImageService interface {
-	UploadImage(ctx context.Context, input *UploadImageInput) (*storage.SignedURLPayload, error)
+	UploadImage(ctx context.Context, input *UploadImageInput) (*port.SignedURLPayload, error)
 	ConfirmUpload(ctx context.Context, input *ConfirmUploadInput) error
 	GetImageByID(ctx context.Context, imageID string) (*model.Image, error)
 	ListImageByPatientID(ctx context.Context, patientID string, pagination *query.Pagination) (*query.Result[*model.Image], error)
@@ -46,6 +118,15 @@ type IImageService interface {
 	TransferImage(ctx context.Context, imageID string, newPatientID string) error
 }
 
+type CreateAnnotationInput struct {
+	ImageID     string
+	AnnotatorID string
+	Polygon     []model.Point
+	Score       *float64
+	Class       *string
+	Description *string
+}
+
 type IAnnotationService interface {
 	CreateNewAnnotation(ctx context.Context, input *CreateAnnotationInput) (*model.Annotation, error)
 	GetAnnotationByID(ctx context.Context, id string) (*model.Annotation, error)
@@ -53,6 +134,27 @@ type IAnnotationService interface {
 	DeleteAnnotation(ctx context.Context, id string) error
 	BatchDeleteAnnotations(ctx context.Context, ids []string) error
 	CountAnnotations(ctx context.Context, filters []query.Filter) (int64, error)
+}
+
+type CreateAnnotationTypeInput struct {
+	CreatorID             string
+	Name                  string
+	Description           *string
+	ScoreEnabled          bool
+	ScoreName             *string
+	ScoreMin              *float64
+	ScoreMax              *float64
+	ClassificationEnabled bool
+	ClassList             []string
+}
+
+type UpdateAnnotationTypeInput struct {
+	Name        *string
+	Description *string
+	ScoreName   *string
+	ScoreMin    *float64
+	ScoreMax    *float64
+	ClassList   *[]string
 }
 
 type IAnnotationTypeService interface {
@@ -66,4 +168,24 @@ type IAnnotationTypeService interface {
 	DeleteAnnotationType(ctx context.Context, id string) error
 	CountAnnotationTypes(ctx context.Context, filters []query.Filter) (int64, error)
 	BatchDeleteAnnotationTypes(ctx context.Context, ids []string) error
+}
+
+type TelemetryStats struct {
+	TotalErrors  int64                          `json:"total_errors"`
+	BySeverity   map[events.ErrorSeverity]int64 `json:"by_severity"`
+	ByCategory   map[events.ErrorCategory]int64 `json:"by_category"`
+	RecentErrors []*events.TelemetryMessage     `json:"recent_errors"`
+	ErrorTrend   []ErrorTrendPoint              `json:"error_trend"`
+}
+
+type ErrorTrendPoint struct {
+	Timestamp string `json:"timestamp"`
+	Count     int64  `json:"count"`
+}
+type ITelemetryService interface {
+	RecordDLQMessage(ctx context.Context, event *events.DLQMessageEvent) error
+	RecordError(ctx context.Context, event *events.TelemetryErrorEvent) error
+	ListMessages(ctx context.Context, filters []sharedQuery.Filter, pagination *sharedQuery.Pagination) (*sharedQuery.Result[*events.TelemetryMessage], error)
+	GetMessageByID(ctx context.Context, id string) (*events.TelemetryMessage, error)
+	GetErrorStats(ctx context.Context) (*TelemetryStats, error)
 }

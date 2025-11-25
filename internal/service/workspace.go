@@ -4,37 +4,25 @@ import (
 	"context"
 
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	errors "github.com/histopathai/main-service/internal/shared/errors"
 	sharedQuery "github.com/histopathai/main-service/internal/shared/query"
 )
 
 type WorkspaceService struct {
-	workspaceRepo repository.WorkspaceRepository
-	uow           repository.UnitOfWorkFactory
+	workspaceRepo port.WorkspaceRepository
+	uow           port.UnitOfWorkFactory
 }
 
 func NewWorkspaceService(
-	workspaceRepo repository.WorkspaceRepository,
-	uow repository.UnitOfWorkFactory,
+	workspaceRepo port.WorkspaceRepository,
+	uow port.UnitOfWorkFactory,
 ) *WorkspaceService {
 	return &WorkspaceService{
 		workspaceRepo: workspaceRepo,
 		uow:           uow,
 	}
-}
-
-type CreateWorkspaceInput struct {
-	CreatorID        string
-	Name             string
-	OrganType        string
-	AnnotationTypeID *string
-	Organization     string
-	Description      string
-	License          string
-	ResourceURL      *string
-	ReleaseYear      *int
 }
 
 func (ws *WorkspaceService) validateWorkspaceInput(ctx context.Context, input *CreateWorkspaceInput) error {
@@ -83,17 +71,6 @@ func (ws *WorkspaceService) CreateNewWorkspace(ctx context.Context, input *Creat
 	}
 
 	return created, nil
-}
-
-type UpdateWorkspaceInput struct {
-	Name             *string
-	OrganType        *string
-	Organization     *string
-	Description      *string
-	License          *string
-	ResourceURL      *string
-	ReleaseYear      *int
-	AnnotationTypeID *string
 }
 
 func (ws *WorkspaceService) UpdateWorkspace(ctx context.Context, id string, input UpdateWorkspaceInput) error {
@@ -167,7 +144,7 @@ func (ws *WorkspaceService) ListWorkspaces(ctx context.Context, pagination *shar
 
 func (ws *WorkspaceService) DeleteWorkspace(ctx context.Context, id string) error {
 
-	uowerr := ws.uow.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+	uowerr := ws.uow.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
 		patientRepo := repos.PatientRepo
 
 		pagination := &sharedQuery.Pagination{Limit: 1, Offset: 0}
@@ -219,7 +196,7 @@ func (ws *WorkspaceService) CascadeDeleteWorkspace(ctx context.Context, workspac
 		return errors.NewInternalError("failed to read workspace", err)
 	}
 
-	return ws.uow.WithTx(ctx, func(txctx context.Context, repos *repository.Repositories) error {
+	return ws.uow.WithTx(ctx, func(txctx context.Context, repos *port.Repositories) error {
 
 		patientIDs, err := collectionPatientIds(txctx, repos.PatientRepo, workspaceID)
 		if err != nil {
@@ -290,7 +267,7 @@ func (ws *WorkspaceService) CascadeDeleteWorkspace(ctx context.Context, workspac
 	})
 }
 
-func collectionPatientIds(ctx context.Context, patientRepo repository.PatientRepository, workspaceID string) ([]string, error) {
+func collectionPatientIds(ctx context.Context, patientRepo port.PatientRepository, workspaceID string) ([]string, error) {
 	patientIDs := make([]string, 0)
 	offset := 0
 	limit := 100
@@ -322,7 +299,7 @@ func collectionPatientIds(ctx context.Context, patientRepo repository.PatientRep
 	return patientIDs, nil
 }
 
-func collectImageAndAnnotationIDs(ctx context.Context, repos *repository.Repositories, patientID string) ([]string, []string, error) {
+func collectImageAndAnnotationIDs(ctx context.Context, repos *port.Repositories, patientID string) ([]string, []string, error) {
 	imageIDs := make([]string, 0)
 	annotationIDs := make([]string, 0)
 	offset := 0
