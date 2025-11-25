@@ -67,8 +67,7 @@ func NewImageDeletionRequestedEvent(imageID string) ImageDeletionRequestedEvent 
 
 const (
 	EventTypeImageProcessingRequested EventType = "image.processing.requested.v1"
-	EventTypeImageProcessingCompleted EventType = "image.processing.completed.v1"
-	EventTypeImageProcessingFailed    EventType = "image.processing.failed.v1"
+	EventTypeImageProcessingCompleted EventType = "image.processing.result.v1"
 )
 
 type ImageProcessingRequestedEvent struct {
@@ -77,20 +76,16 @@ type ImageProcessingRequestedEvent struct {
 	OriginPath string `json:"origin-path"`
 }
 
-type ImageProcessingCompletedEvent struct {
+type ImageProcessingResultEvent struct {
 	BaseEvent
-	ImageID       string `json:"image-id"`
-	ProcessedPath string `json:"processed-path"`
-	Width         int    `json:"width"`
-	Height        int    `json:"height"`
-	Size          int64  `json:"size"`
-}
-
-type ImageProcessingFailedEvent struct {
-	BaseEvent
-	ImageID       string `json:"image-id"`
-	Retryable     bool   `json:"retryable"`
-	FailureReason string `json:"failure-reason"`
+	ImageID       string  `json:"image-id"`
+	Success       bool    `json:"success"`
+	ProcessedPath *string `json:"processed-path,omitempty"`
+	Width         *int    `json:"width,omitempty"`
+	Height        *int    `json:"height,omitempty"`
+	Size          *int64  `json:"size,omitempty"`
+	FailureReason *string `json:"failure-reason,omitempty"`
+	Retryable     *bool   `json:"retryable,omitempty"`
 }
 
 type ImageProcessingDLQEvent struct {
@@ -107,21 +102,24 @@ func NewImageProcessingRequestedEvent(imageID, originPath string) ImageProcessin
 	}
 }
 
-func NewImageProcessingCompletedEvent(imageID, processedPath string, width int, height int, size int64) ImageProcessingCompletedEvent {
-	return ImageProcessingCompletedEvent{
+func NewImageProcessingSuccessEvent(imageID, processedPath string, width int, height int, size int64) ImageProcessingResultEvent {
+	return ImageProcessingResultEvent{
 		BaseEvent:     NewBaseEvent(EventTypeImageProcessingCompleted),
 		ImageID:       imageID,
-		ProcessedPath: processedPath,
-		Width:         width,
-		Height:        height,
-		Size:          size,
+		Success:       true,
+		ProcessedPath: &processedPath,
+		Width:         &width,
+		Height:        &height,
+		Size:          &size,
 	}
 }
 
-func NewImageProcessingFailedEvent(imageID, failureReason string) ImageProcessingFailedEvent {
-	return ImageProcessingFailedEvent{
-		BaseEvent:     NewBaseEvent(EventTypeImageProcessingFailed),
+func NewImageProcessingFailureEvent(imageID, failureReason string, retryable bool) ImageProcessingResultEvent {
+	return ImageProcessingResultEvent{
+		BaseEvent:     NewBaseEvent(EventTypeImageProcessingCompleted),
 		ImageID:       imageID,
-		FailureReason: failureReason,
+		Success:       false,
+		FailureReason: &failureReason,
+		Retryable:     &retryable,
 	}
 }
