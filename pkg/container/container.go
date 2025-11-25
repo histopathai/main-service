@@ -40,12 +40,12 @@ type Container struct {
 	Storage       port.ObjectStorage
 
 	//Services
-	WorkspaceService      service.IWorkspaceService
-	PatientService        service.IPatientService
-	ImageService          service.IImageService
-	AnnotationService     service.IAnnotationService
-	AnnotationTypeService service.IAnnotationTypeService
-	TelemetryService      service.ITelemetryService
+	WorkspaceService      port.IWorkspaceService
+	PatientService        port.IPatientService
+	ImageService          port.IImageService
+	AnnotationService     port.IAnnotationService
+	AnnotationTypeService port.IAnnotationTypeService
+	TelemetryService      port.ITelemetryService
 
 	// Event Publishers
 	ImageEventPublisher     port.ImageEventPublisher
@@ -256,7 +256,6 @@ func (c *Container) initServices(ctx context.Context) error {
 		c.TelemetryRepo,
 	)
 
-	// Image Service
 	c.ImageService = service.NewImageService(
 		c.Repos.ImageRepo,
 		c.UOW,
@@ -265,7 +264,6 @@ func (c *Container) initServices(ctx context.Context) error {
 		c.ImageEventPublisher,
 		c.Repos.PatientRepo,
 	)
-
 	// Patient Service
 	c.PatientService = service.NewPatientService(
 		c.Repos.PatientRepo,
