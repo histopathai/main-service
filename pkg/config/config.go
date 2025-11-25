@@ -34,7 +34,6 @@ type GCPConfig struct {
 type PubSubConfig struct {
 	ImageProcessingRequest TopicSubscriptionConfig
 	ImageProcessingResult  TopicSubscriptionConfig
-	ImageProcessingFailure TopicSubscriptionConfig
 	ImageDeletion          TopicSubscriptionConfig
 	UploadStatus           SubscriptionConfig
 	TelemetryTopic         TopicConfig
@@ -158,17 +157,6 @@ func Load() (*Config, error) {
 					DLQName: getEnv("IMAGE_PROCESSING_RESULT_SUB_DLQ", "image-processing-results-sub-dlq"),
 				},
 			},
-			ImageProcessingFailure: TopicSubscriptionConfig{
-				Topic: TopicConfig{
-					Name:    getEnv("IMAGE_PROCESSING_FAILURE_TOPIC", "image-processing-failures"),
-					DLQName: getEnv("IMAGE_PROCESSING_FAILURE_DLQ", "image-processing-failures-dlq"),
-				},
-				Subscription: SubscriptionConfig{
-					Name:    getEnv("IMAGE_PROCESSING_FAILURE_SUB", "image-processing-failures-sub"),
-					Topic:   getEnv("IMAGE_PROCESSING_FAILURE_TOPIC", "image-processing-failures"),
-					DLQName: getEnv("IMAGE_PROCESSING_FAILURE_SUB_DLQ", "image-processing-failures-sub-dlq"),
-				},
-			},
 			ImageDeletion: TopicSubscriptionConfig{
 				Topic: TopicConfig{
 					Name:    getEnv("IMAGE_DELETION_TOPIC", "image-deletion-requests"),
@@ -180,14 +168,43 @@ func Load() (*Config, error) {
 					DLQName: getEnv("IMAGE_DELETION_SUB_DLQ", "image-deletion-requests-sub-dlq"),
 				},
 			},
-			TelemetryTopic: TopicConfig{
-				Name:    getEnv("TELEMETRY_TOPIC", "telemetry-events"),
-				DLQName: getEnv("TELEMETRY_DLQ", "telemetry-events-dlq"),
+			TelemetryDLQ: TopicSubscriptionConfig{
+				Topic: TopicConfig{
+					Name:    getEnv("TELEMETRY_DLQ_TOPIC", "telemetry-dlq"),
+					DLQName: "", // DLQ doesn't have its own DLQ
+				},
+				Subscription: SubscriptionConfig{
+					Name:    getEnv("TELEMETRY_DLQ_SUB", "telemetry-dlq-sub"),
+					Topic:   getEnv("TELEMETRY_DLQ_TOPIC", "telemetry-dlq"),
+					DLQName: "",
+				},
+			},
+			TelemetryError: TopicSubscriptionConfig{
+				Topic: TopicConfig{
+					Name:    getEnv("TELEMETRY_ERROR_TOPIC", "telemetry-errors"),
+					DLQName: "", // Error topic doesn't have DLQ
+				},
+				Subscription: SubscriptionConfig{
+					Name:    getEnv("TELEMETRY_ERROR_SUB", "telemetry-errors-sub"),
+					Topic:   getEnv("TELEMETRY_ERROR_TOPIC", "telemetry-errors"),
+					DLQName: "",
+				},
 			},
 		},
 		Logging: LoggingConfig{
 			Level:  getEnv("LOG_LEVEL", "info"),
 			Format: getEnv("LOG_FORMAT", "json"),
+		},
+		Worker: WorkerConfig{
+			Type:           getEnv("WORKER_TYPE", "cloudrun"),
+			CloudRunJobURL: getEnv("CLOUD_RUN_JOB_URL", ""),
+			Timeout:        30 * time.Minute,
+			MaxRetries:     3,
+			RetryDelay:     5 * time.Second,
+		},
+		Retry: RetryConfig{
+			MaxImageProcessingRetries: 3,
+			MaxDeletionRetries:        3,
 		},
 	}
 
@@ -209,6 +226,39 @@ func (c *Config) Validate() error {
 
 	if c.Server.Port == "" {
 		return fmt.Errorf("PORT is required")
+	}
+	if c.GCP.Region == "" {
+		return fmt.Errorf("REGION is required")
+	}
+	if c.PubSub.ImageProcessingRequest.Topic.Name == "" {
+		return fmt.Errorf("IMAGE_PROCESSING_REQUEST_TOPIC is required")
+	}
+	if c.PubSub.ImageProcessingRequest.Subscription.Name == "" {
+		return fmt.Errorf("IMAGE_PROCESSING_REQUEST_SUB is required")
+	}
+	if c.PubSub.ImageProcessingResult.Topic.Name == "" {
+		return fmt.Errorf("IMAGE_PROCESSING_RESULT_TOPIC is required")
+	}
+	if c.PubSub.ImageProcessingResult.Subscription.Name == "" {
+		return fmt.Errorf("IMAGE_PROCESSING_RESULT_SUB is required")
+	}
+	if c.PubSub.ImageDeletion.Topic.Name == "" {
+		return fmt.Errorf("IMAGE_DELETION_TOPIC is required")
+	}
+	if c.PubSub.ImageDeletion.Subscription.Name == "" {
+		return fmt.Errorf("IMAGE_DELETION_SUB is required")
+	}
+	if c.PubSub.TelemetryDLQ.Topic.Name == "" {
+		return fmt.Errorf("TELEMETRY_DLQ_TOPIC is required")
+	}
+	if c.PubSub.TelemetryDLQ.Subscription.Name == "" {
+		return fmt.Errorf("TELEMETRY_DLQ_SUB is required")
+	}
+	if c.PubSub.TelemetryError.Topic.Name == "" {
+		return fmt.Errorf("TELEMETRY_ERROR_TOPIC is required")
+	}
+	if c.PubSub.TelemetryError.Subscription.Name == "" {
+		return fmt.Errorf("TELEMETRY_ERROR_SUB is required")
 	}
 
 	return nil
