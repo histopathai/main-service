@@ -14,14 +14,6 @@ const (
 	EnvProduction Environment = "PROD"
 )
 
-type Config struct {
-	Env     Environment
-	Server  ServerConfig
-	GCP     GCPConfig
-	PubSub  PubSubConfig
-	Logging LoggingConfig
-}
-
 type ServerConfig struct {
 	Port         string
 	GinMode      string
@@ -39,37 +31,15 @@ type GCPConfig struct {
 	ProcessedBucketName string
 }
 
-// TopicConfig represents a PubSub topic with its DLQ
-type TopicConfig struct {
-	Name    string
-	DLQName string
-}
-
-// SubscriptionConfig represents a PubSub subscription with its DLQ
-type SubscriptionConfig struct {
-	Name    string
-	Topic   string
-	DLQName string
-}
-
 type PubSubConfig struct {
-	// Upload Status (GCS → Main Service)
-	UploadStatus SubscriptionConfig
-
-	// Image Processing Request (Main Service → Processing Function)
 	ImageProcessingRequest TopicSubscriptionConfig
-
-	// Image Processing Result (Processing Function → Main Service)
-	ImageProcessingResult TopicSubscriptionConfig
-
-	// Image Processing Failure (Processing Function → Main Service + Telemetry)
+	ImageProcessingResult  TopicSubscriptionConfig
 	ImageProcessingFailure TopicSubscriptionConfig
-
-	// Image Deletion (Main Service → Deletion Function)
-	ImageDeletion TopicSubscriptionConfig
-
-	// Telemetry Topic (All DLQ messages → Telemetry Service)
-	TelemetryTopic TopicConfig
+	ImageDeletion          TopicSubscriptionConfig
+	UploadStatus           SubscriptionConfig
+	TelemetryTopic         TopicConfig
+	TelemetryDLQ           TopicSubscriptionConfig
+	TelemetryError         TopicSubscriptionConfig
 }
 
 // TopicSubscriptionConfig bundles topic and subscription together
@@ -78,9 +48,51 @@ type TopicSubscriptionConfig struct {
 	Subscription SubscriptionConfig
 }
 
+type TopicConfig struct {
+	Name    string
+	DLQName string
+}
+
+// SubscriptionConfig represents a PubSub subscription with retry configuration
+type SubscriptionConfig struct {
+	Name                string
+	Topic               string
+	DLQName             string
+	MaxDeliveryAttempts int
+	MinBackoff          time.Duration
+	MaxBackoff          time.Duration
+	AckDeadline         time.Duration
+	RetentionDuration   time.Duration
+}
 type LoggingConfig struct {
 	Level  string
 	Format string
+}
+
+// WorkerConfig contains worker configuration
+type WorkerConfig struct {
+	Type           string        // "cloudrun" or "mock"
+	CloudRunJobURL string        // Cloud Run Job endpoint
+	Timeout        time.Duration // Worker timeout
+	MaxRetries     int           // Worker-level retries
+	RetryDelay     time.Duration // Delay between worker retries
+}
+
+// Config is the main configuration struct
+type Config struct {
+	Env     Environment
+	Server  ServerConfig
+	GCP     GCPConfig
+	PubSub  PubSubConfig
+	Worker  WorkerConfig
+	Logging LoggingConfig
+	Retry   RetryConfig
+}
+
+// RetryConfig defines global retry configuration
+type RetryConfig struct {
+	MaxImageProcessingRetries int
+	MaxDeletionRetries        int
 }
 
 func Load() (*Config, error) {
