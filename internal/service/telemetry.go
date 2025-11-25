@@ -128,18 +128,15 @@ func (ts *TelemetryService) GetErrorStats(ctx context.Context) (*port.TelemetryS
 	// Get recent errors (last 10)
 	recentResult, err := ts.telemetryRepo.FindByFilters(ctx, []sharedQuery.Filter{}, &sharedQuery.Pagination{
 		Limit: 10,
-		OrderBy: []sharedQuery.OrderBy{
-			{Field: "timestamp", Direction: sharedQuery.OrderDesc},
-		},
 	})
 	if err != nil {
 		return nil, err
 	}
 
-	return &TelemetryStats{
+	return &port.TelemetryStats{
 		TotalErrors:  totalCount,
 		BySeverity:   bySeverity,
 		ByCategory:   byCategory,
-		RecentErrors: recentResult.Items,
+		RecentErrors: recentResult.Data,
 	}, nil
 }

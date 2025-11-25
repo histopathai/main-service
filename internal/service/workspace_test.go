@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/mocks"
 	"github.com/histopathai/main-service/internal/service"
 	"github.com/histopathai/main-service/internal/shared/constants"
@@ -43,8 +43,8 @@ func setupWorkspaceService(t *testing.T) (
 	mockUOW := mocks.NewMockUnitOfWorkFactory(ctrl)
 
 	mockUOW.EXPECT().WithTx(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
-		func(ctx context.Context, fn func(ctx context.Context, repos *repository.Repositories) error) error {
-			return fn(ctx, &repository.Repositories{
+		func(ctx context.Context, fn func(ctx context.Context, repos *port.Repositories) error) error {
+			return fn(ctx, &port.Repositories{
 				WorkspaceRepo:  mockWorkspaceRepo,
 				PatientRepo:    mockPatientRepo,
 				ImageRepo:      mockImageRepo,
@@ -62,7 +62,7 @@ func TestCreateNewWorkspace_Success(t *testing.T) {
 
 	ctx := context.Background()
 
-	input := service.CreateWorkspaceInput{
+	input := port.CreateWorkspaceInput{
 		CreatorID:    "user-123",
 		Name:         "Test Workspace",
 		OrganType:    "Liver",
@@ -96,7 +96,7 @@ func TestCreateNewWorkspace_Conflict(t *testing.T) {
 	wsService, mockWorkspaceRepo, _, _, _, _ := setupWorkspaceService(t)
 	ctx := context.Background()
 
-	input := service.CreateWorkspaceInput{
+	input := port.CreateWorkspaceInput{
 		Name: "Existing Workspace",
 	}
 
@@ -179,7 +179,7 @@ func TestUpdateWorkspace_Success(t *testing.T) {
 		Update(ctx, workspaceID, gomock.Any()).
 		Return(nil)
 
-	input := service.UpdateWorkspaceInput{
+	input := port.UpdateWorkspaceInput{
 		Name:        ptrString("Updated Workspace"),
 		OrganType:   ptrString("Heart"),
 		Description: ptrString("Updated description"),
@@ -202,7 +202,7 @@ func TestUpdateWorkspace_Failure_IDNotFound(t *testing.T) {
 		Read(ctx, workspaceID).
 		Return(nil, errors.NewNotFoundError("workspace not found"))
 
-	input := service.UpdateWorkspaceInput{
+	input := port.UpdateWorkspaceInput{
 		Name: ptrString("Updated Workspace"),
 	}
 
@@ -249,7 +249,7 @@ func TestCreateNewWorkspace_InvalidYear(t *testing.T) {
 	wsService, mockWorkspaceRepo, _, _, _, _ := setupWorkspaceService(t)
 	ctx := context.Background()
 
-	input := service.CreateWorkspaceInput{
+	input := port.CreateWorkspaceInput{
 		Name:        "Test Workspace",
 		ReleaseYear: ptrInt(1800),
 	}
@@ -291,7 +291,7 @@ func TestUpdateWorkspace_NoUpdates(t *testing.T) {
 		Read(ctx, workspaceID).
 		Return(&model.Workspace{ID: workspaceID}, nil)
 
-	err := wsService.UpdateWorkspace(ctx, workspaceID, service.UpdateWorkspaceInput{})
+	err := wsService.UpdateWorkspace(ctx, workspaceID, port.UpdateWorkspaceInput{})
 	require.NoError(t, err)
 }
 
@@ -305,7 +305,7 @@ func TestUpdateWorkspace_InvalidYear(t *testing.T) {
 		Read(ctx, workspaceID).
 		Return(&model.Workspace{ID: workspaceID}, nil)
 
-	err := wsService.UpdateWorkspace(ctx, workspaceID, service.UpdateWorkspaceInput{
+	err := wsService.UpdateWorkspace(ctx, workspaceID, port.UpdateWorkspaceInput{
 		ReleaseYear: &invalidYear,
 	})
 	require.Error(t, err)

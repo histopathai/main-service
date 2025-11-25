@@ -6,8 +6,7 @@ import (
 	"testing"
 
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/repository"
-	"github.com/histopathai/main-service/internal/domain/storage"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/mocks"
 	"github.com/histopathai/main-service/internal/service"
 	"github.com/histopathai/main-service/internal/shared/constants"
@@ -35,8 +34,8 @@ func setupImageService(t *testing.T) (
 	mockUOW := mocks.NewMockUnitOfWorkFactory(ctrl)
 
 	mockUOW.EXPECT().WithTx(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
-		func(ctx context.Context, fn func(ctx context.Context, repos *repository.Repositories) error) error {
-			return fn(ctx, &repository.Repositories{
+		func(ctx context.Context, fn func(ctx context.Context, repos *port.Repositories) error) error {
+			return fn(ctx, &port.Repositories{
 				ImageRepo:   mockImageRepo,
 				PatientRepo: mockPatientRepo,
 			})
@@ -59,7 +58,7 @@ func TestUploadImage_Success(t *testing.T) {
 	imgService, _, mockPatientRepo, mockStorage, _ := setupImageService(t)
 	ctx := context.Background()
 
-	input := &service.UploadImageInput{
+	input := &port.UploadImageInput{
 		PatientID:   "patient-123",
 		CreatorID:   "creator-123",
 		ContentType: "image/tiff",
@@ -71,7 +70,7 @@ func TestUploadImage_Success(t *testing.T) {
 		Read(ctx, input.PatientID).
 		Return(&model.Patient{ID: input.PatientID}, nil)
 
-	mockPayload := &storage.SignedURLPayload{
+	mockPayload := &port.SignedURLPayload{
 		URL:     "https://signed-url.example.com",
 		Headers: map[string]string{"x-goog-meta-image-id": "image-123"},
 	}
@@ -91,7 +90,7 @@ func TestUploadImage_InvalidPatient(t *testing.T) {
 	imgService, _, mockPatientRepo, _, _ := setupImageService(t)
 	ctx := context.Background()
 
-	input := &service.UploadImageInput{
+	input := &port.UploadImageInput{
 		PatientID:   "invalid-patient",
 		CreatorID:   "creator-123",
 		ContentType: "image/tiff",
@@ -113,7 +112,7 @@ func TestConfirmUpload_Success(t *testing.T) {
 	imgService, mockImageRepo, _, _, mockPublisher := setupImageService(t)
 	ctx := context.Background()
 
-	input := &service.ConfirmUploadInput{
+	input := &port.ConfirmUploadInput{
 		ImageID:    "image-123",
 		PatientID:  "patient-123",
 		CreatorID:  "creator-123",
@@ -148,7 +147,7 @@ func TestConfirmUpload_PublishEventFailure(t *testing.T) {
 	imgService, mockImageRepo, _, _, mockPublisher := setupImageService(t)
 	ctx := context.Background()
 
-	input := &service.ConfirmUploadInput{
+	input := &port.ConfirmUploadInput{
 		ImageID:    "image-123",
 		PatientID:  "patient-123",
 		CreatorID:  "creator-123",
@@ -266,7 +265,7 @@ func TestUploadImage_StorageFailure(t *testing.T) {
 	imgService, _, mockPatientRepo, mockStorage, _ := setupImageService(t)
 	ctx := context.Background()
 
-	input := &service.UploadImageInput{
+	input := &port.UploadImageInput{
 		PatientID:   "patient-123",
 		CreatorID:   "creator-123",
 		ContentType: "image/tiff",
@@ -292,7 +291,7 @@ func TestConfirmUpload_RepoCreateFailure(t *testing.T) {
 	imgService, mockImageRepo, _, _, mockPublisher := setupImageService(t)
 	ctx := context.Background()
 
-	input := &service.ConfirmUploadInput{
+	input := &port.ConfirmUploadInput{
 		ImageID:    "image-123",
 		PatientID:  "patient-123",
 		CreatorID:  "creator-123",

@@ -6,6 +6,7 @@ import (
 	"testing"
 
 	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/mocks"
 	"github.com/histopathai/main-service/internal/service"
 	"github.com/histopathai/main-service/internal/shared/constants"
@@ -37,7 +38,7 @@ func TestCreateAnnotation_Success_WithScore(t *testing.T) {
 	ctx := context.Background()
 
 	score := 4.5
-	input := &service.CreateAnnotationInput{
+	input := &port.CreateAnnotationInput{
 		ImageID:     "image-123",
 		AnnotatorID: "annotator-123",
 		Polygon: []model.Point{
@@ -73,7 +74,7 @@ func TestCreateAnnotation_Success_WithClass(t *testing.T) {
 	ctx := context.Background()
 
 	class := "Malignant"
-	input := &service.CreateAnnotationInput{
+	input := &port.CreateAnnotationInput{
 		ImageID:     "image-123",
 		AnnotatorID: "annotator-123",
 		Polygon: []model.Point{
@@ -106,7 +107,7 @@ func TestCreateAnnotation_Failure_NoScoreOrClass(t *testing.T) {
 	aService, _, _ := setupAnnotationService(t)
 	ctx := context.Background()
 
-	input := &service.CreateAnnotationInput{
+	input := &port.CreateAnnotationInput{
 		ImageID:     "image-123",
 		AnnotatorID: "annotator-123",
 		Polygon: []model.Point{
@@ -249,7 +250,7 @@ func TestCreateAnnotation_RepoFailure(t *testing.T) {
 	aService, mockAnnotationRepo, _ := setupAnnotationService(t)
 	ctx := context.Background()
 	class := "Tumor"
-	input := &service.CreateAnnotationInput{
+	input := &port.CreateAnnotationInput{
 		ImageID:     "img-1",
 		AnnotatorID: "user-1",
 		Polygon:     []model.Point{{X: 0, Y: 0}},

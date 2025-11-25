@@ -13,7 +13,7 @@ import (
 	"github.com/histopathai/main-service/internal/api/http/dto/request"
 	"github.com/histopathai/main-service/internal/api/http/handler"
 	"github.com/histopathai/main-service/internal/api/http/validator"
-	"github.com/histopathai/main-service/internal/domain/storage"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/mocks"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/stretchr/testify/assert"
@@ -57,7 +57,7 @@ func TestImageHandler_UploadImage_Success(t *testing.T) {
 
 	mockService.EXPECT().
 		UploadImage(gomock.Any(), gomock.Any()).
-		Return(&storage.SignedURLPayload{
+		Return(&port.SignedURLPayload{
 			URL:     "https://example.com/upload",
 			Headers: map[string]string{"Key": "Value"},
 		}, nil)
