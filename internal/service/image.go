@@ -41,7 +41,7 @@ func NewImageService(
 	}
 }
 
-func (is *ImageService) validateImageInput(ctx context.Context, input *UploadImageInput) error {
+func (is *ImageService) validateImageInput(ctx context.Context, input *port.UploadImageInput) error {
 	patientID := input.PatientID
 	_, err := is.patientRepo.Read(ctx, patientID)
 	if err != nil {
@@ -50,7 +50,7 @@ func (is *ImageService) validateImageInput(ctx context.Context, input *UploadIma
 	return nil
 }
 
-func (is *ImageService) UploadImage(ctx context.Context, input *UploadImageInput) (*port.SignedURLPayload, error) {
+func (is *ImageService) UploadImage(ctx context.Context, input *port.UploadImageInput) (*port.SignedURLPayload, error) {
 
 	err := is.validateImageInput(ctx, input)
 	if err != nil {
@@ -82,7 +82,7 @@ func (is *ImageService) UploadImage(ctx context.Context, input *UploadImageInput
 	return storagePayload, nil
 }
 
-func (is *ImageService) ConfirmUpload(ctx context.Context, input *ConfirmUploadInput) error {
+func (is *ImageService) ConfirmUpload(ctx context.Context, input *port.ConfirmUploadInput) error {
 	image := &model.Image{
 		ID:         input.ImageID,
 		PatientID:  input.PatientID,

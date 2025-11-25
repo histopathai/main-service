@@ -28,7 +28,7 @@ func NewPatientService(
 	}
 }
 
-func (ps *PatientService) CreateNewPatient(ctx context.Context, input CreatePatientInput) (*model.Patient, error) {
+func (ps *PatientService) CreateNewPatient(ctx context.Context, input port.CreatePatientInput) (*model.Patient, error) {
 
 	patient, err := ps.patientRepo.FindByName(ctx, input.Name)
 	if err != nil {
@@ -129,7 +129,7 @@ func (ps *PatientService) DeletePatientByID(ctx context.Context, patientId strin
 	return nil
 }
 
-func (ps *PatientService) UpdatePatient(ctx context.Context, patientID string, input UpdatePatientInput) error {
+func (ps *PatientService) UpdatePatient(ctx context.Context, patientID string, input port.UpdatePatientInput) error {
 	updates := make(map[string]interface{})
 
 	if input.Name != nil {

@@ -25,7 +25,7 @@ func NewAnnotationTypeService(
 	}
 }
 
-func (ats *AnnotationTypeService) ValidateAnnotationTypeCreation(ctx context.Context, input *CreateAnnotationTypeInput) error {
+func (ats *AnnotationTypeService) ValidateAnnotationTypeCreation(ctx context.Context, input *port.CreateAnnotationTypeInput) error {
 
 	if input.ScoreEnabled {
 		if input.ScoreName == nil || *input.ScoreName == "" {
@@ -52,7 +52,7 @@ func (ats *AnnotationTypeService) ValidateAnnotationTypeCreation(ctx context.Con
 	return nil
 }
 
-func (ats *AnnotationTypeService) CreateNewAnnotationType(ctx context.Context, input *CreateAnnotationTypeInput) (*model.AnnotationType, error) {
+func (ats *AnnotationTypeService) CreateNewAnnotationType(ctx context.Context, input *port.CreateAnnotationTypeInput) (*model.AnnotationType, error) {
 
 	existing, err := ats.annotationTypeRepo.FindByName(ctx, input.Name)
 	if err != nil {
@@ -123,7 +123,7 @@ func (ats *AnnotationTypeService) GetScoreAnnotationTypes(ctx context.Context, p
 	return ats.annotationTypeRepo.FindByFilters(ctx, filters, paginationOpts)
 }
 
-func (ats *AnnotationTypeService) UpdateAnnotationType(ctx context.Context, id string, input *UpdateAnnotationTypeInput) error {
+func (ats *AnnotationTypeService) UpdateAnnotationType(ctx context.Context, id string, input *port.UpdateAnnotationTypeInput) error {
 	updates := make(map[string]interface{})
 
 	if input.Name != nil {

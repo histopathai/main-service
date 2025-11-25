@@ -25,7 +25,7 @@ func NewWorkspaceService(
 	}
 }
 
-func (ws *WorkspaceService) validateWorkspaceInput(ctx context.Context, input *CreateWorkspaceInput) error {
+func (ws *WorkspaceService) validateWorkspaceInput(ctx context.Context, input *port.CreateWorkspaceInput) error {
 
 	existing, err := ws.workspaceRepo.FindByName(ctx, input.Name)
 	if err != nil {
@@ -47,7 +47,7 @@ func (ws *WorkspaceService) validateWorkspaceInput(ctx context.Context, input *C
 
 }
 
-func (ws *WorkspaceService) CreateNewWorkspace(ctx context.Context, input *CreateWorkspaceInput) (*model.Workspace, error) {
+func (ws *WorkspaceService) CreateNewWorkspace(ctx context.Context, input *port.CreateWorkspaceInput) (*model.Workspace, error) {
 
 	if err := ws.validateWorkspaceInput(ctx, input); err != nil {
 		return nil, err
@@ -73,7 +73,7 @@ func (ws *WorkspaceService) CreateNewWorkspace(ctx context.Context, input *Creat
 	return created, nil
 }
 
-func (ws *WorkspaceService) UpdateWorkspace(ctx context.Context, id string, input UpdateWorkspaceInput) error {
+func (ws *WorkspaceService) UpdateWorkspace(ctx context.Context, id string, input port.UpdateWorkspaceInput) error {
 
 	//check ID existence
 	_, err := ws.workspaceRepo.Read(ctx, id)

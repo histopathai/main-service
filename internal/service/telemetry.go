@@ -14,7 +14,7 @@ type TelemetryService struct {
 
 func NewTelemetryService(
 	telemetryRepo port.TelemetryRepository,
-) ITelemetryService {
+) *TelemetryService {
 	return &TelemetryService{
 		telemetryRepo: telemetryRepo,
 	}
@@ -81,7 +81,7 @@ func (ts *TelemetryService) GetMessageByID(ctx context.Context, id string) (*eve
 	return ts.telemetryRepo.Read(ctx, id)
 }
 
-func (ts *TelemetryService) GetErrorStats(ctx context.Context) (*TelemetryStats, error) {
+func (ts *TelemetryService) GetErrorStats(ctx context.Context) (*port.TelemetryStats, error) {
 	// Get total count
 	totalCount, err := ts.telemetryRepo.Count(ctx, []sharedQuery.Filter{})
 	if err != nil {
