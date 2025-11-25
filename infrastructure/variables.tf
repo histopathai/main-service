@@ -23,20 +23,6 @@ variable "max_instances" {
   type        = number
   default     = 1
 }
-# --------------------------------
-# Resource Configuration
-# --------------------------------
-variable "cpu_limit" {
-  description = "CPU limit for each instance"
-  type        = string
-  default     = "1"
-}
-
-variable "memory_limit" {
-  description = "Memory limit for each instance"
-  type        = string
-  default     = "512Mi"
-}
 
 # --------------------------------
 # Timeout Configuration
