@@ -82,13 +82,6 @@ func main() {
 		}
 	}
 
-	// Start event orchestrator
-	if err := app.ImageOrchestrator.Start(ctx); err != nil {
-		loggerInstance.Error("Failed to start image orchestrator",
-			slog.String("error", err.Error()))
-		os.Exit(1)
-	}
-
 	// Setup HTTP router
 	engine := app.Router.SetupRoutes()
 
@@ -128,12 +121,6 @@ func main() {
 	// Shutdown HTTP server
 	if err := server.Shutdown(shutdownCtx); err != nil {
 		loggerInstance.Error("Server forced to shutdown",
-			slog.String("error", err.Error()))
-	}
-
-	// Stop orchestrator
-	if err := app.ImageOrchestrator.Stop(); err != nil {
-		loggerInstance.Error("Failed to stop orchestrator",
 			slog.String("error", err.Error()))
 	}
 
