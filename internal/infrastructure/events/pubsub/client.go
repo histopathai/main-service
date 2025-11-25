@@ -6,6 +6,7 @@ import (
 
 	"cloud.google.com/go/pubsub"
 	"github.com/histopathai/main-service/internal/domain/events"
+	"github.com/histopathai/main-service/internal/domain/port"
 )
 
 type PublishOptions struct {
@@ -72,7 +73,7 @@ func (g *GooglePubSubClient) Publish(ctx context.Context, topicID string, data [
 	return nil
 }
 
-func (g *GooglePubSubClient) Subscribe(ctx context.Context, subscriptionID string, handler events.EventHandler) error {
+func (g *GooglePubSubClient) Subscribe(ctx context.Context, subscriptionID string, handler port.EventHandler) error {
 	sub := g.client.Subscription(subscriptionID)
 
 	// Configure subscription settings
