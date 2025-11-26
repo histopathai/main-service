@@ -1,4 +1,4 @@
-name: Deploy Main Service
+name: Deploy Main Servicev2
 
 on:
   push:
