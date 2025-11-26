@@ -90,17 +90,24 @@ jobs:
           IMAGE="${REGISTRY}/${{ env.REPO_NAME }}"
 
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            [[ "${{ github.event.inputs.environment }}" == "prod" ]] \
-              && TAG="${IMAGE}:prod-${{ github.sha }}" \
-              || TAG="${IMAGE}:dev-${{ github.sha }}"
+            if [[ "${{ github.event.inputs.environment }}" == "prod" ]]; then
+              TAG_SUFFIX="prod-${{ github.sha }}"
+            else
+              TAG_SUFFIX="dev-${{ github.sha }}"
+            fi
           else
-            TAG="${IMAGE}:${{ github.sha }}"
+            TAG_SUFFIX="${{ github.sha }}"
           fi
 
-          docker build -t "$TAG" .
-          docker push "$TAG"
+          FULL_IMAGE="${IMAGE}:${TAG_SUFFIX}"
 
-          echo "image=$TAG" >> $GITHUB_OUTPUT
+          docker build -t "$FULL_IMAGE" .
+          docker push "$FULL_IMAGE"
+
+          echo "image_tag=$TAG_SUFFIX" >> $GITHUB_OUTPUT
+
+    outputs:
+      image_tag: ${{ steps.build.outputs.image_tag }}
 
   # -------------------------------------------------------------------
   # TERRAFORM DEPLOY
@@ -145,7 +152,7 @@ jobs:
       - name: Terraform Plan
         run: |
           terraform plan \
-            -var="image_tag=${{ needs.build-and-push.outputs.image }}" \
+            -var="image_tag=${{ needs.build-and-push.outputs.image_tag }}" \ 
             -var="environment=${{ steps.env-select.outputs.env }}" \
             -var="tf_state_bucket=${{ env.STATE_BUCKET }}" \
             -out=tfplan
