@@ -1,4 +1,4 @@
-name: Deploy Main Servicev2
+name: Deploy Main Service
 
 on:
   push:
@@ -114,10 +114,12 @@ jobs:
             TAG="${IMAGE_NAME}:${{ github.sha }}"
           fi
 
+          echo "Building and pushing image: ${TAG}"
           docker build --tag ${TAG} .
           docker push ${TAG}
 
           echo "image=${TAG}" >> $GITHUB_OUTPUT
+          echo "Successfully built and pushed: ${TAG}"
 
     outputs:
       image: ${{ steps.build.outputs.image }}
@@ -172,6 +174,7 @@ jobs:
 
       - name: Terraform Plan
         run: |
+          echo "Image to deploy: ${{ needs.build-and-push.outputs.image }}"
           terraform plan \
             -var="image_tag=${{ needs.build-and-push.outputs.image }}" \
             -var="environment=${{ steps.env-select.outputs.env }}" \
