@@ -31,8 +31,9 @@ locals {
   service_account        = data.terraform_remote_state.platform.outputs.main_service_account_email
   artifact_repository_id = data.terraform_remote_state.platform.outputs.artifact_repository_id
   service_name           = var.environment == "prod" ? "main-service" : "main-service-${var.environment}"
-  # image_tag already contains the full image path with tag from the build job
-  image_name             = var.image_tag
+  
+  # Construct the full image path
+  image_name = "${var.region}-docker.pkg.dev/${var.project_id}/${var.artifact_registry_repo}/main-service:${var.image_tag}"
 
   # Storage bucket info
   original_bucket_name  = data.terraform_remote_state.platform.outputs.original_bucket_name
