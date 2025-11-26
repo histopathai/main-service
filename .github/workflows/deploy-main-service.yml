@@ -1,4 +1,4 @@
-name: Deploy Main Service
+name: Deploy Main Servicev2
 
 on:
   push:
@@ -114,12 +114,26 @@ jobs:
             TAG="${IMAGE_NAME}:${{ github.sha }}"
           fi
 
-          echo "Building and pushing image: ${TAG}"
+          echo "=== Docker Build Info ==="
+          echo "Registry: ${REGISTRY}"
+          echo "Image Name: ${IMAGE_NAME}"
+          echo "Full Tag: ${TAG}"
+          echo "========================"
+          
+          echo "Building Docker image..."
           docker build --tag ${TAG} .
+          
+          echo "Pushing Docker image..."
           docker push ${TAG}
-
+          
+          echo "Setting output..."
           echo "image=${TAG}" >> $GITHUB_OUTPUT
+          
+          echo "=== Build Complete ==="
           echo "Successfully built and pushed: ${TAG}"
+          echo "Output file contents:"
+          cat $GITHUB_OUTPUT || echo "Could not read GITHUB_OUTPUT"
+          echo "======================"
 
     outputs:
       image: ${{ steps.build.outputs.image }}
@@ -168,6 +182,22 @@ jobs:
           else
             echo "env=dev" >> $GITHUB_OUTPUT
           fi
+
+      - name: Debug - Check Build Outputs
+        run: |
+          echo "=== Build Job Outputs ==="
+          echo "Image: '${{ needs.build-and-push.outputs.image }}'"
+          echo "Project ID: '${{ needs.build-and-push.outputs.project_id }}'"
+          echo "Region: '${{ needs.build-and-push.outputs.region }}'"
+          echo "Branch: '${{ needs.build-and-push.outputs.branch }}'"
+          echo "Environment: '${{ steps.env-select.outputs.env }}'"
+          echo "========================"
+          
+          if [[ -z "${{ needs.build-and-push.outputs.image }}" ]]; then
+            echo "ERROR: Image output is empty!"
+            exit 1
+          fi
+
       - name: Terraform Init
         run: |
           terraform init -backend-config="bucket=${{ env.TF_STATE_BUCKET }}"
