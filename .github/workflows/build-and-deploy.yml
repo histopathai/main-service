@@ -1,0 +1,179 @@
+name: Deploy Main Service
+
+on:
+  push:
+    branches:
+      - main  # Sadece main branch tetikler
+    paths:
+      - 'main-service/**'
+      - '.github/workflows/**'
+   
+env:
+  TF_VERSION: '1.5.0'
+  REPO_NAME: main-service
+   
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    env:
+      WIF_PROVIDER: ${{ secrets.WIF_PROVIDER}}
+      WIF_SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT}}
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get GCP Project Info
+        id: gcp-info
+        run: |
+          PROJECT_ID=$(gcloud config get-value project)
+          REGION="${{ secrets.GCP_REGION }}"
+          
+          echo "project_id=${PROJECT_ID}" >> $GITHUB_OUTPUT
+          echo "region=${REGION}" >> $GITHUB_OUTPUT
+          
+          echo "📦 Project ID: ${PROJECT_ID}"
+          echo "🌍 Region: ${REGION}"
+
+      - name: Configure Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ steps.gcp-info.outputs.region }}-docker.pkg.dev
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.25.1'
+
+      - name: Install Go Tools
+        run: |
+          go install go.uber.org/mock/mockgen@v0.6.0
+          go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: Generate Mocks & Swagger
+        run: |
+          go generate ./...
+          export PATH=$PATH:$(go env GOPATH)/bin
+          swag init -g cmd/main.go
+
+      - name: Run Unit Tests
+        run: go test -v ./...
+
+      - name: Build and Push Docker Image
+        id: build
+        run: |
+          REGISTRY="${{ steps.gcp-info.outputs.region }}-docker.pkg.dev/${{ steps.gcp-info.outputs.project_id }}/${{ secrets.ARTIFACT_REGISTRY_REPO_NAME }}"
+          IMAGE_NAME="${REGISTRY}/${{ env.REPO_NAME }}"
+          
+          TAG_SHA="${IMAGE_NAME}:${{ github.sha }}"
+          TAG_LATEST="${IMAGE_NAME}:latest"
+          
+          # Build
+          docker build --tag ${TAG_SHA} --tag ${TAG_LATEST} .
+          
+          # Push
+          docker push ${TAG_SHA}
+          docker push ${TAG_LATEST}
+          
+          echo "image=${TAG_SHA}" >> $GITHUB_OUTPUT
+          echo "🚀 Pushed: ${TAG_SHA}"
+
+    outputs:
+      image: ${{ steps.build.outputs.image }}
+      project_id: ${{ steps.gcp-info.outputs.project_id }}
+      region: ${{ steps.gcp-info.outputs.region }}
+
+  terraform-deploy:
+    name: Terraform Deploy
+    runs-on: ubuntu-latest
+    needs: [build-and-push] # Sadece build bitince başla
+    
+    
+    env:
+      WIF_PROVIDER: ${{secrets.WIF_PROVIDER}}
+      WIF_SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+      TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
+      ARTIFACT_REGISTRY_REPO_NAME: ${{ secrets.ARTIFACT_REGISTRY_REPO_NAME }}
+      GCP_REGION: ${{ secrets.GCP_REGION }}
+      
+    defaults:
+      run:
+        working-directory: ./infrastructure
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TF_VERSION }}
+
+      - name: Terraform Init
+        run: |
+          echo "🔧 Initializing Terraform..."
+          terraform init -backend-config="bucket=${{ env.TF_STATE_BUCKET }}"
+
+      - name: Terraform Plan
+        run: |
+          echo "📊 Running Terraform plan..."
+
+          IMAGE_TAG="${{ needs.build-and-push.outputs.image }}"
+
+         
+          terraform plan \
+            -var="image_tag=${IMAGE_TAG}" \
+            -var="environment=production" \
+            -var="tf_state_bucket=${{ env.TF_STATE_BUCKET }}" \
+            -out=tfplan
+
+      - name: Terraform Apply
+        run: |
+          echo "🚀 Applying Terraform changes..."
+          terraform apply -auto-approve tfplan
+
+      - name: Terraform Output
+        id: tf-output
+        run: |
+          SERVICE_URL=$(terraform output -raw service_url)
+          echo "service_url=${SERVICE_URL}" >> $GITHUB_OUTPUT
+          echo "✅ Service URL: ${SERVICE_URL}"
+
+    outputs:
+      service_url: ${{ steps.tf-output.outputs.service_url }}
+
+  notify:
+    name: Notify Deployment
+    runs-on: ubuntu-latest
+    needs: [terraform-deploy]
+    if: always()
+    
+    steps:
+      - name: Deployment Status
+        run: |
+          if [ "${{ needs.terraform-deploy.result }}" == "success" ]; then
+            echo "✅ Deployment successful!"
+            echo "🔗 Service URL: ${{ needs.terraform-deploy.outputs.service_url }}"
+          else
+            echo "❌ Deployment failed!"
+            exit 1
+          fi
