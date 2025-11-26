@@ -130,7 +130,7 @@ jobs:
       WIF_PROVIDER: ${{ secrets.WIF_PROVIDER }}
       WIF_SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT }}
       TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
-      TF_VARS_JSON: ${{ (needs.setup.outputs.environment == 'prod') && env.TF_VAR_PROD || env.TF_VAR_DEV }}
+      TF_VARS_JSON: ${{ (needs.setup.outputs.environment == 'prod') && vars.TF_VAR_PROD || vars.TF_VAR_DEV }}
 
     defaults:
       run:
@@ -304,7 +304,7 @@ jobs:
       WIF_PROVIDER: ${{ secrets.WIF_PROVIDER }}
       WIF_SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT }}
       TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
-      TF_VARS_JSON: ${{ (needs.setup.outputs.environment == 'prod') && secrets.TF_VAR_PROD || env.TF_VAR_DEV }}
+      TF_VARS_JSON: ${{ (needs.setup.outputs.environment == 'prod') && vars.TF_VAR_PROD || vars.TF_VAR_DEV }}
 
     defaults:
       run:
