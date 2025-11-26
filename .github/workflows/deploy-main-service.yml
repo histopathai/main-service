@@ -304,4 +304,4 @@ jobs:
             echo "Service URL: ${{ needs.terraform-deploy.outputs.service_url }}"
           else
             echo "Deployment failed!"
-            exit 1
+            exit 1 
