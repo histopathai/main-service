@@ -1,6 +1,8 @@
 # ========================================
 # PUB/SUB TOPICS & SUBSCRIPTIONS
 # ========================================
+data "google_storage_project_service_account" "gcs_account" {
+}
 
 # ----------------------------------------
 # 1. UPLOAD STATUS (GCS Notifications)
@@ -38,7 +40,7 @@ resource "google_pubsub_subscription" "upload_status_sub" {
 resource "google_pubsub_topic_iam_member" "gcs_publisher" {
   topic  = google_pubsub_topic.upload_status.id
   role   = "roles/pubsub.publisher"
-  member = "serviceAccount:${data.terraform_remote_state.platform.outputs.gcs_service_account_email}"
+  member = "serviceAccount:${data.google_storage_project_service_account.gcs_account.email_address}"
 }
 
 # GCS Notification for original bucket
