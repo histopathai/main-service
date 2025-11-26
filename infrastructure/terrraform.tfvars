@@ -6,12 +6,6 @@ max_instances = 5
 cpu_limit     = "1000m"
 memory_limit  = "512Mi"
 
-# Pub/Sub Configuration
-pubsub_topics = [
-  "user-events-dev",
-  "order-events-dev",
-  "notification-events-dev"
-]
 
 # Cloud Run Configuration
 timeout_seconds           = 300
@@ -28,6 +22,7 @@ env_vars = {
   LOG_LEVEL         = "debug"
   ENABLE_PROFILING  = "true"
   MAX_WORKERS       = "10"
+
 }
 
 # Tags
@@ -38,4 +33,5 @@ labels = {
 }
 
 # Allow unauthenticated access (for development only)
-allow_unauthenticated = true
+allow_unauthenticated =false
+
