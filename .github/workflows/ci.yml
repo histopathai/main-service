@@ -1,0 +1,302 @@
+name: CI - Build and Test
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'pkg/**'
+      - 'docs/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Dockerfile'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    branches:
+      - main
+      - dev
+    paths:
+      - 'cmd/**'
+      - 'internal/**'
+      - 'pkg/**'
+      - 'docs/**'
+      - 'go.mod'
+      - 'go.sum'
+      - 'Dockerfile'
+
+env:
+  REPO_NAME: main-service
+  GO_VERSION: '1.25.1'
+
+permissions:
+  contents: read
+  id-token: write
+  pull-requests: write
+
+jobs:
+  setup:
+    name: Setup Environment
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.set-env.outputs.environment }}
+      should_deploy: ${{ steps.check-deploy.outputs.should_deploy }}
+    steps:
+      - name: Determine Environment
+        id: set-env
+        run: |
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            ENV="dev"
+            SHOULD_DEPLOY="false"
+          elif [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            ENV="prod"
+            SHOULD_DEPLOY="true"
+          elif [ "${{ github.ref }}" == "refs/heads/dev" ]; then
+            ENV="dev"
+            SHOULD_DEPLOY="true"
+          else
+            ENV="dev"
+            SHOULD_DEPLOY="false"
+          fi
+          
+          echo "environment=${ENV}" >> $GITHUB_OUTPUT
+          echo "should_deploy=${SHOULD_DEPLOY}" >> $GITHUB_OUTPUT
+          echo "🌍 Environment: ${ENV}"
+          echo "🚀 Should Deploy: ${SHOULD_DEPLOY}"
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    needs: setup
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+      
+      - name: Cache Go modules
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/go-build
+            ~/go/pkg/mod
+          key: ${{ runner.os }}-go-${{ hashFiles('**/go.sum') }}
+          restore-keys: |
+            ${{ runner.os }}-go-
+      
+      - name: Install Go Tools
+        run: |
+          go install go.uber.org/mock/mockgen@v0.6.0
+          go install github.com/swaggo/swag/cmd/swag@latest
+          echo "✅ Go tools installed"
+
+      - name: Generate Mocks
+        run: |
+          go generate ./...
+          echo "🧩 Mocks generated"
+
+      - name: Generate Swagger Documentation
+        run: |
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          swag init -g cmd/main.go
+          echo "📄 Swagger documentation generated"
+
+      - name: Run Tests with Coverage
+        run: |
+          go test -v -race -coverprofile=coverage.out -covermode=atomic ./...
+          go tool cover -func=coverage.out
+
+      - name: Upload Coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.out
+          flags: unittests
+          name: codecov-umbrella
+        continue-on-error: true
+
+      - name: Comment PR - Test Results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `### ✅ Tests Passed - Main Service
+            
+            **Environment:** \`${{ needs.setup.outputs.environment }}\`
+            **Go Version:** \`${{ env.GO_VERSION }}\`
+            **Triggered by:** @${{ github.actor }}
+            
+            All unit tests passed successfully! 🎉`;
+
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            })
+
+  build-and-push:
+    name: Build and Push Docker Image
+    runs-on: ubuntu-latest
+    needs: [setup, test]
+    if: needs.setup.outputs.should_deploy == 'true'
+
+    env:
+      ENVIRRONMENT: ${{ needs.setup.outputs.environment }}
+      WIF_PROVIDER: ${{ secrets.WIF_PROVIDER }}
+      WIF_SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+      GCP_REGION: ${{ secrets.GCP_REGION }}
+      ARTIFACT_REGISTRY_REPO_NAME: ${{ secrets.ARTIFACT_REGISTRY_REPO_NAME }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ env.WIF_PROVIDER }}
+          service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
+
+      - name: Set up Google Cloud CLI
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Get GCP Project Info
+        id: gcp-info
+        run: |
+          PROJECT_ID=$(gcloud config get-value project)
+          PROJECT_NUMBER=$(gcloud projects describe ${PROJECT_ID} --format="value(projectNumber)")
+          REGION="${{ env.GCP_REGION }}"
+          
+          echo "project_id=${PROJECT_ID}" >> $GITHUB_OUTPUT
+          echo "project_number=${PROJECT_NUMBER}" >> $GITHUB_OUTPUT
+          echo "region=${REGION}" >> $GITHUB_OUTPUT
+          
+          echo "📦 Project ID: ${PROJECT_ID}"
+          echo "🔢 Project Number: ${PROJECT_NUMBER}"
+          echo "🌍 Region: ${REGION}"
+
+      - name: Configur Docker for Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ steps.gcp-info.outputs.region }}-docker.pkg.dev
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: Install Go Tools
+        run: |
+          go install go.uber.org/mock/mockgen@v0.6.0
+          go install github.com/swaggo/swag/cmd/swag@latest
+
+      - name: Generate Mocks
+        run: go generate ./...
+
+      - name: Generate Swagger Documentation
+        run: |
+          export PATH="$PATH:$(go env GOPATH)/bin"
+          swag init -g cmd/main.go
+          echo "📄 Swagger documentation generated
+      
+      - name: Build Docker Image
+        id: build
+        run: |
+          IMAGE_TAG="${{ steps.gcp-info.outputs.region }}-docker.pkg.dev/${{ steps.gcp-info.outputs.project_id }}/${{ env.ARTIFACT_REGISTRY_REPO_NAME }}/${{ env.REPO_NAME }}:${{ github.sha }}"
+          IMAGE_LATEST="${{ steps.gcp-info.outputs.region }}-docker.pkg.dev/${{ steps.gcp-info.outputs.project_id }}/${{ env.ARTIFACT_REGISTRY_REPO_NAME }}/${{ env.REPO_NAME }}:latest"
+          IMAGE_ENV="${{ steps.gcp-info.outputs.region }}-docker.pkg.dev/${{ steps.gcp-info.outputs.project_id }}/${{ env.ARTIFACT_REGISTRY_REPO_NAME }}/${{ env.REPO_NAME }}:${{ env.ENVIRONMENT }}"
+          
+          docker build \
+            --tag ${IMAGE_TAG} \
+            --tag ${IMAGE_LATEST} \
+            --tag ${IMAGE_ENV} \
+            .
+
+          echo "image_tag=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "🐳 Built image: ${IMAGE_TAG}"
+
+      - name: Push Docker Image
+        run: |
+          IMAGE_TAG="${{ steps.gcp-info.outputs.region }}-docker.pkg.dev/${{ steps.gcp-info.outputs.project_id }}/${{ env.ARTIFACT_REGISTRY_REPO_NAME }}/${{ env.REPO_NAME }}:${{ github.sha }}"
+          IMAGE_LATEST="${{ steps.gcp-info.outputs.region }}-docker.pkg.dev/${{ steps.gcp-info.outputs.project_id }}/${{ env.ARTIFACT_REGISTRY_REPO_NAME }}/${{ env.REPO_NAME }}:latest"
+          IMAGE_ENV="${{ steps.gcp-info.outputs.region }}-docker.pkg.dev/${{ steps.gcp-info.outputs.project_id }}/${{ env.ARTIFACT_REGISTRY_REPO_NAME }}/${{ env.REPO_NAME }}:${{ env.ENVIRONMENT }}"
+          
+          docker push ${IMAGE_TAG}
+          docker push ${IMAGE_LATEST}
+          docker push ${IMAGE_ENV}
+          
+          echo "🚀 Pushed all image tags"
+
+      - name: Output Image Info
+        id: image-info
+        run: |
+          IMAGE_TAG="${{ steps.gcp-info.outputs.region }}-docker.pkg.dev/${{ steps.gcp-info.outputs.project_id }}/${{ env.ARTIFACT_REGISTRY_REPO_NAME }}/${{ env.REPO_NAME }}:${{ github.sha }}"
+          echo "image=${IMAGE_TAG}" >> $GITHUB_OUTPUT
+          echo "✅ Image ready for deployment"
+
+    outputs:
+      image: ${{ steps.image-info.outputs.image }}
+      project_id: ${{ steps.gcp-info.outputs.project_id }}
+      region: ${{ steps.gcp-info.outputs.region }}
+
+  trigger-cd:
+    name: Trigger CD Pipeline
+    runs-on: ubuntu-latest
+    needs: [setup, build-and-push]
+    if: needs.setup.outputs.should_deploy == 'true'
+    
+    steps:
+      - name: Trigger CD Workflow
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'cd.yml',
+              ref: context.ref,
+              inputs: {
+                environment: '${{ needs.setup.outputs.environment }}',
+                image_tag: '${{ needs.build-and-push.outputs.image }}',
+                triggered_by: 'ci'
+              }
+            });
+            
+            console.log('✅ CD Pipeline triggered');
+            console.log('🌍 Environment: ${{ needs.setup.outputs.environment }}');
+            console.log('🐳 Image: ${{ needs.build-and-push.outputs.image }}');
+
+  summary:
+    name: CI Summary
+    runs-on: ubuntu-latest
+    needs: [setup, test, build-and-push, trigger-cd]
+    if: always()
+    
+    steps:
+      - name: CI Status
+        run: |
+          echo "📊 CI Pipeline Summary"
+          echo "====================="
+          echo "🌍 Environment: ${{ needs.setup.outputs.environment }}"
+          echo "✅ Tests: ${{ needs.test.result }}"
+          
+          if [ "${{ needs.setup.outputs.should_deploy }}" == "true" ]; then
+            echo "🐳 Build & Push: ${{ needs.build-and-push.result }}"
+            echo "🚀 CD Trigger: ${{ needs.trigger-cd.result }}"
+            
+            if [ "${{ needs.build-and-push.result }}" == "success" ] && [ "${{ needs.trigger-cd.result }}" == "success" ]; then
+              echo ""
+              echo "✅ CI completed successfully! CD pipeline has been triggered."
+            else
+              echo ""
+              echo "❌ CI pipeline failed!"
+              exit 1
+            fi
+          else
+            echo "⏭️  Deployment skipped (PR or non-deployable branch)"
+          fi
