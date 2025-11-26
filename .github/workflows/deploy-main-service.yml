@@ -189,11 +189,24 @@ jobs:
           echo "GCP Info - Region: ${{ steps.gcp-info.outputs.region }}"
           echo "=============================="
 
+      - name: Set Job Outputs
+        id: set-outputs
+        run: |
+          echo "=== Setting Job-Level Outputs ==="
+          echo "image=${{ steps.build.outputs.image }}" >> $GITHUB_OUTPUT
+          echo "project_id=${{ steps.gcp-info.outputs.project_id }}" >> $GITHUB_OUTPUT
+          echo "region=${{ steps.gcp-info.outputs.region }}" >> $GITHUB_OUTPUT
+          echo "branch=${{ steps.deploy-target.outputs.branch }}" >> $GITHUB_OUTPUT
+          
+          echo "Job outputs set:"
+          cat $GITHUB_OUTPUT
+          echo "================================="
+
     outputs:
-      image: ${{ steps.build.outputs.image }}
-      project_id: ${{ steps.gcp-info.outputs.project_id }}
-      region: ${{ steps.gcp-info.outputs.region }}
-      branch: ${{ steps.deploy-target.outputs.branch }}
+      image: ${{ steps.set-outputs.outputs.image }}
+      project_id: ${{ steps.set-outputs.outputs.project_id }}
+      region: ${{ steps.set-outputs.outputs.region }}
+      branch: ${{ steps.set-outputs.outputs.branch }}
 
   terraform-deploy:
     name: Terraform Deploy
