@@ -31,8 +31,7 @@ locals {
   service_account        = data.terraform_remote_state.platform.outputs.main_service_account_email
   artifact_repository_id = data.terraform_remote_state.platform.outputs.artifact_repository_id
   service_name           = var.environment == "prod" ? "main-service" : "main-service-${var.environment}"
-  image_name             = "${local.region}-docker.pkg.dev/${local.project_id}/${local.artifact_repository_id}/${local.service_name}:${var.image_tag}"
-
+  image_name             = var.image_tag
   # Storage bucket info
   original_bucket_name  = data.terraform_remote_state.platform.outputs.original_bucket_name
   processed_bucket_name = data.terraform_remote_state.platform.outputs.processed_bucket_name
