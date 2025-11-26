@@ -155,6 +155,9 @@ jobs:
             -var="image_tag=${{ needs.build-and-push.outputs.image_tag }}" \
             -var="environment=${{ steps.env-select.outputs.env }}" \
             -var="tf_state_bucket=${{ env.STATE_BUCKET }}" \
+            -var="project_id=${{ env.PROJECT_ID }}" \
+            -var="region=${{ env.REGION }}" \
+            -var="artifact_registry_repo=${{ env.ARTIFACT_REGISTRY_REPO_NAME }}" \
             -out=tfplan
 
       - name: Terraform Apply
@@ -186,3 +189,4 @@ jobs:
           else
             echo "Deployment failed."
             exit 1
+          fi
