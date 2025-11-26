@@ -1,37 +1,32 @@
 
-# Service Configuration
-service_name = "main-service"
-min_instances = 0
-max_instances = 5
-cpu_limit     = "1000m"
-memory_limit  = "512Mi"
+environment     = "prod"
 
+# ------------------------------
+# Scaling Configuration
+# ------------------------------
+min_instances = 1
+max_instances = 2
 
-# Cloud Run Configuration
-timeout_seconds           = 300
-max_concurrent_requests   = 80
-cpu_throttling           = true
-startup_cpu_boost        = false
+# ------------------------------
+# Resource Configuration
+# ------------------------------
+cpu_limit       = "1"
+memory_limit    = "512Mi"
 
-# Logging and Monitoring
-log_level = "debug"
+# ------------------------------
+# Access Configuration
+# ------------------------------
+allow_public_access = false
 
-# Environment Variables (non-sensitive)
-env_vars = {
-  ENV                = "development"
-  LOG_LEVEL         = "debug"
-  ENABLE_PROFILING  = "true"
-  MAX_WORKERS       = "10"
+# ------------------------------
+# Logging Configuration
+# ------------------------------
+log_level = "info"
+ 
 
-}
-
-# Tags
-labels = {
-  environment = "dev"
-  managed_by  = "terraform"
-  team        = "backend"
-}
-
-# Allow unauthenticated access (for development only)
-allow_unauthenticated =false
-
+# ------------------------------
+# Timeout Configuration
+# ------------------------------
+read_timeout  = "15s"
+write_timeout = "60s"
+idle_timeout  = "120s"
