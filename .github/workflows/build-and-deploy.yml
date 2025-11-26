@@ -165,7 +165,7 @@ jobs:
             echo "env=prod" >> $GITHUB_OUTPUT
           else
             echo "env=dev" >> $GITHUB_OUTPUT
-
+          fi
       - name: Terraform Init
         run: |
           terraform init -backend-config="bucket=${{ env.TF_STATE_BUCKET }}"
