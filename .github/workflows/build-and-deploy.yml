@@ -8,7 +8,17 @@ on:
     paths:
       - 'main-service/**'
       - '.github/workflows/**'
+
   workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deploy environment"
+        required: true
+        default: "dev"
+        type: choice
+        options:
+          - dev
+          - prod
 
 env:
   TF_VERSION: '1.5.0'
@@ -23,12 +33,29 @@ jobs:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
     env:
-      WIF_PROVIDER: ${{ secrets.WIF_PROVIDER}}
-      WIF_SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT}}
+      WIF_PROVIDER: ${{ secrets.WIF_PROVIDER }}
+      WIF_SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT }}
 
     steps:
+      - name: Determine Branch to Deploy
+        id: deploy-target
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            # Manual run → environment selects branch
+            if [[ "${{ github.event.inputs.environment }}" == "prod" ]]; then
+              echo "branch=main" >> $GITHUB_OUTPUT
+            else
+              echo "branch=dev" >> $GITHUB_OUTPUT
+            fi
+          else
+            # Push trigger → use current branch
+            echo "branch=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
+          fi
+
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.deploy-target.outputs.branch }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -75,39 +102,48 @@ jobs:
         run: |
           REGISTRY="${{ steps.gcp-info.outputs.region }}-docker.pkg.dev/${{ steps.gcp-info.outputs.project_id }}/${{ secrets.ARTIFACT_REGISTRY_REPO_NAME }}"
           IMAGE_NAME="${REGISTRY}/${{ env.REPO_NAME }}"
-          TAG_SHA="${IMAGE_NAME}:${{ github.sha }}"
-          TAG_LATEST="${IMAGE_NAME}:latest"
           
-          docker build --tag ${TAG_SHA} --tag ${TAG_LATEST} .
-          docker push ${TAG_SHA}
-          docker push ${TAG_LATEST}
-          
-          echo "image=${TAG_SHA}" >> $GITHUB_OUTPUT
+          # Tag based on environment
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            if [[ "${{ github.event.inputs.environment }}" == "prod" ]]; then
+              TAG="${IMAGE_NAME}:prod-${{ github.sha }}"
+            else
+              TAG="${IMAGE_NAME}:dev-${{ github.sha }}"
+            fi
+          else
+            TAG="${IMAGE_NAME}:${{ github.sha }}"
+          fi
+
+          docker build --tag ${TAG} .
+          docker push ${TAG}
+
+          echo "image=${TAG}" >> $GITHUB_OUTPUT
 
     outputs:
       image: ${{ steps.build.outputs.image }}
       project_id: ${{ steps.gcp-info.outputs.project_id }}
       region: ${{ steps.gcp-info.outputs.region }}
+      branch: ${{ steps.deploy-target.outputs.branch }}
 
   terraform-deploy:
     name: Terraform Deploy
     runs-on: ubuntu-latest
     needs: [build-and-push]
-    
+
     env:
-      WIF_PROVIDER: ${{secrets.WIF_PROVIDER}}
+      WIF_PROVIDER: ${{ secrets.WIF_PROVIDER }}
       WIF_SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT }}
       TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
-      ARTIFACT_REGISTRY_REPO_NAME: ${{ secrets.ARTIFACT_REGISTRY_REPO_NAME }}
-      GCP_REGION: ${{ secrets.GCP_REGION }}
-      
+
     defaults:
       run:
         working-directory: ./infrastructure
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build-and-push.outputs.branch }}
 
       - name: Authenticate to Google Cloud
         uses: google-github-actions/auth@v2
@@ -120,22 +156,29 @@ jobs:
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
+      - name: Determine Deploy Environment
+        id: env-select
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "env=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
+          elif [[ "${{ needs.build-and-push.outputs.branch }}" == "main" ]]; then
+            echo "env=prod" >> $GITHUB_OUTPUT
+          else
+            echo "env=dev" >> $GITHUB_OUTPUT
+
       - name: Terraform Init
         run: |
           terraform init -backend-config="bucket=${{ env.TF_STATE_BUCKET }}"
 
       - name: Terraform Plan
         run: |
-          IMAGE_TAG="${{ needs.build-and-push.outputs.image }}"
           terraform plan \
-            -var="image_tag=${IMAGE_TAG}" \
-            -var="environment=production" \
-            -var="tf_state_bucket=${{ env.TF_STATE_BUCKET }}" \
+            -var="image_tag=${{ needs.build-and-push.outputs.image }}" \
+            -var="environment=${{ steps.env-select.outputs.env }}" \
             -out=tfplan
 
       - name: Terraform Apply
-        run: |
-          terraform apply -auto-approve tfplan
+        run: terraform apply -auto-approve tfplan
 
       - name: Terraform Output
         id: tf-output
@@ -151,7 +194,7 @@ jobs:
     runs-on: ubuntu-latest
     needs: [terraform-deploy]
     if: always()
-    
+
     steps:
       - name: Deployment Status
         run: |
@@ -161,4 +204,3 @@ jobs:
           else
             echo "Deployment failed!"
             exit 1
-          fi
