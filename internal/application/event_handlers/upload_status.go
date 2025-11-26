@@ -10,6 +10,7 @@ import (
 	"github.com/histopathai/main-service/internal/domain/port"
 )
 
+// UploadStatusHandler handles image upload status events.
 type UploadStatusHandler struct {
 	*BaseEventHandler
 	imageService port.IImageService
