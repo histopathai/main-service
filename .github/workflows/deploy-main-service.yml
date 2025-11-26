@@ -152,7 +152,7 @@ jobs:
       - name: Terraform Plan
         run: |
           terraform plan \
-            -var="image_tag=${{ needs.build-and-push.outputs.image_tag }}" \ 
+            -var="image_tag=${{ needs.build-and-push.outputs.image_tag }}" \
             -var="environment=${{ steps.env-select.outputs.env }}" \
             -var="tf_state_bucket=${{ env.STATE_BUCKET }}" \
             -out=tfplan
