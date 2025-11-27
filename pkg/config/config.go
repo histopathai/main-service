@@ -70,11 +70,8 @@ type LoggingConfig struct {
 
 // WorkerConfig contains worker configuration
 type WorkerConfig struct {
-	Type           string        // "cloudrun" or "mock"
-	CloudRunJobURL string        // Cloud Run Job endpoint
-	Timeout        time.Duration // Worker timeout
-	MaxRetries     int           // Worker-level retries
-	RetryDelay     time.Duration // Delay between worker retries
+	Type       string // "cloudrun" or "mock"
+	RunJobName string
 }
 
 // Config is the main configuration struct
@@ -196,11 +193,8 @@ func Load() (*Config, error) {
 			Format: getEnv("LOG_FORMAT", "json"),
 		},
 		Worker: WorkerConfig{
-			Type:           getEnv("WORKER_TYPE", "cloudrun"),
-			CloudRunJobURL: getEnv("CLOUD_RUN_JOB_URL", ""),
-			Timeout:        30 * time.Minute,
-			MaxRetries:     3,
-			RetryDelay:     5 * time.Second,
+			Type:       getEnv("WORKER_TYPE", "cloudrun"),
+			RunJobName: getEnv("CLOUD_RUN_JOB_NAME", ""),
 		},
 		Retry: RetryConfig{
 			MaxImageProcessingRetries: 3,
