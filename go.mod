@@ -5,7 +5,9 @@ go 1.25.1
 require (
 	cloud.google.com/go/firestore v1.20.0
 	cloud.google.com/go/pubsub v1.50.1
+	cloud.google.com/go/run v1.10.0
 	cloud.google.com/go/storage v1.57.1
+	github.com/bytedance/gopkg v0.1.3
 	github.com/gin-gonic/gin v1.11.0
 	github.com/go-playground/validator/v10 v10.28.0
 	github.com/google/uuid v1.6.0
@@ -32,7 +34,6 @@ require (
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/exporter/metric v0.53.0 // indirect
 	github.com/GoogleCloudPlatform/opentelemetry-operations-go/internal/resourcemapping v0.53.0 // indirect
 	github.com/KyleBanks/depth v1.2.1 // indirect
-	github.com/bytedance/gopkg v0.1.3 // indirect
 	github.com/bytedance/sonic v1.14.2 // indirect
 	github.com/bytedance/sonic/loader v0.4.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
