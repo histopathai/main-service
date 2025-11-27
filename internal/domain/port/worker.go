@@ -24,7 +24,4 @@ type ProcessingResult struct {
 type ImageProcessingWorker interface {
 	// ProcessImage triggers async image processing
 	ProcessImage(ctx context.Context, input *ProcessingInput) error
-
-	// GetStatus checks the status of a processing job (optional)
-	GetStatus(ctx context.Context, jobID string) (string, error)
 }
