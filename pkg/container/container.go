@@ -380,12 +380,11 @@ func (c *Container) initSubscribers(ctx context.Context) error {
 }
 
 func (c *Container) initWorkers(ctx context.Context) error {
-	c.ImageProcessingWorker = worker.NewCloudRunWorker(
-		c.Config.Worker.CloudRunJobURL,
-		c.Logger.WithGroup("cloud_run_worker"),
-		c.Config.Worker.Timeout,
-	)
-
+	worker, err := worker.NewCloudRunWorker(ctx, c.Config.Worker, c.Logger)
+	if err != nil {
+		return fmt.Errorf("failed to create Cloud Run worker: %w", err)
+	}
+	c.ImageProcessingWorker = worker
 	c.Logger.Info("Workers initialized")
 	return nil
 }
