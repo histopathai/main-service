@@ -7,4 +7,5 @@ const (
 	AnnotationsCollection     = "annotations"
 	AnnotationTypesCollection = "annotation_types"
 	UserCollection            = "users"
+	TelemetryCollection       = "telemetry"
 )
