@@ -239,3 +239,17 @@ resource "google_cloud_run_v2_service_iam_member" "auth_service_access" {
 
   member = "serviceAccount:${data.terraform_remote_state.platform.outputs.auth_service_account_email}"
 }
+
+resource "google_pubsub_topic_iam_member" "main_service_publishers" {
+  for_each = toset([
+    google_pubsub_topic.image_processing_request.name,
+    google_pubsub_topic.image_processing_result.name,
+    google_pubsub_topic.image_deletion.name,
+    google_pubsub_topic.telemetry_dlq.name,
+    google_pubsub_topic.telemetry_error.name,
+  ])
+
+  topic  = each.key
+  role   = "roles/pubsub.publisher"
+  member = "serviceAccount:${local.service_account}"
+}
