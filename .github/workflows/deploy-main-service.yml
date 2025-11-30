@@ -76,6 +76,7 @@ jobs:
 
       - name: Generate Mocks & Swagger
         run: |
+          go generate ./...
           export PATH=$PATH:$(go env GOPATH)/bin
           go generate ./...
           swag init -g cmd/main.go
