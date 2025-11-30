@@ -17,16 +17,23 @@ type AuthMiddleware struct {
 func NewAuthMiddleware(logger *slog.Logger) *AuthMiddleware {
 	return &AuthMiddleware{logger: logger}
 }
-
 func (am *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		userID := c.GetHeader("X-User-ID")
+
+		// **DEBUG LOG EKLE**
+		am.logger.Debug("Auth middleware checking",
+			"has_user_id_header", userID != "",
+			"user_id", userID,
+		)
+
 		if userID == "" {
 			debugUserID, exists := c.Get("user_id")
 			if !exists {
+				am.logger.Warn("No authentication found in headers or context")
 				c.JSON(http.StatusUnauthorized, response.ErrorResponse{
 					ErrorType: string(errors.ErrorTypeUnauthorized),
-					Message:   "Authentication required (Header or context missing)",
+					Message:   "user not authenticated",
 				})
 				c.Abort()
 				return
@@ -35,25 +42,24 @@ func (am *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 		}
 
 		c.Set("user_id", userID)
-
-		// Ensure userID is a non-empty string
-		if userID == "" {
-			c.JSON(http.StatusUnauthorized, response.ErrorResponse{
-				ErrorType: string(errors.ErrorTypeUnauthorized),
-				Message:   "Invalid user ID format",
-			})
-			c.Abort()
-			return
-		}
+		c.Set("authenticated_user_id", userID)
 
 		// Get User Role from Header
 		userRole := c.GetHeader("X-User-Role")
+
+		// **DEBUG LOG EKLE**
+		am.logger.Debug("Auth middleware role check",
+			"has_role_header", userRole != "",
+			"user_role", userRole,
+		)
+
 		if userRole == "" {
 			debugUserRole, exists := c.Get("user_role")
 			if !exists {
+				am.logger.Warn("No role found in headers or context")
 				c.JSON(http.StatusUnauthorized, response.ErrorResponse{
 					ErrorType: string(errors.ErrorTypeUnauthorized),
-					Message:   "Authentication required (Role Header or context missing)",
+					Message:   "user role not found in context",
 				})
 				c.Abort()
 				return
@@ -62,11 +68,7 @@ func (am *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 		}
 
 		c.Set("user_role", userRole)
-
-		// Set typed value back to context
-		c.Set("authenticated_user_id", userID)
 		c.Next()
-
 	}
 }
 
