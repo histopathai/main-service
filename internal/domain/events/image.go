@@ -12,14 +12,17 @@ type ImageUploadedEvent struct {
 }
 
 type ImageUploadedMetadata struct {
-	ImageID    string `json:"image-id"`
-	PatientID  string `json:"patient-id"`
-	CreatorID  string `json:"creator-id"`
-	Name       string `json:"name"`
-	Format     string `json:"format"`
-	Width      *int   `json:"width,omitempty"`
-	Height     *int   `json:"height,omitempty"`
-	Size       *int64 `json:"size,omitempty"`
+	ImageID   string `json:"image-id"`
+	PatientID string `json:"patient-id"`
+	CreatorID string `json:"creator-id"`
+	Name      string `json:"name"`
+	Format    string `json:"format"`
+
+	// Add ",string" to these tags to handle GCS string values
+	Width  *int   `json:"width,omitempty,string"`
+	Height *int   `json:"height,omitempty,string"`
+	Size   *int64 `json:"size,omitempty,string"`
+
 	OriginPath string `json:"origin-path"`
 	Status     string `json:"status"`
 }
