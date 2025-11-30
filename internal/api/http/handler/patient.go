@@ -9,7 +9,7 @@ import (
 	"github.com/histopathai/main-service/internal/api/http/dto/response"
 	"github.com/histopathai/main-service/internal/api/http/middleware"
 	"github.com/histopathai/main-service/internal/api/http/validator"
-	"github.com/histopathai/main-service/internal/service"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -27,12 +27,12 @@ var allowedPatientSortFields = map[string]bool{
 }
 
 type PatientHandler struct {
-	patientService service.IPatientService
+	patientService port.IPatientService
 	validator      *validator.RequestValidator
 	BaseHandler    // Embed the BaseHandler
 }
 
-func NewPatientHandler(patientService service.IPatientService, validator *validator.RequestValidator, logger *slog.Logger) *PatientHandler {
+func NewPatientHandler(patientService port.IPatientService, validator *validator.RequestValidator, logger *slog.Logger) *PatientHandler {
 	return &PatientHandler{
 		patientService: patientService,
 		validator:      validator,
@@ -75,7 +75,7 @@ func (ph *PatientHandler) CreateNewPatient(c *gin.Context) {
 	}
 
 	// DTO -> Service Input
-	input := service.CreatePatientInput{
+	input := port.CreatePatientInput{
 		WorkspaceID: req.WorkspaceID,
 		CreatorID:   creator_id,
 		Name:        req.Name,
@@ -312,7 +312,7 @@ func (ph *PatientHandler) UpdatePatientByID(c *gin.Context) {
 	}
 
 	// DTO -> Service Input
-	input := service.UpdatePatientInput{
+	input := port.UpdatePatientInput{
 		Name:    req.Name,
 		Age:     req.Age,
 		Race:    req.Race,

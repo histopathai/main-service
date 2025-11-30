@@ -8,9 +8,9 @@ import (
 	"github.com/histopathai/main-service/internal/api/http/dto/response"
 	"github.com/histopathai/main-service/internal/api/http/middleware"
 	"github.com/histopathai/main-service/internal/api/http/validator"
+	"github.com/histopathai/main-service/internal/domain/port"
 
 	"github.com/histopathai/main-service/internal/api/http/dto/request"
-	"github.com/histopathai/main-service/internal/service"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -22,12 +22,12 @@ var allowedAnnotationTypeSortFields = map[string]bool{
 }
 
 type AnnotationTypeHandler struct {
-	annotationTypeService service.IAnnotationTypeService
+	annotationTypeService port.IAnnotationTypeService
 	validator             *validator.RequestValidator
 	BaseHandler           // Embed the BaseHandler
 }
 
-func NewAnnotationTypeHandler(annotationTypeService service.IAnnotationTypeService, validator *validator.RequestValidator, logger *slog.Logger) *AnnotationTypeHandler {
+func NewAnnotationTypeHandler(annotationTypeService port.IAnnotationTypeService, validator *validator.RequestValidator, logger *slog.Logger) *AnnotationTypeHandler {
 	return &AnnotationTypeHandler{
 		annotationTypeService: annotationTypeService,
 		validator:             validator,
@@ -75,7 +75,7 @@ func (ath *AnnotationTypeHandler) CreateNewAnnotationType(c *gin.Context) {
 	if req.ClassList != nil {
 		classList = *req.ClassList
 	}
-	input := service.CreateAnnotationTypeInput{
+	input := port.CreateAnnotationTypeInput{
 		CreatorID:             creator_id,
 		Name:                  req.Name,
 		Description:           req.Description,
@@ -381,7 +381,7 @@ func (ath *AnnotationTypeHandler) UpdateAnnotationType(c *gin.Context) {
 	}
 
 	// DTO -> Service Input
-	input := service.UpdateAnnotationTypeInput{
+	input := port.UpdateAnnotationTypeInput{
 		Name:        req.Name,
 		Description: req.Description,
 	}

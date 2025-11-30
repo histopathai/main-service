@@ -4,22 +4,22 @@ import (
 	"context"
 
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	errors "github.com/histopathai/main-service/internal/shared/errors"
 	sharedQuery "github.com/histopathai/main-service/internal/shared/query"
 )
 
 type PatientService struct {
-	patientRepo   repository.PatientRepository
-	workspaceRepo repository.WorkspaceRepository
-	uow           repository.UnitOfWorkFactory
+	patientRepo   port.PatientRepository
+	workspaceRepo port.WorkspaceRepository
+	uow           port.UnitOfWorkFactory
 }
 
 func NewPatientService(
-	patientRepo repository.PatientRepository,
-	workspaceRepo repository.WorkspaceRepository,
-	uow repository.UnitOfWorkFactory,
+	patientRepo port.PatientRepository,
+	workspaceRepo port.WorkspaceRepository,
+	uow port.UnitOfWorkFactory,
 ) *PatientService {
 	return &PatientService{
 		patientRepo:   patientRepo,
@@ -28,20 +28,7 @@ func NewPatientService(
 	}
 }
 
-type CreatePatientInput struct {
-	WorkspaceID string
-	CreatorID   string
-	Name        string
-	Age         *int
-	Gender      *string
-	Race        *string
-	Disease     *string
-	Subtype     *string
-	Grade       *int
-	History     *string
-}
-
-func (ps *PatientService) CreateNewPatient(ctx context.Context, input CreatePatientInput) (*model.Patient, error) {
+func (ps *PatientService) CreateNewPatient(ctx context.Context, input port.CreatePatientInput) (*model.Patient, error) {
 
 	patient, err := ps.patientRepo.FindByName(ctx, input.Name)
 	if err != nil {
@@ -106,7 +93,7 @@ func (ps *PatientService) ListPatients(ctx context.Context, paginationOpts *shar
 }
 
 func (ps *PatientService) DeletePatientByID(ctx context.Context, patientId string) error {
-	uowerr := ps.uow.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+	uowerr := ps.uow.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
 		filter := []sharedQuery.Filter{
 			{
 				Field:    constants.ImagePatientIDField,
@@ -142,18 +129,7 @@ func (ps *PatientService) DeletePatientByID(ctx context.Context, patientId strin
 	return nil
 }
 
-type UpdatePatientInput struct {
-	Name    *string
-	Age     *int
-	Gender  *string
-	Race    *string
-	Disease *string
-	Subtype *string
-	Grade   *int
-	History *string
-}
-
-func (ps *PatientService) UpdatePatient(ctx context.Context, patientID string, input UpdatePatientInput) error {
+func (ps *PatientService) UpdatePatient(ctx context.Context, patientID string, input port.UpdatePatientInput) error {
 	updates := make(map[string]interface{})
 
 	if input.Name != nil {
@@ -194,7 +170,7 @@ func (ps *PatientService) UpdatePatient(ctx context.Context, patientID string, i
 
 func (ps *PatientService) TransferPatientWorkspace(ctx context.Context, patientID string, newWorkspaceID string) error {
 
-	uowerr := ps.uow.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+	uowerr := ps.uow.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
 		_, err := repos.WorkspaceRepo.Read(txCtx, newWorkspaceID)
 		if err != nil {
 			return errors.NewConflictError("new workspace does not exist", nil)
@@ -211,7 +187,7 @@ func (ps *PatientService) TransferPatientWorkspace(ctx context.Context, patientI
 }
 
 func (ps *PatientService) CascadeDelete(ctx context.Context, patientID string) error {
-	return ps.uow.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+	return ps.uow.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
 		imageIDs := make([]string, 0)
 		annotationIDs := make([]string, 0)
 
@@ -299,7 +275,7 @@ func (ps *PatientService) BatchDelete(ctx context.Context, patientIDs []string) 
 }
 
 func (ps *PatientService) BatchTransfer(ctx context.Context, patientIDs []string, newWorkspaceID string) error {
-	return ps.uow.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+	return ps.uow.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
 		_, err := repos.WorkspaceRepo.Read(txCtx, newWorkspaceID)
 		if err != nil {
 			return errors.NewValidationError("new workspace does not exist",

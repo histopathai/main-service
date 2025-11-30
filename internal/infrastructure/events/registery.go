@@ -5,21 +5,22 @@ import (
 	"sync"
 
 	"github.com/histopathai/main-service/internal/domain/events"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
 type EventRegistry struct {
-	handlers map[events.EventType][]events.EventHandler
+	handlers map[events.EventType][]port.EventHandler
 	mu       sync.RWMutex
 }
 
 func NewEventRegistry() *EventRegistry {
 	return &EventRegistry{
-		handlers: make(map[events.EventType][]events.EventHandler),
+		handlers: make(map[events.EventType][]port.EventHandler),
 	}
 }
 
-func (er *EventRegistry) Register(eventType events.EventType, handler events.EventHandler) {
+func (er *EventRegistry) Register(eventType events.EventType, handler port.EventHandler) {
 	er.mu.Lock()
 	defer er.mu.Unlock()
 

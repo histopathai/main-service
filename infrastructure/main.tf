@@ -3,8 +3,8 @@ terraform {
 
   required_providers {
     google = {
-        source = "hashicorp/google"
-        version = "~> 5.0"
+      source  = "hashicorp/google"
+      version = "~> 5.0"
     }
   }
   backend "gcs" {
@@ -13,36 +13,31 @@ terraform {
 }
 
 data "terraform_remote_state" "platform" {
-    backend = "gcs"
+  backend = "gcs"
 
-    config = {
-        bucket = var.tf_state_bucket
-        prefix = "platform/prod"
-    }
+  config = {
+    bucket = var.tf_state_bucket
+    prefix = "platform/prod"
+  }
 }
 
 locals {
-    # GCP project and region info
-    project_id      = data.terraform_remote_state.platform.outputs.project_id
-    project_number  = data.terraform_remote_state.platform.outputs.project_number
-    region          = data.terraform_remote_state.platform.outputs.region
+  # GCP project and region info
+  project_id     = data.terraform_remote_state.platform.outputs.project_id
+  project_number = data.terraform_remote_state.platform.outputs.project_number
+  region         = data.terraform_remote_state.platform.outputs.region
 
-    # Service info
-    service_account         = data.terraform_remote_state.platform.outputs.main_service_account_email
-    artifact_repository_id  = data.terraform_remote_state.platform.outputs.artifact_repository_id
-    service_name            = var.environment == "prod" ? "main-service" : "main-service-${var.environment}"
-    image_name              = "${local.region}-docker.pkg.dev/${local.project_id}/${local.artifact_repository_id}/${local.service_name}:${var.image_tag}"
+  # Service info
+  service_account        = data.terraform_remote_state.platform.outputs.main_service_account_email
+  artifact_repository_id = data.terraform_remote_state.platform.outputs.artifact_repository_id
+  service_name           = var.environment == "prod" ? "main-service" : "main-service-${var.environment}"
+  
+  # Construct the full image path
+  image_name = "${var.region}-docker.pkg.dev/${var.project_id}/${var.artifact_registry_repo}/main-service:${var.image_tag}"
 
-    #Pub/Sub info
-    upload_status_subscription          = data.terraform_remote_state.platform.outputs.upload_status_subscription
-    image_processing_topic              = data.terraform_remote_state.platform.outputs.image_processing_topic
-    image_processing_dlq_topic          = data.terraform_remote_state.platform.outputs.image_processing_dlq_topic
-    processing_completed_subscription   = data.terraform_remote_state.platform.outputs.processing_completed_subscription
-    processing_completed_dlq_topic      = data.terraform_remote_state.platform.outputs.processing_completed_dlq_topic
-
-    # Storage bucket info
-    original_bucket_name  = data.terraform_remote_state.platform.outputs.original_bucket_name
-    processed_bucket_name = data.terraform_remote_state.platform.outputs.processed_bucket_name
+  # Storage bucket info
+  original_bucket_name  = data.terraform_remote_state.platform.outputs.original_bucket_name
+  processed_bucket_name = data.terraform_remote_state.platform.outputs.processed_bucket_name
 }
 
 provider "google" {
@@ -50,141 +45,211 @@ provider "google" {
   region  = local.region
 }
 
+
 # ----------------------------------
 # CLOUD RUN SERVICE
 # ----------------------------------
 
 resource "google_cloud_run_v2_service" "main_service" {
-    name     = local.service_name
-    location = local.region
-    ingress  = "INGRESS_TRAFFIC_ALL"
-    template {
-        service_account = local.service_account
-        scaling {
-            min_instance_count = var.min_instances
-            max_instance_count = var.max_instances
+  name     = local.service_name
+  location = local.region
+  ingress  = "INGRESS_TRAFFIC_ALL"
+  template {
+    service_account = local.service_account
+    scaling {
+      min_instance_count = var.min_instances
+      max_instance_count = var.max_instances
+    }
+
+    containers {
+      image = local.image_name
+      resources {
+        limits = {
+          cpu    = var.cpu_limit
+          memory = var.memory_limit
         }
+        cpu_idle = true
+      }
 
-        containers {
-            image = var.image_tag
-            resources {
-                limits = {
-                    cpu     = var.cpu_limit
-                    memory  = var.memory_limit
-                }
-                cpu_idle = true
-            }
+      ports {
+        container_port = 8080
+      }
 
-            ports {
-                container_port = 8080
-            }
+      env {
+        name  = "PROJECT_ID"
+        value = local.project_id
+      }
 
-            env {
-                name  = "PROJECT_ID"
-                value = local.project_id
-            }
+      env {
+        name  = "REGION"
+        value = local.region
+      }
 
-            env {
-                name  = "REGION"
-                value = local.region
-            }
+      env {
+        name  = "PROJECT_NUMBER"
+        value = local.project_number
+      }
 
-            env {
-                name  = "PROJECT_NUMBER"
-                value = local.project_number
-            }
+      env {
+        name  = "ENV"
+        value = var.environment == "prod" ? "PROD" : "DEV"
+      }
 
-            env {
-                name  = "ENV"
-                value = var.environment == "prod" ? "PROD" : "DEV"
-            }
+      env {
+        name  = "GIN_MODE"
+        value = var.environment == "prod" ? "release" : "debug"
+      }
 
-            env {
-                name = "GIN_MODE"
-                value = var.environment == "prod" ? "release" : "debug"
-            }
+      env {
+        name  = "LOG_LEVEL"
+        value = var.log_levels
+      }
 
-            env {
-                name = "LOG_LEVEL"
-                value = var.log_levels
-            }
+      env {
+        name  = "LOG_FORMAT"
+        value = var.log_format
+      }
 
-            env {
-                name = "LOG_FORMAT"
-                value = var.log_format
-            }
+      env {
+        name  = "READ_TIMEOUT"
+        value = var.read_timeout
+      }
 
-            env  {
-                name = "READ_TIMEOUT"
-                value = var.read_timeout
-            }
+      env {
+        name  = "WRITE_TIMEOUT"
+        value = var.write_timeout
+      }
 
-            env {
-                name  = "WRITE_TIMEOUT"
-                value = var.write_timeout
-            }
+      env {
+        name  = "IDLE_TIMEOUT"
+        value = var.idle_timeout
+      }
 
-            env {
-                name  = "IDLE_TIMEOUT"
-                value = var.idle_timeout
-            }
+      # --- Platform specific env variables ---
+      env {
+        name  = "ORIGINAL_BUCKET_NAME"
+        value = local.original_bucket_name
+      }
 
-            # --- Platform specific env variables ---
-            env {
-                name = "ORIGINAL_BUCKET_NAME"
-                value = local.original_bucket_name
-            }
+      env {
+        name  = "PROCESSED_BUCKET_NAME"
+        value = local.processed_bucket_name
+      }
 
-            env {
-                name = "PROCESSED_BUCKET_NAME"
-                value = local.processed_bucket_name
-            }
+      # --- Pub/Sub Configuration ---
+      # Upload Status
+      env {
+        name  = "UPLOAD_STATUS_SUBSCRIPTION"
+        value = google_pubsub_subscription.upload_status_sub.name
+      }
 
-            env {
-                name = "UPLOAD_STATUS_SUBSCRIPTION"
-                value = local.upload_status_subscription
-            }
+      env {
+        name  = "UPLOAD_STATUS_TOPIC"
+        value = google_pubsub_topic.upload_status.name
+      }
 
-            env {
-                name = "IMAGE_PROCESSING_TOPIC"
-                value = local.image_processing_topic
-            }
+      # Image Processing Request
+      env {
+        name  = "IMAGE_PROCESSING_REQUEST_TOPIC"
+        value = google_pubsub_topic.image_processing_request.name
+      }
 
-            env {
-                name = "IMAGE_PROCESSING_DLQ_TOPIC"
-                value = local.image_processing_dlq_topic
-            }
+      env {
+        name  = "IMAGE_PROCESSING_REQUEST_SUB"
+        value = google_pubsub_subscription.image_processing_request_sub.name
+      }
 
-            env {
-                name = "PROCESSING_COMPLETED_SUBSCRIPTION"
-                value = local.processing_completed_subscription
-            }
+      env {
+        name  = "IMAGE_PROCESSING_REQUEST_DLQ"
+        value = google_pubsub_topic.image_processing_request_dlq.name
+      }
 
-            env {
-                name = "PROCESSING_COMPLETED_DLQ_TOPIC"
-                value = local.processing_completed_dlq_topic
-            }
-        }
+      # Image Processing Result
+      env {
+        name  = "IMAGE_PROCESSING_RESULT_TOPIC"
+        value = google_pubsub_topic.image_processing_result.name
+      }
+
+      env {
+        name  = "IMAGE_PROCESSING_RESULT_SUB"
+        value = google_pubsub_subscription.image_processing_result_sub.name
+      }
+
+      env {
+        name  = "IMAGE_PROCESSING_RESULT_DLQ"
+        value = google_pubsub_topic.image_processing_result_dlq.name
+      }
+
+      # Image Deletion
+      env {
+        name  = "IMAGE_DELETION_TOPIC"
+        value = google_pubsub_topic.image_deletion.name
+      }
+
+      env {
+        name  = "IMAGE_DELETION_SUB"
+        value = google_pubsub_subscription.image_deletion_sub.name
+      }
+
+      env {
+        name  = "IMAGE_DELETION_DLQ"
+        value = google_pubsub_topic.image_deletion_dlq.name
+      }
+
+      # Telemetry
+      env {
+        name  = "TELEMETRY_DLQ_TOPIC"
+        value = google_pubsub_topic.telemetry_dlq.name
+      }
+
+      env {
+        name  = "TELEMETRY_DLQ_SUB"
+        value = google_pubsub_subscription.telemetry_dlq_sub.name
+      }
+
+      env {
+        name  = "TELEMETRY_ERROR_TOPIC"
+        value = google_pubsub_topic.telemetry_error.name
+      }
+
+      env {
+        name  = "TELEMETRY_ERROR_SUB"
+        value = google_pubsub_subscription.telemetry_error_sub.name
+      }
     }
+  }
 
-    traffic {
-        type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
-        percent = 100
-    }
+  traffic {
+    type    = "TRAFFIC_TARGET_ALLOCATION_TYPE_LATEST"
+    percent = 100
+  }
 
-    labels = {
-        environment = var.environment
-        service     = "main-service"
-        managed_by  = "terraform"
-    }
+  labels = {
+    environment = var.environment
+    service     = "main-service"
+    managed_by  = "terraform"
+  }
 }
 
 resource "google_cloud_run_v2_service_iam_member" "auth_service_access" {
-  
   project  = google_cloud_run_v2_service.main_service.project
   location = google_cloud_run_v2_service.main_service.location
   name     = google_cloud_run_v2_service.main_service.name
   role     = "roles/run.invoker"
-  
-  member   = "serviceAccount:${data.terraform_remote_state.platform.outputs.auth_service_account_email}"
+
+  member = "serviceAccount:${data.terraform_remote_state.platform.outputs.auth_service_account_email}"
+}
+
+resource "google_pubsub_topic_iam_member" "main_service_publishers" {
+  for_each = toset([
+    google_pubsub_topic.image_processing_request.name,
+    google_pubsub_topic.image_processing_result.name,
+    google_pubsub_topic.image_deletion.name,
+    google_pubsub_topic.telemetry_dlq.name,
+    google_pubsub_topic.telemetry_error.name,
+  ])
+
+  topic  = each.key
+  role   = "roles/pubsub.publisher"
+  member = "serviceAccount:${local.service_account}"
 }

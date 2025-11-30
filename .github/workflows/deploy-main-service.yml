@@ -1,10 +1,8 @@
-name: Deploy Main Servicev2
+name: Deploy Main Service v2
 
 on:
   push:
-    branches:
-      - main
-      - dev
+    branches: [main, dev]
     paths:
       - 'main-service/**'
       - '.github/workflows/**'
@@ -16,110 +14,62 @@ on:
         required: true
         default: "dev"
         type: choice
-        options:
-          - dev
-          - prod
+        options: [dev, prod]
 
+# -------- GLOBAL ENV (all jobs can read) --------
 env:
   TF_VERSION: '1.5.0'
   REPO_NAME: main-service
+  WIF_PROVIDER: ${{ secrets.WIF_PROVIDER }}
+  WIF_SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT }}
+  PROJECT_ID: ${{ secrets.GCP_PROJECT_ID }}
+  REGION: ${{ secrets.GCP_REGION }}
+  ARTIFACT_REGISTRY_REPO_NAME: ${{ secrets.ARTIFACT_REGISTRY_REPO_NAME }}
+  STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
 
 permissions:
   contents: read
   id-token: write
 
 jobs:
+  # -------------------------------------------------------------------
+  # BUILD & PUSH CONTAINER
+  # -------------------------------------------------------------------
   build-and-push:
     name: Build and Push Docker Image
     runs-on: ubuntu-latest
-    env:
-      WIF_PROVIDER: ${{ secrets.WIF_PROVIDER }}
-      WIF_SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT }}
 
     steps:
-      - name: Determine Branch to Deploy
+      - name: Decide Branch
         id: deploy-target
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            # Manual run → environment selects branch
-            if [[ "${{ github.event.inputs.environment }}" == "prod" ]]; then
-              echo "branch=main" >> $GITHUB_OUTPUT
-            else
-              echo "branch=dev" >> $GITHUB_OUTPUT
-            fi
+            [[ "${{ github.event.inputs.environment }}" == "prod" ]] \
+              && echo "branch=main" >> $GITHUB_OUTPUT \
+              || echo "branch=dev" >> $GITHUB_OUTPUT
           else
-            # Push trigger → use current branch
             echo "branch=${GITHUB_REF_NAME}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
           ref: ${{ steps.deploy-target.outputs.branch }}
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ env.WIF_PROVIDER }}
           service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
 
-      - name: Set up Google Cloud CLI
-        uses: google-github-actions/setup-gcloud@v2
+      - uses: google-github-actions/setup-gcloud@v2
 
-      - name: Get GCP Project Info
-        id: gcp-info
-        run: |
-          PROJECT_ID=$(gcloud config get-value project)
-          REGION="${{ secrets.GCP_REGION }}"
-          
-          # If GCP_REGION is not set, try to get from gcloud config
-          if [[ -z "${REGION}" ]]; then
-            echo "GCP_REGION secret is empty, trying gcloud config..."
-            REGION=$(gcloud config get-value compute/region 2>/dev/null || echo "us-central1")
-          fi
-          
-          echo "=== GCP Info ==="
-          echo "Project ID: ${PROJECT_ID}"
-          echo "Region: ${REGION}"
-          echo "GITHUB_OUTPUT path: ${GITHUB_OUTPUT}"
-          echo "================"
-          
-          if [[ -z "${PROJECT_ID}" ]]; then
-            echo "ERROR: PROJECT_ID is empty!"
-            exit 1
-          fi
-          
-          if [[ -z "${REGION}" ]]; then
-            echo "ERROR: Could not determine region!"
-            exit 1
-          fi
-          
-          echo "Setting outputs to GITHUB_OUTPUT..."
-          {
-            echo "project_id=${PROJECT_ID}"
-            echo "region=${REGION}"
-          } >> "$GITHUB_OUTPUT"
-          
-          echo "Outputs set successfully"
-          echo ""
-          echo "Checking GITHUB_OUTPUT file:"
-          if [[ -f "$GITHUB_OUTPUT" ]]; then
-            echo "File exists. Contents:"
-            cat "$GITHUB_OUTPUT"
-          else
-            echo "ERROR: GITHUB_OUTPUT file does not exist!"
-          fi
+      - name: Configure Docker
+        run: gcloud auth configure-docker ${{ env.REGION }}-docker.pkg.dev
 
-      - name: Configure Docker for Artifact Registry
-        run: |
-          gcloud auth configure-docker ${{ steps.gcp-info.outputs.region }}-docker.pkg.dev
-
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.25.1'
 
-      - name: Install Go Tools
+      - name: Install Tools
         run: |
           go install go.uber.org/mock/mockgen@v0.6.0
           go install github.com/swaggo/swag/cmd/swag@latest
@@ -128,153 +78,103 @@ jobs:
         run: |
           go generate ./...
           export PATH=$PATH:$(go env GOPATH)/bin
+          go generate ./...
           swag init -g cmd/main.go
 
-      - name: Run Unit Tests
-        run: go test -v ./...
+      - name: Unit Tests
+        run: go test ./...
 
-      - name: Build and Push Docker Image
+      - name: Build & Push Image
         id: build
         run: |
-          REGISTRY="${{ steps.gcp-info.outputs.region }}-docker.pkg.dev/${{ steps.gcp-info.outputs.project_id }}/${{ secrets.ARTIFACT_REGISTRY_REPO_NAME }}"
-          IMAGE_NAME="${REGISTRY}/${{ env.REPO_NAME }}"
-          
-          # Tag based on environment
+          REGISTRY="${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.ARTIFACT_REGISTRY_REPO_NAME }}"
+          IMAGE="${REGISTRY}/${{ env.REPO_NAME }}"
+
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             if [[ "${{ github.event.inputs.environment }}" == "prod" ]]; then
-              TAG="${IMAGE_NAME}:prod-${{ github.sha }}"
+              TAG_SUFFIX="prod-${{ github.sha }}"
             else
-              TAG="${IMAGE_NAME}:dev-${{ github.sha }}"
+              TAG_SUFFIX="dev-${{ github.sha }}"
             fi
           else
-            TAG="${IMAGE_NAME}:${{ github.sha }}"
+            TAG_SUFFIX="${{ github.sha }}"
           fi
 
-          echo "=== Docker Build Info ==="
-          echo "Registry: ${REGISTRY}"
-          echo "Image Name: ${IMAGE_NAME}"
-          echo "Full Tag: ${TAG}"
-          echo "GITHUB_OUTPUT path: ${GITHUB_OUTPUT}"
-          echo "========================"
-          
-          echo "Building Docker image..."
-          docker build --tag ${TAG} .
-          
-          echo "Pushing Docker image..."
-          docker push ${TAG}
-          
-          echo "Setting output to GITHUB_OUTPUT..."
-          echo "image=${TAG}" >> $GITHUB_OUTPUT
-          
-          echo "=== Build Complete ==="
-          echo "Successfully built and pushed: ${TAG}"
-          echo ""
-          echo "Checking GITHUB_OUTPUT file:"
-          if [[ -f "$GITHUB_OUTPUT" ]]; then
-            echo "File exists. Contents:"
-            cat "$GITHUB_OUTPUT"
-          else
-            echo "ERROR: GITHUB_OUTPUT file does not exist!"
-            exit 1
-          fi
-          echo "======================"
+          FULL_IMAGE="${IMAGE}:${TAG_SUFFIX}"
 
-      - name: Verify Build Outputs
-        run: |
-          echo "=== Verifying Step Outputs ==="
-          echo "Image output: ${{ steps.build.outputs.image }}"
-          echo "GCP Info - Project: ${{ steps.gcp-info.outputs.project_id }}"
-          echo "GCP Info - Region: ${{ steps.gcp-info.outputs.region }}"
-          echo "=============================="
+          docker build -t "$FULL_IMAGE" .
+          docker push "$FULL_IMAGE"
+
+          echo "image_tag=$TAG_SUFFIX" >> $GITHUB_OUTPUT
 
     outputs:
-      image: ${{ steps.build.outputs.image }}
-      project_id: ${{ steps.gcp-info.outputs.project_id }}
-      region: ${{ steps.gcp-info.outputs.region }}
-      branch: ${{ steps.deploy-target.outputs.branch }}
+      image_tag: ${{ steps.build.outputs.image_tag }}
 
+  # -------------------------------------------------------------------
+  # TERRAFORM DEPLOY
+  # -------------------------------------------------------------------
   terraform-deploy:
     name: Terraform Deploy
     runs-on: ubuntu-latest
     needs: [build-and-push]
-
-    env:
-      WIF_PROVIDER: ${{ secrets.WIF_PROVIDER }}
-      WIF_SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT }}
-      TF_STATE_BUCKET: ${{ secrets.TF_STATE_BUCKET }}
 
     defaults:
       run:
         working-directory: ./infrastructure
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
         with:
-          ref: ${{ needs.build-and-push.outputs.branch }}
+          fetch-depth: 0
 
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
+      - uses: google-github-actions/auth@v2
         with:
           workload_identity_provider: ${{ env.WIF_PROVIDER }}
           service_account: ${{ env.WIF_SERVICE_ACCOUNT }}
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+      - uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TF_VERSION }}
 
-      - name: Determine Deploy Environment
+      - name: Select Environment
         id: env-select
         run: |
           if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             echo "env=${{ github.event.inputs.environment }}" >> $GITHUB_OUTPUT
-          elif [[ "${{ needs.build-and-push.outputs.branch }}" == "main" ]]; then
+          elif [[ "${GITHUB_REF_NAME}" == "main" ]]; then
             echo "env=prod" >> $GITHUB_OUTPUT
           else
             echo "env=dev" >> $GITHUB_OUTPUT
           fi
 
-      - name: Debug - Check Build Outputs
-        run: |
-          echo "=== Build Job Outputs ==="
-          echo "Image: '${{ needs.build-and-push.outputs.image }}'"
-          echo "Project ID: '${{ needs.build-and-push.outputs.project_id }}'"
-          echo "Region: '${{ needs.build-and-push.outputs.region }}'"
-          echo "Branch: '${{ needs.build-and-push.outputs.branch }}'"
-          echo "Environment: '${{ steps.env-select.outputs.env }}'"
-          echo "========================"
-          
-          if [[ -z "${{ needs.build-and-push.outputs.image }}" ]]; then
-            echo "ERROR: Image output is empty!"
-            exit 1
-          fi
-
       - name: Terraform Init
-        run: |
-          terraform init -backend-config="bucket=${{ env.TF_STATE_BUCKET }}"
+        run: terraform init -backend-config="bucket=${{ env.STATE_BUCKET }}"
 
       - name: Terraform Plan
         run: |
-          echo "Image to deploy: ${{ needs.build-and-push.outputs.image }}"
           terraform plan \
-            -var="image_tag=${{ needs.build-and-push.outputs.image }}" \
+            -var="image_tag=${{ needs.build-and-push.outputs.image_tag }}" \
             -var="environment=${{ steps.env-select.outputs.env }}" \
-            -var="tf_state_bucket=${{ env.TF_STATE_BUCKET }}" \
+            -var="tf_state_bucket=${{ env.STATE_BUCKET }}" \
+            -var="project_id=${{ env.PROJECT_ID }}" \
+            -var="region=${{ env.REGION }}" \
+            -var="artifact_registry_repo=${{ env.ARTIFACT_REGISTRY_REPO_NAME }}" \
             -out=tfplan
 
       - name: Terraform Apply
         run: terraform apply -auto-approve tfplan
 
-      - name: Terraform Output
+      - name: Read Terraform Outputs
         id: tf-output
         run: |
-          SERVICE_URL=$(terraform output -raw service_url)
-          echo "service_url=${SERVICE_URL}" >> $GITHUB_OUTPUT
+          echo "service_url=$(terraform output -raw service_url)" >> $GITHUB_OUTPUT
 
     outputs:
       service_url: ${{ steps.tf-output.outputs.service_url }}
 
+  # -------------------------------------------------------------------
+  # NOTIFY
+  # -------------------------------------------------------------------
   notify:
     name: Notify Deployment
     runs-on: ubuntu-latest
@@ -282,11 +182,12 @@ jobs:
     if: always()
 
     steps:
-      - name: Deployment Status
+      - name: Notify
         run: |
-          if [ "${{ needs.terraform-deploy.result }}" == "success" ]; then
-            echo "Deployment successful!"
+          if [[ "${{ needs.terraform-deploy.result }}" == "success" ]]; then
+            echo "Deployment successful."
             echo "Service URL: ${{ needs.terraform-deploy.outputs.service_url }}"
           else
-            echo "Deployment failed!"
-            exit 1 
+            echo "Deployment failed."
+            exit 1
+          fi

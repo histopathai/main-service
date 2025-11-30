@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/mocks"
 	"github.com/histopathai/main-service/internal/service"
 	"github.com/histopathai/main-service/internal/shared/constants"
@@ -35,8 +35,8 @@ func setupAnnotationTypeService(t *testing.T) (
 	mockUOW := mocks.NewMockUnitOfWorkFactory(ctrl)
 
 	mockUOW.EXPECT().WithTx(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
-		func(ctx context.Context, fn func(ctx context.Context, repos *repository.Repositories) error) error {
-			return fn(ctx, &repository.Repositories{
+		func(ctx context.Context, fn func(ctx context.Context, repos *port.Repositories) error) error {
+			return fn(ctx, &port.Repositories{
 				AnnotationTypeRepo: mockAnnotationTypeRepo,
 				WorkspaceRepo:      mockWorkspaceRepo,
 			})
@@ -52,7 +52,7 @@ func TestCreateNewAnnotationType_Success(t *testing.T) {
 
 	ctx := context.Background()
 
-	input := service.CreateAnnotationTypeInput{
+	input := port.CreateAnnotationTypeInput{
 		Name:                  "Test Annotation Type",
 		ScoreEnabled:          false,
 		ClassificationEnabled: true,
@@ -89,7 +89,7 @@ func TestValidateAnnotationTypeCreation_Failure_MissingClassList(t *testing.T) {
 
 	ctx := context.Background()
 
-	input := service.CreateAnnotationTypeInput{
+	input := port.CreateAnnotationTypeInput{
 		Name:                  "Invalid Annotation Type",
 		ScoreEnabled:          false,
 		ClassificationEnabled: true,
@@ -110,7 +110,7 @@ func TestValidateAnnotationTypeCreation_Failure_MissingScoreRange(t *testing.T) 
 
 	ctx := context.Background()
 
-	input := service.CreateAnnotationTypeInput{
+	input := port.CreateAnnotationTypeInput{
 		Name:                  "Invalid Annotation Type",
 		ScoreEnabled:          true,
 		ClassificationEnabled: false,
@@ -129,7 +129,7 @@ func TestValidateAnnotationTypeCreation_Failure_BothTypesEnabled(t *testing.T) {
 
 	ctx := context.Background()
 
-	input := service.CreateAnnotationTypeInput{
+	input := port.CreateAnnotationTypeInput{
 		Name:                  "Valid Annotation Type",
 		ScoreEnabled:          true,
 		ScoreMin:              ptrFloat64(0.0),
@@ -186,7 +186,7 @@ func TestUpdateAnnotationType_Success(t *testing.T) {
 	ctx := context.Background()
 	typeID := "at-123"
 	desc := "new description"
-	input := &service.UpdateAnnotationTypeInput{
+	input := &port.UpdateAnnotationTypeInput{
 		Description: &desc,
 	}
 
@@ -254,7 +254,7 @@ func TestValidateAnnotationTypeCreation_ScoreMinGreaterThanMax(t *testing.T) {
 	aService, _, _, _ := setupAnnotationTypeService(t)
 	ctx := context.Background()
 
-	input := service.CreateAnnotationTypeInput{
+	input := port.CreateAnnotationTypeInput{
 		Name:         "Bad Range",
 		ScoreEnabled: true,
 		ScoreName:    ptrString("Severity"),
@@ -274,7 +274,7 @@ func TestCreateNewAnnotationType_NameConflict(t *testing.T) {
 	aService, _, mockAnnotationTypeRepo, _ := setupAnnotationTypeService(t)
 	ctx := context.Background()
 
-	input := service.CreateAnnotationTypeInput{
+	input := port.CreateAnnotationTypeInput{
 		Name: "Existing Type",
 	}
 
@@ -295,7 +295,7 @@ func TestCreateNewAnnotationType_RepoFailure(t *testing.T) {
 	aService, _, mockAnnotationTypeRepo, _ := setupAnnotationTypeService(t)
 	ctx := context.Background()
 
-	input := service.CreateAnnotationTypeInput{
+	input := port.CreateAnnotationTypeInput{
 		Name: "New Type",
 	}
 
@@ -360,7 +360,7 @@ func TestUpdateAnnotationType_ScoreRangeUpdate(t *testing.T) {
 	ctx := context.Background()
 	id := "at-123"
 
-	input := &service.UpdateAnnotationTypeInput{
+	input := &port.UpdateAnnotationTypeInput{
 		ScoreMin: ptrFloat64(1.0),
 		ScoreMax: ptrFloat64(10.0),
 	}
@@ -385,7 +385,7 @@ func TestUpdateAnnotationType_NoFields(t *testing.T) {
 	aService, _, mockAnnotationTypeRepo, _ := setupAnnotationTypeService(t)
 	ctx := context.Background()
 	id := "at-123"
-	input := &service.UpdateAnnotationTypeInput{}
+	input := &port.UpdateAnnotationTypeInput{}
 
 	mockAnnotationTypeRepo.EXPECT().Update(gomock.Any(), gomock.Any(), gomock.Any()).Times(0)
 

@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/query"
 
@@ -14,7 +14,7 @@ import (
 
 type WorkspaceRepositoryImpl struct {
 	*GenericRepositoryImpl[*model.Workspace]
-	_ repository.WorkspaceRepository // ensure interface compliance
+	_ port.WorkspaceRepository // ensure interface compliance
 }
 
 func NewWorkspaceRepositoryImpl(client *firestore.Client, hasUniqueName bool) *WorkspaceRepositoryImpl {

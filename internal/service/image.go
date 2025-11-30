@@ -8,29 +8,28 @@ import (
 	"github.com/google/uuid"
 	"github.com/histopathai/main-service/internal/domain/events"
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/repository"
-	"github.com/histopathai/main-service/internal/domain/storage"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	sharedQuery "github.com/histopathai/main-service/internal/shared/query"
 )
 
 type ImageService struct {
-	imgRepo     repository.ImageRepository
-	patientRepo repository.PatientRepository
-	storage     storage.ObjectStorage
+	imgRepo     port.ImageRepository
+	patientRepo port.PatientRepository
+	storage     port.ObjectStorage
 	bucketName  string
-	publisher   events.ImageEventPublisher
-	uow         repository.UnitOfWorkFactory
+	publisher   port.ImageEventPublisher
+	uow         port.UnitOfWorkFactory
 }
 
 func NewImageService(
-	imageRepo repository.ImageRepository,
-	uow repository.UnitOfWorkFactory,
-	storage storage.ObjectStorage,
+	imageRepo port.ImageRepository,
+	uow port.UnitOfWorkFactory,
+	storage port.ObjectStorage,
 	bucketName string,
-	publisher events.ImageEventPublisher,
-	patientRepo repository.PatientRepository,
+	publisher port.ImageEventPublisher,
+	patientRepo port.PatientRepository,
 ) *ImageService {
 	return &ImageService{
 		imgRepo:     imageRepo,
@@ -42,18 +41,7 @@ func NewImageService(
 	}
 }
 
-type UploadImageInput struct {
-	PatientID   string
-	CreatorID   string
-	ContentType string
-	Name        string
-	Format      string
-	Width       *int
-	Height      *int
-	Size        *int64
-}
-
-func (is *ImageService) validateImageInput(ctx context.Context, input *UploadImageInput) error {
+func (is *ImageService) validateImageInput(ctx context.Context, input *port.UploadImageInput) error {
 	patientID := input.PatientID
 	_, err := is.patientRepo.Read(ctx, patientID)
 	if err != nil {
@@ -62,7 +50,7 @@ func (is *ImageService) validateImageInput(ctx context.Context, input *UploadIma
 	return nil
 }
 
-func (is *ImageService) UploadImage(ctx context.Context, input *UploadImageInput) (*storage.SignedURLPayload, error) {
+func (is *ImageService) UploadImage(ctx context.Context, input *port.UploadImageInput) (*port.SignedURLPayload, error) {
 
 	err := is.validateImageInput(ctx, input)
 	if err != nil {
@@ -86,7 +74,7 @@ func (is *ImageService) UploadImage(ctx context.Context, input *UploadImageInput
 
 	expr_time := time.Minute * 30
 
-	storagePayload, err := is.storage.GenerateSignedURL(ctx, is.bucketName, storage.MethodPut, image, input.ContentType, expr_time)
+	storagePayload, err := is.storage.GenerateSignedURL(ctx, is.bucketName, port.MethodPut, image, input.ContentType, expr_time)
 	if err != nil {
 		return nil, errors.NewInternalError("failed to generate signed URL", err)
 	}
@@ -94,20 +82,7 @@ func (is *ImageService) UploadImage(ctx context.Context, input *UploadImageInput
 	return storagePayload, nil
 }
 
-type ConfirmUploadInput struct {
-	ImageID    string
-	PatientID  string
-	CreatorID  string
-	Name       string
-	Format     string
-	Width      *int
-	Height     *int
-	Size       *int64
-	Status     model.ImageStatus
-	OriginPath string
-}
-
-func (is *ImageService) ConfirmUpload(ctx context.Context, input *ConfirmUploadInput) error {
+func (is *ImageService) ConfirmUpload(ctx context.Context, input *port.ConfirmUploadInput) error {
 	image := &model.Image{
 		ID:         input.ImageID,
 		PatientID:  input.PatientID,
@@ -173,7 +148,7 @@ func (is *ImageService) DeleteImageByID(ctx context.Context, imageID string) err
 }
 
 func (is *ImageService) TransferImage(ctx context.Context, imageID string, newPatientID string) error {
-	uowerr := is.uow.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+	uowerr := is.uow.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
 		patientRepo := repos.PatientRepo
 		_, err := patientRepo.Read(txCtx, newPatientID)
 		if err != nil {
@@ -204,7 +179,7 @@ func (is *ImageService) BatchDeleteImages(ctx context.Context, imageIDs []string
 }
 
 func (is *ImageService) BatchTransferImages(ctx context.Context, imageIDs []string, newPatientID string) error {
-	uowerr := is.uow.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+	uowerr := is.uow.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
 		patientRepo := repos.PatientRepo
 		_, err := patientRepo.Read(txCtx, newPatientID)
 		if err != nil {

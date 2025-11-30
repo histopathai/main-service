@@ -12,7 +12,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/histopathai/main-service/internal/domain/model"
-	domainStorage "github.com/histopathai/main-service/internal/domain/storage"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"google.golang.org/api/iterator"
 )
 
@@ -36,17 +36,17 @@ func NewGCSClient(ctx context.Context, logger *slog.Logger) (*GCSClient, error) 
 func (g *GCSClient) GenerateSignedURL(
 	ctx context.Context,
 	bucketName string,
-	method domainStorage.SignedURLMethod,
+	method port.SignedURLMethod,
 	image *model.Image, contentType string,
 	expiration time.Duration,
-) (*domainStorage.SignedURLPayload, error) {
+) (*port.SignedURLPayload, error) {
 
 	opts := &storage.SignedURLOptions{
 		Method:  string(method),
 		Expires: time.Now().Add(expiration),
 	}
 
-	if method == domainStorage.MethodPut && contentType != "" {
+	if method == port.MethodPut && contentType != "" {
 		opts.ContentType = contentType
 	}
 
@@ -84,7 +84,7 @@ func (g *GCSClient) GenerateSignedURL(
 		}
 	}
 
-	payload := &domainStorage.SignedURLPayload{
+	payload := &port.SignedURLPayload{
 		URL:     url,
 		Headers: headersMap,
 	}
@@ -95,7 +95,7 @@ func (g *GCSClient) GenerateSignedURL(
 func (g *GCSClient) GetObjectMetadata(ctx context.Context,
 	bucketName string,
 	objectKey string,
-) (*domainStorage.ObjectMetadata, error) {
+) (*port.ObjectMetadata, error) {
 	attrs, err := g.client.Bucket(bucketName).Object(objectKey).Attrs(ctx)
 
 	if err != nil {
@@ -105,7 +105,7 @@ func (g *GCSClient) GetObjectMetadata(ctx context.Context,
 		return nil, mapGCSError(err, "retrieving object metadata")
 	}
 
-	metadata := domainStorage.ObjectMetadata{
+	metadata := port.ObjectMetadata{
 		Name:        attrs.Name,
 		Size:        attrs.Size,
 		ContentType: attrs.ContentType,

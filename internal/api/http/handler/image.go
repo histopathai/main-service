@@ -9,7 +9,7 @@ import (
 	"github.com/histopathai/main-service/internal/api/http/dto/response"
 	"github.com/histopathai/main-service/internal/api/http/middleware"
 	"github.com/histopathai/main-service/internal/api/http/validator"
-	"github.com/histopathai/main-service/internal/service"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -25,12 +25,12 @@ var allowedImageSortFields = map[string]bool{
 }
 
 type ImageHandler struct {
-	imageService service.IImageService
+	imageService port.IImageService
 	validator    *validator.RequestValidator
 	BaseHandler  // Embed the BaseHandler
 }
 
-func NewImageHandler(imageService service.IImageService, validator *validator.RequestValidator, logger *slog.Logger) *ImageHandler {
+func NewImageHandler(imageService port.IImageService, validator *validator.RequestValidator, logger *slog.Logger) *ImageHandler {
 	return &ImageHandler{
 		imageService: imageService,
 		validator:    validator,
@@ -72,7 +72,7 @@ func (ih *ImageHandler) UploadImage(c *gin.Context) {
 	}
 
 	// DTO -> Service Input
-	input := service.UploadImageInput{
+	input := port.UploadImageInput{
 		PatientID:   req.PatientID,
 		CreatorID:   creator_id,
 		ContentType: req.ContentType,

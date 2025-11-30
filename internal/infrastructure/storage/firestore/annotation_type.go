@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/query"
 
@@ -16,7 +16,7 @@ import (
 type AnnotationTypeRepositoryImpl struct {
 	*GenericRepositoryImpl[*model.AnnotationType]
 
-	_ repository.AnnotationTypeRepository // ensure interface compliance
+	_ port.AnnotationTypeRepository // ensure interface compliance
 }
 
 func NewAnnotationTypeRepositoryImpl(client *firestore.Client, hasUniqueName bool) *AnnotationTypeRepositoryImpl {

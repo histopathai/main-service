@@ -1,4 +1,4 @@
-package storage
+package port
 
 import (
 	"context"
@@ -25,7 +25,6 @@ type ObjectStorage interface {
 		image *model.Image, contentType string, expiration time.Duration) (*SignedURLPayload, error)
 	GetObjectMetadata(ctx context.Context, bucketName string, objectKey string) (*ObjectMetadata, error)
 	ObjectExists(ctx context.Context, bucketName string, objectKey string) (bool, error)
-	//DeleteObject(ctx context.Context, bucketName string, objectKey string) error // (Uncomment if needed in future)
 	ListObjects(ctx context.Context, bucketName string, prefix string) ([]string, error)
 
 	DeleteObject(ctx context.Context, bucketName string, objectKey string) error

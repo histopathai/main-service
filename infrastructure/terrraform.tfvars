@@ -1,12 +1,5 @@
-# -----------------------------
-# Project Configuration
-# -----------------------------
 
-project_id      = "histopathai"
-project_number  = "12314325342534"
-region          = "europe-west1"
 environment     = "prod"
-
 
 # ------------------------------
 # Scaling Configuration
@@ -30,3 +23,10 @@ allow_public_access = false
 # ------------------------------
 log_level = "info"
  
+
+# ------------------------------
+# Timeout Configuration
+# ------------------------------
+read_timeout  = "15s"
+write_timeout = "60s"
+idle_timeout  = "120s"

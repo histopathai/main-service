@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/query"
 
@@ -15,7 +15,7 @@ import (
 
 type ImageRepositoryImpl struct {
 	*GenericRepositoryImpl[*model.Image]
-	_ repository.ImageRepository // ensure interface compliance
+	_ port.ImageRepository // ensure interface compliance
 }
 
 func NewImageRepositoryImpl(client *firestore.Client, hasUniqueName bool) *ImageRepositoryImpl {

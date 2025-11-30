@@ -7,14 +7,14 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
 type PatientRepositoryImpl struct {
 	*GenericRepositoryImpl[*model.Patient]
-	_ repository.PatientRepository // ensure interface compliance
+	_ port.PatientRepository // ensure interface compliance
 }
 
 func NewPatientRepositoryImpl(client *firestore.Client, hasUniqueName bool) *PatientRepositoryImpl {

@@ -6,7 +6,7 @@ import (
 	"testing"
 
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/mocks"
 	"github.com/histopathai/main-service/internal/service"
 	"github.com/histopathai/main-service/internal/shared/constants"
@@ -35,8 +35,8 @@ func setupPatientService(t *testing.T) (
 	mockUOW := mocks.NewMockUnitOfWorkFactory(ctrl)
 
 	mockUOW.EXPECT().WithTx(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
-		func(ctx context.Context, fn func(ctx context.Context, repos *repository.Repositories) error) error {
-			return fn(ctx, &repository.Repositories{
+		func(ctx context.Context, fn func(ctx context.Context, repos *port.Repositories) error) error {
+			return fn(ctx, &port.Repositories{
 				WorkspaceRepo:  mockWorkspaceRepo,
 				PatientRepo:    mockPatientRepo,
 				ImageRepo:      mockImageRepo,
@@ -54,7 +54,7 @@ func TestCreateNewPatient_Success(t *testing.T) {
 
 	ctx := context.Background()
 
-	input := service.CreatePatientInput{
+	input := port.CreatePatientInput{
 		WorkspaceID: "workspace-123",
 		Name:        "John Doe",
 		Age:         nil,
@@ -100,7 +100,7 @@ func TestCreateNewPatient_Failure_WorkspaceNotReady(t *testing.T) {
 
 	ctx := context.Background()
 
-	input := service.CreatePatientInput{
+	input := port.CreatePatientInput{
 		WorkspaceID: "workspace-123",
 		Name:        "John Doe",
 	}
@@ -134,7 +134,7 @@ func TestCreateNewPatient_Conflict(t *testing.T) {
 
 	ctx := context.Background()
 
-	input := service.CreatePatientInput{
+	input := port.CreatePatientInput{
 		WorkspaceID: "workspace-123",
 		Name:        "John Doe",
 	}
@@ -163,7 +163,7 @@ func TestCreateNewPatient_WorkspaceValidationFailure(t *testing.T) {
 
 	ctx := context.Background()
 
-	input := service.CreatePatientInput{
+	input := port.CreatePatientInput{
 		WorkspaceID: "invalid-workspace",
 		Name:        "John Doe",
 	}
@@ -296,7 +296,7 @@ func TestUpdatePatient_Success(t *testing.T) {
 	patientID := "pat-123"
 	newName := "New Name"
 	newAge := 30
-	input := service.UpdatePatientInput{
+	input := port.UpdatePatientInput{
 		Name: &newName,
 		Age:  &newAge,
 	}
@@ -316,7 +316,7 @@ func TestUpdatePatient_NoUpdates(t *testing.T) {
 	pService, _, mockPatientRepo, _, _, _ := setupPatientService(t)
 	ctx := context.Background()
 	patientID := "pat-123"
-	input := service.UpdatePatientInput{}
+	input := port.UpdatePatientInput{}
 
 	mockPatientRepo.EXPECT().Update(ctx, patientID, gomock.Any()).Times(0)
 

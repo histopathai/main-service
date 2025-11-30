@@ -9,7 +9,7 @@ import (
 	"github.com/histopathai/main-service/internal/api/http/dto/response"
 	"github.com/histopathai/main-service/internal/api/http/middleware"
 	"github.com/histopathai/main-service/internal/api/http/validator"
-	"github.com/histopathai/main-service/internal/service"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -23,12 +23,12 @@ var allowedAnnotationSortFields = map[string]bool{
 }
 
 type AnnotationHandler struct {
-	annotationService service.IAnnotationService
+	annotationService port.IAnnotationService
 	validator         *validator.RequestValidator
 	BaseHandler       // Embed the BaseHandler
 }
 
-func NewAnnotationHandler(annotationService service.IAnnotationService, validator *validator.RequestValidator, logger *slog.Logger) *AnnotationHandler {
+func NewAnnotationHandler(annotationService port.IAnnotationService, validator *validator.RequestValidator, logger *slog.Logger) *AnnotationHandler {
 	return &AnnotationHandler{
 		annotationService: annotationService,
 		validator:         validator,
@@ -70,7 +70,7 @@ func (ah *AnnotationHandler) CreateNewAnnotation(c *gin.Context) {
 	}
 
 	// DTO -> Service Input
-	input := service.CreateAnnotationInput{
+	input := port.CreateAnnotationInput{
 		ImageID:     req.ImageID,
 		AnnotatorID: annotator_id,
 		Polygon:     req.Polygon,
