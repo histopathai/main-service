@@ -90,24 +90,24 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Contain
 		return nil, fmt.Errorf("failed to initialize repositories : %w", err)
 	}
 
-	if err := c.initServices(ctx); err != nil {
-		return nil, fmt.Errorf("failed to initialize services : %w", err)
-	}
-
 	if err := c.initEventPublishers(ctx); err != nil {
 		return nil, fmt.Errorf("failed to initialize event publishers : %w", err)
 	}
 
-	if err := c.initSubscribers(ctx); err != nil {
-		return nil, fmt.Errorf("failed to initialize subscribers : %w", err)
+	if err := c.initWorkers(ctx); err != nil {
+		return nil, fmt.Errorf("failed to initialize workers : %w", err)
+	}
+
+	if err := c.initServices(ctx); err != nil {
+		return nil, fmt.Errorf("failed to initialize services : %w", err)
 	}
 
 	if err := c.initEventHandlers(ctx); err != nil {
 		return nil, fmt.Errorf("failed to initialize event handlers : %w", err)
 	}
 
-	if err := c.initWorkers(ctx); err != nil {
-		return nil, fmt.Errorf("failed to initialize workers : %w", err)
+	if err := c.initSubscribers(ctx); err != nil {
+		return nil, fmt.Errorf("failed to initialize subscribers : %w", err)
 	}
 
 	if err := c.initHTTPLayer(ctx); err != nil {
