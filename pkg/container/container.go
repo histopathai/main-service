@@ -150,6 +150,7 @@ func (c *Container) initRepositories(ctx context.Context) error {
 	uowFactory, allRepos := firestoreRepo.NewFirestoreUnitOfWorkFactory(c.FirestoreClient)
 	c.UOW = uowFactory
 	c.Repos = allRepos
+	c.TelemetryRepo = firestoreRepo.NewTelemetryRepositoryImpl(c.FirestoreClient)
 
 	c.Logger.Info("Repositories initialized")
 	return nil
