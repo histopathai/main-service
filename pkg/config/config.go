@@ -22,6 +22,11 @@ type ServerConfig struct {
 	IdleTimeout  time.Duration
 }
 
+type LocalTLSConfig struct {
+	CertFile string
+	KeyFile  string
+}
+
 type GCPConfig struct {
 	ProjectID           string
 	ProjectNumber       string
@@ -76,13 +81,14 @@ type WorkerConfig struct {
 
 // Config is the main configuration struct
 type Config struct {
-	Env     Environment
-	Server  ServerConfig
-	GCP     GCPConfig
-	PubSub  PubSubConfig
-	Worker  WorkerConfig
-	Logging LoggingConfig
-	Retry   RetryConfig
+	Env      Environment
+	Server   ServerConfig
+	GCP      GCPConfig
+	PubSub   PubSubConfig
+	Worker   WorkerConfig
+	Logging  LoggingConfig
+	Retry    RetryConfig
+	LocalTLS LocalTLSConfig
 }
 
 // RetryConfig defines global retry configuration
@@ -199,6 +205,11 @@ func Load() (*Config, error) {
 		Retry: RetryConfig{
 			MaxImageProcessingRetries: 3,
 			MaxDeletionRetries:        3,
+		},
+
+		LocalTLS: LocalTLSConfig{
+			CertFile: getEnv("CERT_FILE", ""),
+			KeyFile:  getEnv("KEY_FILE", ""),
 		},
 	}
 
