@@ -106,7 +106,7 @@ func (r *Router) SetupRoutes() *gin.Engine {
 		r.setupAnnotationRoutes(v1)
 		r.setupAnnotationTypeRoutes(v1)
 
-		v1.GET("/proxy/*objectPath", r.gcsProxyHandler.ProxyObject)
+		v1.GET("/proxy/:imageId/*objectPath", r.gcsProxyHandler.ProxyObject)
 	}
 
 	return r.engine
