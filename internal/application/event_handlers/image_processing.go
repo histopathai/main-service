@@ -2,13 +2,16 @@ package eventhandlers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
+	"strings"
 	"time"
 
 	"github.com/histopathai/main-service/internal/domain/events"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/port"
+	"github.com/histopathai/main-service/internal/infrastructure/storage/firestore"
 )
 
 // ImageProcessingRequestHandler handles image processing requests
@@ -59,6 +62,12 @@ func (h *ImageProcessingRequestHandler) processEvent(ctx context.Context, data [
 
 	existingImage, err := h.imageRepo.Read(ctx, event.ImageID)
 	if err != nil {
+		if errors.Is(err, firestore.ErrNotFound) || strings.Contains(err.Error(), "NotFound") {
+			h.logger.Warn("Image record not found in database, acknowledging message to stop retry loop",
+				slog.String("image_id", event.ImageID),
+				slog.String("error", err.Error()))
+			return nil
+		}
 		return NewRetryableError(fmt.Errorf("failed to read image state: %w", err), events.CategoryDatabase, events.SeverityHigh)
 	}
 
