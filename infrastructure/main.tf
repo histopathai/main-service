@@ -20,6 +20,16 @@ data "terraform_remote_state" "platform" {
     prefix = "platform/prod"
   }
 }
+data "terraform_remote_state" "image_processing" {
+  backend = "gcs"
+
+  config = {
+    bucket = var.tf_state_bucket
+    prefix = "services/image-processing-service"
+  }
+}
+
+
 
 locals {
   # GCP project and region info
