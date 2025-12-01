@@ -12,7 +12,6 @@ import (
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
-	sharedQuery "github.com/histopathai/main-service/internal/shared/query"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -133,7 +132,7 @@ func TestDeleteWorkspace_Success_NoPatients(t *testing.T) {
 
 	mockPatientRepo.EXPECT().
 		FindByFilters(ctx, gomock.Any(), gomock.Any()).
-		Return(&sharedQuery.Result[*model.Patient]{Data: []*model.Patient{}}, nil)
+		Return(&query.Result[*model.Patient]{Data: []*model.Patient{}}, nil)
 
 	mockWorkspaceRepo.EXPECT().
 		Delete(ctx, workspaceID).
@@ -151,7 +150,7 @@ func TestDeleteWorkspace_Failure_HasPatients(t *testing.T) {
 
 	mockPatientRepo.EXPECT().
 		FindByFilters(ctx, gomock.Any(), gomock.Any()).
-		Return(&sharedQuery.Result[*model.Patient]{Data: []*model.Patient{
+		Return(&query.Result[*model.Patient]{Data: []*model.Patient{
 			{ID: "patient-1"},
 		}}, nil)
 
@@ -211,11 +210,11 @@ func TestUpdateWorkspace_Failure_IDNotFound(t *testing.T) {
 func TestListWorkspaces_Success(t *testing.T) {
 	wsService, _, mockWorkspaceRepo, _, _, _, _, _ := setupWorkspaceService(t)
 	ctx := context.Background()
-	pagination := &sharedQuery.Pagination{Limit: 10}
+	pagination := &query.Pagination{Limit: 10}
 
 	mockWorkspaceRepo.EXPECT().
-		FindByFilters(ctx, []sharedQuery.Filter{}, pagination).
-		Return(&sharedQuery.Result[*model.Workspace]{Data: []*model.Workspace{
+		FindByFilters(ctx, []query.Filter{}, pagination).
+		Return(&query.Result[*model.Workspace]{Data: []*model.Workspace{
 			{ID: "ws-1"},
 		}}, nil)
 

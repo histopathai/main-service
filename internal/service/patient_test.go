@@ -414,14 +414,18 @@ func TestCascadeDelete_Success(t *testing.T) {
 	ctx := context.Background()
 	patientID := "patient-123"
 
-	// No images found
 	mockImageRepo.EXPECT().
 		FindByFilters(gomock.Any(),
 			[]query.Filter{{Field: constants.ImagePatientIDField, Operator: query.OpEqual, Value: patientID}},
 			&query.Pagination{Limit: 100, Offset: 0}).
 		Return(&query.Result[*model.Image]{Data: []*model.Image{}, HasMore: false}, nil)
 
-	// Delete patient
+	mockImageRepo.EXPECT().
+		FindByFilters(gomock.Any(),
+			[]query.Filter{{Field: constants.ImagePatientIDField, Operator: query.OpEqual, Value: patientID}},
+			&query.Pagination{Limit: 50, Offset: 0}).
+		Return(&query.Result[*model.Image]{Data: []*model.Image{}, HasMore: false}, nil)
+
 	mockPatientRepo.EXPECT().
 		Delete(gomock.Any(), patientID).
 		Return(nil)

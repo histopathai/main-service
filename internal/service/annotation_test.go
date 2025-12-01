@@ -12,7 +12,6 @@ import (
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
-	sharedQuery "github.com/histopathai/main-service/internal/shared/query"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"go.uber.org/mock/gomock"
@@ -135,12 +134,12 @@ func TestGetAnnotationsByImageID_Success(t *testing.T) {
 
 	mockAnnotationRepo.EXPECT().
 		FindByFilters(ctx, gomock.Any(), gomock.Any()).
-		DoAndReturn(func(ctx context.Context, filters []sharedQuery.Filter, pagination *sharedQuery.Pagination) (*sharedQuery.Result[*model.Annotation], error) {
+		DoAndReturn(func(ctx context.Context, filters []query.Filter, pagination *query.Pagination) (*query.Result[*model.Annotation], error) {
 			assert.Equal(t, "ImageID", filters[0].Field)
-			assert.Equal(t, sharedQuery.OpEqual, filters[0].Operator)
+			assert.Equal(t, query.OpEqual, filters[0].Operator)
 			assert.Equal(t, imageID, filters[0].Value)
 
-			return &sharedQuery.Result[*model.Annotation]{
+			return &query.Result[*model.Annotation]{
 				Data: []*model.Annotation{
 					{
 						ID:          "annotation-1",
@@ -158,7 +157,7 @@ func TestGetAnnotationsByImageID_Success(t *testing.T) {
 			}, nil
 		})
 
-	pagination := &sharedQuery.Pagination{
+	pagination := &query.Pagination{
 		Limit:  -1,
 		Offset: 0,
 	}
@@ -178,11 +177,11 @@ func TestGetAnnotationsByImageID_NoResults(t *testing.T) {
 
 	mockAnnotationRepo.EXPECT().
 		FindByFilters(ctx, gomock.Any(), gomock.Any()).
-		Return(&sharedQuery.Result[*model.Annotation]{
+		Return(&query.Result[*model.Annotation]{
 			Data: []*model.Annotation{},
 		}, nil)
 
-	pagination := &sharedQuery.Pagination{
+	pagination := &query.Pagination{
 		Limit:  -1,
 		Offset: 0,
 	}
