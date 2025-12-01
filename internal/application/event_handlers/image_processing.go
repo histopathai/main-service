@@ -16,6 +16,7 @@ type ImageProcessingRequestHandler struct {
 	*BaseEventHandler
 	imageRepo  port.ImageRepository
 	worker     port.ImageProcessingWorker
+	storage    port.ObjectStorage
 	bucketName string
 	logger     *slog.Logger
 }
@@ -24,6 +25,7 @@ type ImageProcessingRequestHandler struct {
 func NewImageProcessingRequestHandler(
 	imageRepo port.ImageRepository,
 	worker port.ImageProcessingWorker,
+	storage port.ObjectStorage,
 	bucketName string,
 	serializer events.EventSerializer,
 	telemetryPublisher port.TelemetryEventPublisher,
@@ -38,6 +40,7 @@ func NewImageProcessingRequestHandler(
 		),
 		imageRepo:  imageRepo,
 		worker:     worker,
+		storage:    storage,
 		bucketName: bucketName,
 		logger:     logger,
 	}
@@ -59,6 +62,20 @@ func (h *ImageProcessingRequestHandler) processEvent(ctx context.Context, data [
 		slog.String("image_id", event.ImageID),
 		slog.String("origin_path", event.OriginPath))
 
+	objMetadata, err := h.storage.GetObjectMetadata(ctx, h.bucketName, event.OriginPath)
+	if err != nil {
+		return NewRetryableError(
+			fmt.Errorf("failed to get object metadata from GCS: %w", err),
+			events.CategoryStorage,
+			events.SeverityHigh,
+		).WithContext("origin_path", event.OriginPath)
+	}
+
+	imageSize := objMetadata.Size
+	h.logger.Info("Retrieved image size from GCS",
+		slog.String("image_id", event.ImageID),
+		slog.Int64("size", imageSize))
+
 	// Update image status to PROCESSING
 	if err := h.updateImageStatus(ctx, event.ImageID, model.StatusProcessing); err != nil {
 		return err
@@ -69,6 +86,7 @@ func (h *ImageProcessingRequestHandler) processEvent(ctx context.Context, data [
 		ImageID:    event.ImageID,
 		OriginPath: event.OriginPath,
 		BucketName: h.bucketName,
+		Size:       imageSize,
 	}
 
 	if err := h.worker.ProcessImage(ctx, workerInput); err != nil {
