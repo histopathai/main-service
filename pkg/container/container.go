@@ -218,6 +218,7 @@ func (c *Container) initEventHandlers(ctx context.Context) error {
 		c.Repos.ImageRepo,
 		c.GCSClient,
 		c.Config.GCP.OriginalBucketName,
+		c.Config.GCP.ProcessedBucketName,
 		serializer,
 		c.TelemetryEventPublisher,
 		c.Logger.WithGroup("image_deletion_handler"),

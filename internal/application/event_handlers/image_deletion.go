@@ -4,6 +4,10 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"strings"
+
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"github.com/histopathai/main-service/internal/domain/events"
 	"github.com/histopathai/main-service/internal/domain/model"
@@ -11,20 +15,20 @@ import (
 	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
-// ImageDeletionHandler handles image deletion requests
 type ImageDeletionHandler struct {
 	*BaseEventHandler
-	imageRepo  port.ImageRepository
-	storage    port.ObjectStorage
-	bucketName string
-	logger     *slog.Logger
+	imageRepo           port.ImageRepository
+	storage             port.ObjectStorage
+	originalBucketName  string
+	processedBucketName string
+	logger              *slog.Logger
 }
 
-// NewImageDeletionHandler creates a new handler
 func NewImageDeletionHandler(
 	imageRepo port.ImageRepository,
 	storage port.ObjectStorage,
-	bucketName string,
+	originalBucketName string,
+	processedBucketName string,
 	serializer events.EventSerializer,
 	telemetryPublisher port.TelemetryEventPublisher,
 	logger *slog.Logger,
@@ -36,14 +40,14 @@ func NewImageDeletionHandler(
 			telemetryPublisher,
 			DefaultRetryConfig(),
 		),
-		imageRepo:  imageRepo,
-		storage:    storage,
-		bucketName: bucketName,
-		logger:     logger,
+		imageRepo:           imageRepo,
+		storage:             storage,
+		originalBucketName:  originalBucketName,
+		processedBucketName: processedBucketName,
+		logger:              logger,
 	}
 }
 
-// Handle processes image deletion request events
 func (h *ImageDeletionHandler) Handle(ctx context.Context, data []byte, attributes map[string]string) error {
 	return h.HandleWithRetry(ctx, data, attributes, h.processEvent)
 }
@@ -64,6 +68,7 @@ func (h *ImageDeletionHandler) processEvent(ctx context.Context, data []byte, at
 				slog.String("image_id", event.ImageID))
 			return nil
 		}
+
 		return NewRetryableError(
 			fmt.Errorf("failed to read image: %w", err),
 			events.CategoryDatabase,
@@ -76,6 +81,9 @@ func (h *ImageDeletionHandler) processEvent(ctx context.Context, data []byte, at
 	}
 
 	if err := h.imageRepo.Delete(ctx, event.ImageID); err != nil {
+		if isNotFoundError(err) {
+			return nil
+		}
 		return NewRetryableError(
 			fmt.Errorf("failed to delete image from database: %w", err),
 			events.CategoryDatabase,
@@ -92,42 +100,38 @@ func (h *ImageDeletionHandler) processEvent(ctx context.Context, data []byte, at
 func (h *ImageDeletionHandler) deleteImageFiles(ctx context.Context, image *model.Image) error {
 	var deletionErrors []error
 
-	safeDelete := func(path string, desc string) error {
+	safeDelete := func(bucket, path, desc string) error {
 		if path == "" {
 			return nil
 		}
 
-		h.logger.Info("Checking existence before deletion",
-			slog.String("type", desc),
-			slog.String("path", path))
-
-		exists, err := h.storage.ObjectExists(ctx, h.bucketName, path)
+		exists, err := h.storage.ObjectExists(ctx, bucket, path)
 		if err != nil {
-			return fmt.Errorf("failed to check %s existence: %w", desc, err)
+			return fmt.Errorf("failed to check %s existence in %s: %w", desc, bucket, err)
 		}
 
 		if !exists {
-
-			h.logger.Warn(fmt.Sprintf("%s not found in storage (already deleted)", desc),
+			h.logger.Info(fmt.Sprintf("%s not found (already deleted)", desc),
 				slog.String("path", path))
 			return nil
 		}
 
-		if err := h.storage.DeleteObject(ctx, h.bucketName, path); err != nil {
-
+		if err := h.storage.DeleteObject(ctx, bucket, path); err != nil {
 			return fmt.Errorf("failed to delete %s: %w", desc, err)
 		}
 
-		h.logger.Info(fmt.Sprintf("Deleted %s", desc), slog.String("path", path))
+		h.logger.Info(fmt.Sprintf("Deleted %s", desc),
+			slog.String("bucket", bucket),
+			slog.String("path", path))
 		return nil
 	}
 
-	if err := safeDelete(image.OriginPath, "original file"); err != nil {
+	if err := safeDelete(h.originalBucketName, image.OriginPath, "original file"); err != nil {
 		deletionErrors = append(deletionErrors, err)
 	}
 
 	if image.ProcessedPath != nil {
-		if err := safeDelete(*image.ProcessedPath, "processed file"); err != nil {
+		if err := safeDelete(h.processedBucketName, *image.ProcessedPath, "processed file"); err != nil {
 			deletionErrors = append(deletionErrors, err)
 		}
 	}
@@ -140,23 +144,32 @@ func (h *ImageDeletionHandler) deleteImageFiles(ctx context.Context, image *mode
 			deletionErrors[0],
 			events.CategoryStorage,
 			events.SeverityMedium,
-		).WithContext("image_id", image.ID)
+		).WithContext("image_id", image.ID).
+			WithContext("total_errors", len(deletionErrors))
 	}
 
 	return nil
 }
 
-// isNotFoundError checks if error is a not found error
 func isNotFoundError(err error) bool {
-	// Check for your custom not found error
-	// Adjust based on your error handling implementation
+	if err == nil {
+		return false
+	}
+
 	if customErr, ok := err.(*errors.Err); ok {
 		return customErr.Type == errors.ErrorTypeNotFound
 	}
-	return false
+
+	if st, ok := status.FromError(err); ok {
+		return st.Code() == codes.NotFound
+	}
+
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "not found") ||
+		strings.Contains(msg, "no such document") ||
+		strings.Contains(msg, "404")
 }
 
-// BatchImageDeletionHandler handles batch deletion requests
 type BatchImageDeletionHandler struct {
 	*BaseEventHandler
 	imageRepo  port.ImageRepository
@@ -166,7 +179,6 @@ type BatchImageDeletionHandler struct {
 	logger     *slog.Logger
 }
 
-// NewBatchImageDeletionHandler creates a new batch handler
 func NewBatchImageDeletionHandler(
 	imageRepo port.ImageRepository,
 	storage port.ObjectStorage,
@@ -191,7 +203,6 @@ func NewBatchImageDeletionHandler(
 	}
 }
 
-// Handle processes batch deletion by publishing individual deletion events
 func (h *BatchImageDeletionHandler) Handle(ctx context.Context, imageIDs []string) error {
 	h.logger.Info("Processing batch image deletion",
 		slog.Int("count", len(imageIDs)))
