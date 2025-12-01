@@ -285,3 +285,9 @@ resource "google_pubsub_topic_iam_member" "main_service_publishers" {
   role   = "roles/pubsub.publisher"
   member = "serviceAccount:${local.service_account}"
 }
+
+resource "google_project_iam_member" "main_service_job_runner" {
+  project = local.project_id
+  role    = "roles/run.developer"
+  member  = "serviceAccount:${local.service_account}"
+}
