@@ -38,6 +38,10 @@ locals {
   # Storage bucket info
   original_bucket_name  = data.terraform_remote_state.platform.outputs.original_bucket_name
   processed_bucket_name = data.terraform_remote_state.platform.outputs.processed_bucket_name
+
+  job_small  = data.terraform_remote_state.image_processing.outputs.job_names["small"]
+  job_medium = data.terraform_remote_state.image_processing.outputs.job_names["medium"]
+  job_large  = data.terraform_remote_state.image_processing.outputs.job_names["large"]
 }
 
 provider "google" {
@@ -215,6 +219,24 @@ resource "google_cloud_run_v2_service" "main_service" {
       env {
         name  = "TELEMETRY_ERROR_SUB"
         value = google_pubsub_subscription.telemetry_error_sub.name
+      }
+
+      # Worker Config Env Vars
+      env {
+        name  = "WORKER_TYPE"
+        value = "cloudrun"
+      }
+      env {
+        name  = "CLOUD_RUN_JOB_SMALL"
+        value = local.job_small
+      }
+      env {
+        name  = "CLOUD_RUN_JOB_MEDIUM"
+        value = local.job_medium
+      }
+      env {
+        name  = "CLOUD_RUN_JOB_LARGE"
+        value = local.job_large
       }
     }
   }
