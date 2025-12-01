@@ -49,7 +49,6 @@ func (h *ImageDeletionHandler) Handle(ctx context.Context, data []byte, attribut
 }
 
 func (h *ImageDeletionHandler) processEvent(ctx context.Context, data []byte, attributes map[string]string) error {
-	// Deserialize event
 	var event events.ImageDeletionRequestedEvent
 	if err := h.DeserializeEvent(data, &event); err != nil {
 		return err
@@ -58,16 +57,13 @@ func (h *ImageDeletionHandler) processEvent(ctx context.Context, data []byte, at
 	h.logger.Info("Processing image deletion request",
 		slog.String("image_id", event.ImageID))
 
-	// Read image from database
 	image, err := h.imageRepo.Read(ctx, event.ImageID)
 	if err != nil {
-		// If image not found, consider it already deleted
 		if isNotFoundError(err) {
 			h.logger.Warn("Image not found in database, assuming already deleted",
 				slog.String("image_id", event.ImageID))
 			return nil
 		}
-
 		return NewRetryableError(
 			fmt.Errorf("failed to read image: %w", err),
 			events.CategoryDatabase,
@@ -75,12 +71,10 @@ func (h *ImageDeletionHandler) processEvent(ctx context.Context, data []byte, at
 		).WithContext("image_id", event.ImageID)
 	}
 
-	// Delete files from GCS
 	if err := h.deleteImageFiles(ctx, image); err != nil {
 		return err
 	}
 
-	// Delete image record from database
 	if err := h.imageRepo.Delete(ctx, event.ImageID); err != nil {
 		return NewRetryableError(
 			fmt.Errorf("failed to delete image from database: %w", err),
@@ -98,70 +92,55 @@ func (h *ImageDeletionHandler) processEvent(ctx context.Context, data []byte, at
 func (h *ImageDeletionHandler) deleteImageFiles(ctx context.Context, image *model.Image) error {
 	var deletionErrors []error
 
-	// Delete original file
-	if image.OriginPath != "" {
-		h.logger.Info("Deleting original file",
-			slog.String("image_id", image.ID),
-			slog.String("path", image.OriginPath))
+	safeDelete := func(path string, desc string) error {
+		if path == "" {
+			return nil
+		}
 
-		exists, err := h.storage.ObjectExists(ctx, h.bucketName, image.OriginPath)
+		h.logger.Info("Checking existence before deletion",
+			slog.String("type", desc),
+			slog.String("path", path))
+
+		exists, err := h.storage.ObjectExists(ctx, h.bucketName, path)
 		if err != nil {
-			deletionErrors = append(deletionErrors, fmt.Errorf("failed to check origin file existence: %w", err))
-		} else if exists {
-			if err := h.storage.DeleteObject(ctx, h.bucketName, image.OriginPath); err != nil {
-				deletionErrors = append(deletionErrors, fmt.Errorf("failed to delete origin file: %w", err))
-			} else {
-				h.logger.Info("Deleted original file",
-					slog.String("image_id", image.ID),
-					slog.String("path", image.OriginPath))
-			}
-		} else {
-			h.logger.Warn("Original file not found in storage",
-				slog.String("image_id", image.ID),
-				slog.String("path", image.OriginPath))
+			return fmt.Errorf("failed to check %s existence: %w", desc, err)
+		}
+
+		if !exists {
+
+			h.logger.Warn(fmt.Sprintf("%s not found in storage (already deleted)", desc),
+				slog.String("path", path))
+			return nil
+		}
+
+		if err := h.storage.DeleteObject(ctx, h.bucketName, path); err != nil {
+
+			return fmt.Errorf("failed to delete %s: %w", desc, err)
+		}
+
+		h.logger.Info(fmt.Sprintf("Deleted %s", desc), slog.String("path", path))
+		return nil
+	}
+
+	if err := safeDelete(image.OriginPath, "original file"); err != nil {
+		deletionErrors = append(deletionErrors, err)
+	}
+
+	if image.ProcessedPath != nil {
+		if err := safeDelete(*image.ProcessedPath, "processed file"); err != nil {
+			deletionErrors = append(deletionErrors, err)
 		}
 	}
 
-	// Delete processed file if exists
-	if image.ProcessedPath != nil && *image.ProcessedPath != "" {
-		h.logger.Info("Deleting processed file",
-			slog.String("image_id", image.ID),
-			slog.String("path", *image.ProcessedPath))
-
-		exists, err := h.storage.ObjectExists(ctx, h.bucketName, *image.ProcessedPath)
-		if err != nil {
-			deletionErrors = append(deletionErrors, fmt.Errorf("failed to check processed file existence: %w", err))
-		} else if exists {
-			if err := h.storage.DeleteObject(ctx, h.bucketName, *image.ProcessedPath); err != nil {
-				deletionErrors = append(deletionErrors, fmt.Errorf("failed to delete processed file: %w", err))
-			} else {
-				h.logger.Info("Deleted processed file",
-					slog.String("image_id", image.ID),
-					slog.String("path", *image.ProcessedPath))
-			}
-		} else {
-			h.logger.Warn("Processed file not found in storage",
-				slog.String("image_id", image.ID),
-				slog.String("path", *image.ProcessedPath))
-		}
-	}
-
-	// If there were any deletion errors, return them
 	if len(deletionErrors) > 0 {
-		// Log all errors
-		for _, err := range deletionErrors {
-			h.logger.Error("Storage deletion error",
-				slog.String("image_id", image.ID),
-				slog.String("error", err.Error()))
-		}
+		h.logger.Error("Storage deletion errors occurred",
+			slog.Int("count", len(deletionErrors)))
 
-		// Return the first error as retryable
 		return NewRetryableError(
 			deletionErrors[0],
 			events.CategoryStorage,
 			events.SeverityMedium,
-		).WithContext("image_id", image.ID).
-			WithContext("total_errors", len(deletionErrors))
+		).WithContext("image_id", image.ID)
 	}
 
 	return nil
