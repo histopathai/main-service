@@ -197,6 +197,7 @@ func (c *Container) initEventHandlers(ctx context.Context) error {
 	c.ImageProcessingRequestHandler = eventhandlers.NewImageProcessingRequestHandler(
 		c.Repos.ImageRepo,
 		c.ImageProcessingWorker,
+		c.Storage,
 		c.Config.GCP.OriginalBucketName,
 		serializer,
 		c.TelemetryEventPublisher,
