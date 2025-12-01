@@ -212,24 +212,64 @@ func NewBatchImageDeletionHandler(
 	}
 }
 
+// Handle with controlled concurrency to prevent overwhelming the system
 func (h *BatchImageDeletionHandler) Handle(ctx context.Context, imageIDs []string) error {
 	h.logger.Info("Processing batch image deletion",
 		slog.Int("count", len(imageIDs)))
 
-	var errors []error
-	for _, imageID := range imageIDs {
-		event := events.NewImageDeletionRequestedEvent(imageID)
+	const batchSize = 50 // Publish in smaller batches
+	const maxConcurrent = 5
 
-		if err := h.publisher.PublishImageDeletionRequested(ctx, &event); err != nil {
-			h.logger.Error("Failed to publish deletion event",
-				slog.String("image_id", imageID),
-				slog.String("error", err.Error()))
-			errors = append(errors, err)
+	errChan := make(chan error, len(imageIDs))
+	semaphore := make(chan struct{}, maxConcurrent)
+
+	successCount := 0
+	failCount := 0
+
+	// Process in batches
+	for i := 0; i < len(imageIDs); i += batchSize {
+		end := i + batchSize
+		if end > len(imageIDs) {
+			end = len(imageIDs)
 		}
+
+		batch := imageIDs[i:end]
+
+		// Publish events for this batch with concurrency control
+		for _, imageID := range batch {
+			semaphore <- struct{}{}
+			go func(id string) {
+				defer func() { <-semaphore }()
+
+				event := events.NewImageDeletionRequestedEvent(id)
+				if err := h.publisher.PublishImageDeletionRequested(ctx, &event); err != nil {
+					h.logger.Error("Failed to publish deletion event",
+						slog.String("image_id", id),
+						slog.String("error", err.Error()))
+					errChan <- err
+				} else {
+					errChan <- nil
+				}
+			}(imageID)
+		}
+
+		// Wait for batch to complete
+		for range batch {
+			if err := <-errChan; err != nil {
+				failCount++
+			} else {
+				successCount++
+			}
+		}
+
+		h.logger.Info("Batch processed",
+			slog.Int("batch_number", i/batchSize+1),
+			slog.Int("success", successCount),
+			slog.Int("failed", failCount))
 	}
 
-	if len(errors) > 0 {
-		return fmt.Errorf("failed to publish %d deletion events", len(errors))
+	if failCount > 0 {
+		return fmt.Errorf("failed to publish %d/%d deletion events", failCount, len(imageIDs))
 	}
 
 	h.logger.Info("Successfully published all deletion events",
