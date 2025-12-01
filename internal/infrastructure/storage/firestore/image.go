@@ -36,7 +36,6 @@ func imageMapUpdates(updates map[string]interface{}) (map[string]interface{}, er
 	firestoreUpdates := make(map[string]interface{})
 	for key, value := range updates {
 		switch key {
-
 		case constants.ImageFormatField:
 			firestoreUpdates["format"] = value
 		case constants.ImageCreatorIDField:
@@ -51,12 +50,22 @@ func imageMapUpdates(updates map[string]interface{}) (map[string]interface{}, er
 			firestoreUpdates["processed_path"] = value
 		case constants.ImageStatusField:
 			firestoreUpdates["status"] = value
+		// --- Fix: Added missing fields ---
+		case constants.ImageFailureReasonField:
+			firestoreUpdates["failure_reason"] = value
+		case constants.ImageRetryCountField:
+			firestoreUpdates["retry_count"] = value
+		case constants.ImageLastProcessedAtField:
+			firestoreUpdates["last_processed_at"] = value
+		case constants.UpdatedAtField:
+			firestoreUpdates["updated_at"] = value
 		default:
 			return nil, fmt.Errorf("unknown update field: %s", key)
 		}
 	}
 	return firestoreUpdates, nil
 }
+
 func imageToFirestoreMap(i *model.Image) map[string]interface{} {
 	m := map[string]interface{}{
 		"patient_id":  i.PatientID,
@@ -67,14 +76,23 @@ func imageToFirestoreMap(i *model.Image) map[string]interface{} {
 		"height":      i.Height,
 		"size":        i.Size,
 		"origin_path": i.OriginPath,
+		"status":      i.Status,
+		"retry_count": i.RetryCount, // Added
+		"created_at":  i.CreatedAt,
+		"updated_at":  i.UpdatedAt,
 	}
 
 	if i.ProcessedPath != nil {
 		m["processed_path"] = *i.ProcessedPath
 	}
-	m["status"] = i.Status
-	m["created_at"] = i.CreatedAt
-	m["updated_at"] = i.UpdatedAt
+	// Added optional fields
+	if i.FailureReason != nil {
+		m["failure_reason"] = *i.FailureReason
+	}
+	if i.LastProcessedAt != nil {
+		m["last_processed_at"] = *i.LastProcessedAt
+	}
+
 	return m
 }
 
@@ -104,6 +122,17 @@ func imageFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Image, error
 
 	if v, ok := data["processed_path"].(string); ok {
 		ir.ProcessedPath = &v
+	}
+
+	// Added optional fields reading
+	if v, ok := data["failure_reason"].(string); ok {
+		ir.FailureReason = &v
+	}
+	if v, ok := data["retry_count"].(int64); ok {
+		ir.RetryCount = int(v)
+	}
+	if v, ok := data["last_processed_at"].(time.Time); ok {
+		ir.LastProcessedAt = &v
 	}
 
 	ir.Status = model.ImageStatus(data["status"].(string))
@@ -167,7 +196,6 @@ func imageMapFilters(filters []query.Filter) ([]query.Filter, error) {
 }
 
 func (ir *ImageRepositoryImpl) Create(ctx context.Context, entity *model.Image) (*model.Image, error) {
-
 	if entity == nil {
 		return nil, ErrInvalidInput
 	}
@@ -175,7 +203,8 @@ func (ir *ImageRepositoryImpl) Create(ctx context.Context, entity *model.Image) 
 	if imageCopy.ID == "" {
 		imageCopy.ID = ir.client.Collection(ir.collection).NewDoc().ID
 	}
-	imageCopy.Name = fmt.Sprintf("%s-%s", imageCopy.ID, imageCopy.Name)
+	// Note: Naming convention might differ based on requirements, assuming ID is sufficient uniqueness
+	// imageCopy.Name = fmt.Sprintf("%s-%s", imageCopy.ID, imageCopy.Name)
 
 	return ir.GenericRepositoryImpl.Create(ctx, &imageCopy)
 }
