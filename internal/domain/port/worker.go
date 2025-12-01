@@ -7,6 +7,7 @@ type ProcessingInput struct {
 	ImageID    string
 	OriginPath string
 	BucketName string
+	Size       int64
 }
 
 // ProcessingResult contains the result of image processing
