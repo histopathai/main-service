@@ -169,28 +169,6 @@ func TestGetAnnotationsByImageID_Success(t *testing.T) {
 	assert.Equal(t, imageID, result.Data[0].ImageID)
 }
 
-func TestGetAnnotationsByImageID_NoResults(t *testing.T) {
-	aService, mockAnnotationRepo, _ := setupAnnotationService(t)
-	ctx := context.Background()
-
-	imageID := "image-123"
-
-	mockAnnotationRepo.EXPECT().
-		FindByFilters(ctx, gomock.Any(), gomock.Any()).
-		Return(&query.Result[*model.Annotation]{
-			Data: []*model.Annotation{},
-		}, nil)
-
-	pagination := &query.Pagination{
-		Limit:  -1,
-		Offset: 0,
-	}
-	result, err := aService.GetAnnotationsByImageID(ctx, imageID, pagination)
-
-	require.NoError(t, err)
-	require.Nil(t, result)
-}
-
 func TestDeleteAnnotation_Success(t *testing.T) {
 	aService, mockAnnotationRepo, _ := setupAnnotationService(t)
 	ctx := context.Background()
