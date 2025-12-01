@@ -44,22 +44,49 @@ func NewGCSProxyHandler(projectID, bucketName string, logger *slog.Logger) (*GCS
 // @Router       /proxy/{objectPath} [get]
 func (h *GCSProxyHandler) ProxyObject(c *gin.Context) {
 	objectPath := strings.TrimPrefix(c.Param("objectPath"), "/")
+
+	// FIX 1: Çift "proxy" prefix'ini temizle
+	objectPath = strings.TrimPrefix(objectPath, "proxy/")
+
 	if objectPath == "" {
 		h.logger.Warn("GCS Proxy: Empty object path requested")
 		c.String(http.StatusBadRequest, "object path is required")
 		return
 	}
 
-	ctx := c.Request.Context() // Use request context
+	h.logger.Debug("GCS Proxy: Requesting object",
+		"original_path", c.Param("objectPath"),
+		"cleaned_path", objectPath)
+
+	ctx := c.Request.Context()
 	rc, err := h.gcsClient.Bucket(h.bucketName).Object(objectPath).NewReader(ctx)
 	if err != nil {
-		h.logger.Error("GCS Proxy: Object not found", "path", objectPath, "error", err)
+		h.logger.Error("GCS Proxy: Object not found",
+			"path", objectPath,
+			"bucket", h.bucketName,
+			"error", err)
 		c.String(http.StatusNotFound, fmt.Sprintf("object not found: %s", err.Error()))
 		return
 	}
 	defer rc.Close()
 
-	c.Header("Content-Type", rc.ContentType())
+	// Set proper content type
+	contentType := rc.ContentType()
+	if contentType == "" {
+		// Fallback content type detection
+		if strings.HasSuffix(objectPath, ".jpg") || strings.HasSuffix(objectPath, ".jpeg") {
+			contentType = "image/jpeg"
+		} else if strings.HasSuffix(objectPath, ".dzi") {
+			contentType = "application/xml"
+		}
+	}
+
+	c.Header("Content-Type", contentType)
+	c.Header("Cache-Control", "public, max-age=31536000") // Cache for 1 year
 	c.Status(http.StatusOK)
-	_, _ = io.Copy(c.Writer, rc)
+
+	_, err = io.Copy(c.Writer, rc)
+	if err != nil {
+		h.logger.Error("GCS Proxy: Error copying data", "error", err)
+	}
 }
