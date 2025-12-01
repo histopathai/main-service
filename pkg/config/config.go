@@ -75,8 +75,10 @@ type LoggingConfig struct {
 
 // WorkerConfig contains worker configuration
 type WorkerConfig struct {
-	Type       string // "cloudrun" or "mock"
-	RunJobName string
+	Type      string // "cloudrun" or "mock"
+	JobSmall  string // EKLENDİ
+	JobMedium string // EKLENDİ
+	JobLarge  string // EKLENDİ
 }
 
 // Config is the main configuration struct
@@ -198,9 +200,12 @@ func Load() (*Config, error) {
 			Level:  getEnv("LOG_LEVEL", "info"),
 			Format: getEnv("LOG_FORMAT", "json"),
 		},
+
 		Worker: WorkerConfig{
-			Type:       getEnv("WORKER_TYPE", "cloudrun"),
-			RunJobName: getEnv("CLOUD_RUN_JOB_NAME", ""),
+			Type:      getEnv("WORKER_TYPE", "cloudrun"),
+			JobSmall:  getEnv("CLOUD_RUN_JOB_SMALL", ""),  // EKLENDİ
+			JobMedium: getEnv("CLOUD_RUN_JOB_MEDIUM", ""), // EKLENDİ
+			JobLarge:  getEnv("CLOUD_RUN_JOB_LARGE", ""),  // EKLENDİ
 		},
 		Retry: RetryConfig{
 			MaxImageProcessingRetries: 3,
