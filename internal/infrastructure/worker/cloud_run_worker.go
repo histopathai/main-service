@@ -7,37 +7,45 @@ import (
 
 	run "cloud.google.com/go/run/apiv2"
 	runpb "cloud.google.com/go/run/apiv2/runpb"
-	"github.com/bytedance/gopkg/util/logger"
 	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/pkg/config"
 )
 
-// CloudRunWorker implements ImageProcessingWorker using Cloud Run Jobs
+const (
+	Size128MB = 128 * 1024 * 1024
+	Size1GB   = 1 * 1024 * 1024 * 1024
+)
+
 type CloudRunWorker struct {
-	client  *run.JobsClient
-	jobName string
-	logger  *slog.Logger
+	client *run.JobsClient
+	config config.WorkerConfig
+	logger *slog.Logger
 }
 
 func NewCloudRunWorker(ctx context.Context, cfg config.WorkerConfig, logger *slog.Logger) (*CloudRunWorker, error) {
 	client, err := run.NewJobsClient(ctx)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Cloud Run Jobs client: %w", err)
 	}
 
 	return &CloudRunWorker{
-		client:  client,
-		jobName: cfg.RunJobName,
-		logger:  logger,
+		client: client,
+		config: cfg,
+		logger: logger,
 	}, nil
-
 }
 
-func (a *CloudRunWorker) ProcessImage(ctx context.Context, input *port.ProcessingInput) error {
+func (w *CloudRunWorker) ProcessImage(ctx context.Context, input *port.ProcessingInput) error {
+	jobName := w.determineJobName(input.Size)
+
+	w.logger.Info("Selected Cloud Run Job based on size",
+		slog.String("image_id", input.ImageID),
+		slog.Int64("size_bytes", input.Size),
+		slog.String("job_name", jobName),
+	)
 
 	req := &runpb.RunJobRequest{
-		Name: a.jobName,
+		Name: jobName,
 		Overrides: &runpb.RunJobRequest_Overrides{
 			ContainerOverrides: []*runpb.RunJobRequest_Overrides_ContainerOverride{
 				{
@@ -54,17 +62,51 @@ func (a *CloudRunWorker) ProcessImage(ctx context.Context, input *port.Processin
 							Name:   "INPUT_BUCKET_NAME",
 							Values: &runpb.EnvVar_Value{Value: input.BucketName},
 						},
+						{
+							Name:   "WORKER_TYPE_OVERRIDE",
+							Values: &runpb.EnvVar_Value{Value: w.getWorkerTypeLabel(input.Size)},
+						},
 					},
 				},
 			},
 		},
 	}
 
-	op, err := a.client.RunJob(ctx, req)
+	op, err := w.client.RunJob(ctx, req)
 	if err != nil {
-		return fmt.Errorf("failed to run job: %w", err)
+		return fmt.Errorf("failed to run job (%s): %w", jobName, err)
 	}
-	logger.Info(ctx, a.logger, "Cloud Run job started", slog.String("operation", op.Name()))
+
+	w.logger.Info("Cloud Run job triggered successfully",
+		slog.String("operation", op.Name()),
+		slog.String("target_job", jobName))
 
 	return nil
+}
+
+func (w *CloudRunWorker) determineJobName(size int64) string {
+	if size <= 0 {
+		w.logger.Warn("File size is 0 or unknown, defaulting to SMALL worker")
+		return w.config.JobSmall
+	}
+
+	switch {
+	case size < Size128MB:
+		return w.config.JobSmall
+	case size < Size1GB:
+		return w.config.JobMedium
+	default:
+
+		return w.config.JobLarge
+	}
+}
+
+func (w *CloudRunWorker) getWorkerTypeLabel(size int64) string {
+	if size < Size128MB {
+		return "small"
+	}
+	if size < Size1GB {
+		return "medium"
+	}
+	return "large"
 }
