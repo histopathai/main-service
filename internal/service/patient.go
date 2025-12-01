@@ -2,7 +2,9 @@ package service
 
 import (
 	"context"
+	"fmt"
 
+	"github.com/histopathai/main-service/internal/domain/events"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/shared/constants"
@@ -11,20 +13,29 @@ import (
 )
 
 type PatientService struct {
-	patientRepo   port.PatientRepository
-	workspaceRepo port.WorkspaceRepository
-	uow           port.UnitOfWorkFactory
+	patientRepo         port.PatientRepository
+	workspaceRepo       port.WorkspaceRepository
+	imageRepo           port.ImageRepository
+	annotationRepo      port.AnnotationRepository
+	imageEventPublisher port.ImageEventPublisher
+	uow                 port.UnitOfWorkFactory
 }
 
 func NewPatientService(
 	patientRepo port.PatientRepository,
 	workspaceRepo port.WorkspaceRepository,
+	imageRepo port.ImageRepository,
+	annotationRepo port.AnnotationRepository,
+	imageEventPublisher port.ImageEventPublisher,
 	uow port.UnitOfWorkFactory,
 ) *PatientService {
 	return &PatientService{
-		patientRepo:   patientRepo,
-		workspaceRepo: workspaceRepo,
-		uow:           uow,
+		patientRepo:         patientRepo,
+		workspaceRepo:       workspaceRepo,
+		imageRepo:           imageRepo,
+		annotationRepo:      annotationRepo,
+		imageEventPublisher: imageEventPublisher,
+		uow:                 uow,
 	}
 }
 
@@ -187,91 +198,174 @@ func (ps *PatientService) TransferPatientWorkspace(ctx context.Context, patientI
 }
 
 func (ps *PatientService) CascadeDelete(ctx context.Context, patientID string) error {
-	return ps.uow.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
-		imageIDs := make([]string, 0)
+	// Step 1: Delete annotations in batches
+	if err := ps.deleteAnnotationsForPatient(ctx, patientID); err != nil {
+		return errors.NewInternalError("failed to delete annotations", err)
+	}
+
+	// Step 2: Publish image deletion events asynchronously
+	if err := ps.publishImageDeletionEvents(ctx, patientID); err != nil {
+		return errors.NewInternalError("failed to publish image deletion events", err)
+	}
+
+	// Step 3: Delete patient record
+	if err := ps.patientRepo.Delete(ctx, patientID); err != nil {
+		return errors.NewInternalError("failed to delete patient", err)
+	}
+
+	return nil
+}
+
+func (ps *PatientService) deleteAnnotationsForPatient(ctx context.Context, patientID string) error {
+	const batchSize = 500
+	offset := 0
+
+	for {
+		// Get images for this patient
+		imageFilters := []sharedQuery.Filter{
+			{
+				Field:    constants.ImagePatientIDField,
+				Operator: sharedQuery.OpEqual,
+				Value:    patientID,
+			},
+		}
+
+		imageResult, err := ps.imageRepo.FindByFilters(ctx, imageFilters, &sharedQuery.Pagination{
+			Limit:  100,
+			Offset: offset,
+		})
+		if err != nil {
+			return err
+		}
+
+		if len(imageResult.Data) == 0 {
+			break
+		}
+
+		// Collect annotation IDs for these images
 		annotationIDs := make([]string, 0)
-
-		offset := 0
-		limit := 100
-
-		for {
-			imageFilters := []sharedQuery.Filter{
-				{
-					Field:    constants.ImagePatientIDField,
-					Operator: sharedQuery.OpEqual,
-					Value:    patientID,
-				},
-			}
-			pagination := &sharedQuery.Pagination{Limit: limit, Offset: offset}
-
-			imageResult, err := repos.ImageRepo.FindByFilters(txCtx, imageFilters, pagination)
-			if err != nil {
-				return errors.NewInternalError("failed to find images", err)
-			}
-
-			for _, image := range imageResult.Data {
-				imageIDs = append(imageIDs, image.ID)
-
-				annoOffset := 0
-				for {
-					annoFilters := []sharedQuery.Filter{
-						{
-							Field:    constants.AnnotationImageIDField,
-							Operator: sharedQuery.OpEqual,
-							Value:    image.ID,
-						},
-					}
-					annoPagination := &sharedQuery.Pagination{Limit: limit, Offset: annoOffset}
-
-					annoResult, err := repos.AnnotationRepo.FindByFilters(txCtx, annoFilters, annoPagination)
-					if err != nil {
-						return errors.NewInternalError("failed to find annotations", err)
-					}
-
-					for _, anno := range annoResult.Data {
-						annotationIDs = append(annotationIDs, anno.ID)
-					}
-
-					if !annoResult.HasMore {
-						break
-					}
-					annoOffset += limit
+		for _, image := range imageResult.Data {
+			annoOffset := 0
+			for {
+				annoFilters := []sharedQuery.Filter{
+					{
+						Field:    constants.AnnotationImageIDField,
+						Operator: sharedQuery.OpEqual,
+						Value:    image.ID,
+					},
 				}
-			}
 
-			if !imageResult.HasMore {
-				break
+				annoResult, err := ps.annotationRepo.FindByFilters(ctx, annoFilters, &sharedQuery.Pagination{
+					Limit:  100,
+					Offset: annoOffset,
+				})
+				if err != nil {
+					return err
+				}
+
+				for _, anno := range annoResult.Data {
+					annotationIDs = append(annotationIDs, anno.ID)
+
+					// Delete in batches to avoid memory issues
+					if len(annotationIDs) >= batchSize {
+						if err := ps.annotationRepo.BatchDelete(ctx, annotationIDs); err != nil {
+							return err
+						}
+						annotationIDs = annotationIDs[:0] // Clear slice
+					}
+				}
+
+				if !annoResult.HasMore {
+					break
+				}
+				annoOffset += 100
 			}
-			offset += limit
 		}
 
+		// Delete remaining annotations
 		if len(annotationIDs) > 0 {
-			if err := repos.AnnotationRepo.BatchDelete(txCtx, annotationIDs); err != nil {
-				return errors.NewInternalError("failed to batch delete annotations", err)
+			if err := ps.annotationRepo.BatchDelete(ctx, annotationIDs); err != nil {
+				return err
 			}
 		}
 
-		if len(imageIDs) > 0 {
-			if err := repos.ImageRepo.BatchDelete(txCtx, imageIDs); err != nil {
-				return errors.NewInternalError("failed to batch delete images", err)
+		if !imageResult.HasMore {
+			break
+		}
+		offset += 100
+	}
+
+	return nil
+}
+
+func (ps *PatientService) publishImageDeletionEvents(ctx context.Context, patientID string) error {
+	offset := 0
+	const batchSize = 50 // Publish in smaller batches to avoid overwhelming the system
+
+	for {
+		imageFilters := []sharedQuery.Filter{
+			{
+				Field:    constants.ImagePatientIDField,
+				Operator: sharedQuery.OpEqual,
+				Value:    patientID,
+			},
+		}
+
+		imageResult, err := ps.imageRepo.FindByFilters(ctx, imageFilters, &sharedQuery.Pagination{
+			Limit:  batchSize,
+			Offset: offset,
+		})
+		if err != nil {
+			return err
+		}
+
+		if len(imageResult.Data) == 0 {
+			break
+		}
+
+		// Publish deletion events for this batch
+		for _, image := range imageResult.Data {
+			event := events.NewImageDeletionRequestedEvent(image.ID)
+			if err := ps.imageEventPublisher.PublishImageDeletionRequested(ctx, &event); err != nil {
+				return fmt.Errorf("failed to publish deletion event for image %s: %w", image.ID, err)
 			}
 		}
 
-		if err := repos.PatientRepo.Delete(txCtx, patientID); err != nil {
-			return errors.NewInternalError("failed to delete patient", err)
+		if !imageResult.HasMore {
+			break
 		}
+		offset += batchSize
+	}
 
-		return nil
-	})
+	return nil
 }
 
 func (ps *PatientService) BatchDelete(ctx context.Context, patientIDs []string) error {
+	// Process deletions in parallel but controlled manner
+	errChan := make(chan error, len(patientIDs))
+	semaphore := make(chan struct{}, 5) // Max 5 concurrent deletions
+
 	for _, patientID := range patientIDs {
-		if err := ps.CascadeDelete(ctx, patientID); err != nil {
-			return errors.NewInternalError("failed to delete patient: "+patientID, err)
+		semaphore <- struct{}{} // Acquire
+		go func(pid string) {
+			defer func() { <-semaphore }() // Release
+			if err := ps.CascadeDelete(ctx, pid); err != nil {
+				errChan <- fmt.Errorf("failed to delete patient %s: %w", pid, err)
+			} else {
+				errChan <- nil
+			}
+		}(patientID)
+	}
+
+	// Wait for all deletions and collect errors
+	var firstErr error
+	for range patientIDs {
+		if err := <-errChan; err != nil && firstErr == nil {
+			firstErr = err
 		}
 	}
-	return nil
+
+	return firstErr
 }
 
 func (ps *PatientService) BatchTransfer(ctx context.Context, patientIDs []string, newWorkspaceID string) error {
