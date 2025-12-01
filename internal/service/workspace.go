@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"fmt"
 
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/port"
@@ -11,17 +12,23 @@ import (
 )
 
 type WorkspaceService struct {
-	workspaceRepo port.WorkspaceRepository
-	uow           port.UnitOfWorkFactory
+	workspaceRepo  port.WorkspaceRepository
+	patientRepo    port.PatientRepository
+	patientService port.IPatientService
+	uow            port.UnitOfWorkFactory
 }
 
 func NewWorkspaceService(
 	workspaceRepo port.WorkspaceRepository,
+	patientRepo port.PatientRepository,
+	patientService port.IPatientService,
 	uow port.UnitOfWorkFactory,
 ) *WorkspaceService {
 	return &WorkspaceService{
-		workspaceRepo: workspaceRepo,
-		uow:           uow,
+		workspaceRepo:  workspaceRepo,
+		patientRepo:    patientRepo,
+		patientService: patientService,
+		uow:            uow,
 	}
 }
 
@@ -177,12 +184,28 @@ func (ws *WorkspaceService) DeleteWorkspace(ctx context.Context, id string) erro
 }
 
 func (ws *WorkspaceService) BatchDeleteWorkspaces(ctx context.Context, workspaceIDs []string) error {
+	errChan := make(chan error, len(workspaceIDs))
+	semaphore := make(chan struct{}, 3)
 	for _, workspaceID := range workspaceIDs {
-		if err := ws.CascadeDeleteWorkspace(ctx, workspaceID); err != nil {
-			return errors.NewInternalError("failed to delete workspace: "+workspaceID, err)
+		semaphore <- struct{}{}
+		go func(wid string) {
+			defer func() { <-semaphore }()
+			if err := ws.CascadeDeleteWorkspace(ctx, wid); err != nil {
+				errChan <- fmt.Errorf("failed to delete workspace %s: %w", wid, err)
+			} else {
+				errChan <- nil
+			}
+		}(workspaceID)
+	}
+
+	var firstErr error
+	for range workspaceIDs {
+		if err := <-errChan; err != nil && firstErr == nil {
+			firstErr = err
 		}
 	}
-	return nil
+
+	return firstErr
 }
 
 func (ws *WorkspaceService) CountWorkspaces(ctx context.Context, filters []sharedQuery.Filter) (int64, error) {
@@ -190,90 +213,19 @@ func (ws *WorkspaceService) CountWorkspaces(ctx context.Context, filters []share
 }
 
 func (ws *WorkspaceService) CascadeDeleteWorkspace(ctx context.Context, workspaceID string) error {
-
 	_, err := ws.workspaceRepo.Read(ctx, workspaceID)
 	if err != nil {
-		return errors.NewInternalError("failed to read workspace", err)
+		return err
 	}
 
-	return ws.uow.WithTx(ctx, func(txctx context.Context, repos *port.Repositories) error {
-
-		patientIDs, err := collectionPatientIds(txctx, repos.PatientRepo, workspaceID)
-		if err != nil {
-			return err
-		}
-
-		allImageIds := make([]string, 0)
-		allAnnotationIds := make([]string, 0)
-
-		for _, patientID := range patientIDs {
-			imageIds, annotationIds, err := collectImageAndAnnotationIDs(txctx, repos, patientID)
-			if err != nil {
-				return err
-			}
-			allImageIds = append(allImageIds, imageIds...)
-			allAnnotationIds = append(allAnnotationIds, annotationIds...)
-		}
-
-		// Delete All Annotations
-		max_batch_size := 500
-		if len(allAnnotationIds) > 0 {
-			for i := 0; i < len(allAnnotationIds); i += max_batch_size {
-				end := i + max_batch_size
-				if end > len(allAnnotationIds) {
-					end = len(allAnnotationIds)
-				}
-				batch := allAnnotationIds[i:end]
-				if err := repos.AnnotationRepo.BatchDelete(txctx, batch); err != nil {
-					return err
-				}
-			}
-		}
-
-		// Delete All Images
-		if len(allImageIds) > 0 {
-			for i := 0; i < len(allImageIds); i += max_batch_size {
-				end := i + max_batch_size
-				if end > len(allImageIds) {
-					end = len(allImageIds)
-				}
-				batch := allImageIds[i:end]
-				if err := repos.ImageRepo.BatchDelete(txctx, batch); err != nil {
-					return err
-				}
-			}
-		}
-
-		// Delete All Patients
-		if len(patientIDs) > 0 {
-			for i := 0; i < len(patientIDs); i += max_batch_size {
-				end := i + max_batch_size
-				if end > len(patientIDs) {
-					end = len(patientIDs)
-				}
-				batch := patientIDs[i:end]
-				if err := repos.PatientRepo.BatchDelete(txctx, batch); err != nil {
-					return err
-				}
-			}
-		}
-
-		// Finally Delete Workspace
-		if err := repos.WorkspaceRepo.Delete(txctx, workspaceID); err != nil {
-			return err
-		}
-
-		return nil
-	})
-}
-
-func collectionPatientIds(ctx context.Context, patientRepo port.PatientRepository, workspaceID string) ([]string, error) {
-	patientIDs := make([]string, 0)
+	const scanBatchSize = 100
+	const processBatchSize = 10
 	offset := 0
-	limit := 100
+	totalPatients := 0
 
 	for {
-		filters := []sharedQuery.Filter{
+
+		patientsFilter := []sharedQuery.Filter{
 			{
 				Field:    constants.PatientWorkspaceIDField,
 				Operator: sharedQuery.OpEqual,
@@ -281,80 +233,48 @@ func collectionPatientIds(ctx context.Context, patientRepo port.PatientRepositor
 			},
 		}
 		pagination := &sharedQuery.Pagination{
-			Limit:  limit,
+			Limit:  scanBatchSize,
 			Offset: offset,
 		}
-		result, err := patientRepo.FindByFilters(ctx, filters, pagination)
+
+		patientResult, err := ws.patientRepo.FindByFilters(ctx, patientsFilter, pagination)
 		if err != nil {
-			return nil, err
+			return errors.NewInternalError("failed to find patients", err)
 		}
-		for _, patient := range result.Data {
+
+		if len(patientResult.Data) == 0 {
+			break
+		}
+
+		patientIDs := make([]string, 0, len(patientResult.Data))
+		for _, patient := range patientResult.Data {
 			patientIDs = append(patientIDs, patient.ID)
 		}
-		if !result.HasMore {
-			break
-		}
-		offset += limit
-	}
-	return patientIDs, nil
-}
 
-func collectImageAndAnnotationIDs(ctx context.Context, repos *port.Repositories, patientID string) ([]string, []string, error) {
-	imageIDs := make([]string, 0)
-	annotationIDs := make([]string, 0)
-	offset := 0
-	limit := 100
+		totalPatients += len(patientIDs)
 
-	for {
-		filters := []sharedQuery.Filter{
-			{
-				Field:    constants.ImagePatientIDField,
-				Operator: sharedQuery.OpEqual,
-				Value:    patientID,
-			},
-		}
-		pagination := &sharedQuery.Pagination{
-			Limit:  limit,
-			Offset: offset,
-		}
-		result, err := repos.ImageRepo.FindByFilters(ctx, filters, pagination)
-		if err != nil {
-			return nil, nil, err
-		}
-		for _, image := range result.Data {
-			imageIDs = append(imageIDs, image.ID)
-
-			// Collect Annotations for this image
-			annoOffset := 0
-			for {
-				annoFilters := []sharedQuery.Filter{
-					{
-						Field:    constants.AnnotationImageIDField,
-						Operator: sharedQuery.OpEqual,
-						Value:    image.ID,
-					},
-				}
-				annoPagination := &sharedQuery.Pagination{
-					Limit:  limit,
-					Offset: annoOffset,
-				}
-				annoResult, err := repos.AnnotationRepo.FindByFilters(ctx, annoFilters, annoPagination)
-				if err != nil {
-					return nil, nil, err
-				}
-				for _, anno := range annoResult.Data {
-					annotationIDs = append(annotationIDs, anno.ID)
-				}
-				if !annoResult.HasMore {
-					break
-				}
-				annoOffset += limit
+		for i := 0; i < len(patientIDs); i += processBatchSize {
+			end := i + processBatchSize
+			if end > len(patientIDs) {
+				end = len(patientIDs)
 			}
+			batch := patientIDs[i:end]
+
+			if err := ws.patientService.BatchDelete(ctx, batch); err != nil {
+				return errors.NewInternalError("failed to cascade delete patients", err)
+			}
+
 		}
-		if !result.HasMore {
+
+		if !patientResult.HasMore {
 			break
 		}
-		offset += limit
+		offset += scanBatchSize
 	}
-	return imageIDs, annotationIDs, nil
+
+	if err := ws.workspaceRepo.Delete(ctx, workspaceID); err != nil {
+		return errors.NewInternalError("failed to delete workspace", err)
+	}
+
+	return nil
 }
