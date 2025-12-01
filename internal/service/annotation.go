@@ -70,8 +70,11 @@ func (as *AnnotationService) GetAnnotationsByImageID(ctx context.Context, imageI
 	if err != nil {
 		return nil, err
 	}
-	if len(result.Data) == 0 {
-		return nil, nil
+	if result == nil {
+		result = &sharedQuery.Result[*model.Annotation]{
+			Data:    make([]*model.Annotation, 0),
+			HasMore: false,
+		}
 	}
 	return result, nil
 }
