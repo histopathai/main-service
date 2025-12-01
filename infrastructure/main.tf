@@ -49,9 +49,9 @@ locals {
   original_bucket_name  = data.terraform_remote_state.platform.outputs.original_bucket_name
   processed_bucket_name = data.terraform_remote_state.platform.outputs.processed_bucket_name
 
-  job_small  = data.terraform_remote_state.image_processing.outputs.job_names["small"]
-  job_medium = data.terraform_remote_state.image_processing.outputs.job_names["medium"]
-  job_large  = data.terraform_remote_state.image_processing.outputs.job_names["large"]
+  job_small  = data.terraform_remote_state.image_processing.outputs.job_ids["small"]
+  job_medium = data.terraform_remote_state.image_processing.outputs.job_ids["medium"]
+  job_large  = data.terraform_remote_state.image_processing.outputs.job_ids["large"]
 }
 
 provider "google" {
