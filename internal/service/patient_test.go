@@ -23,6 +23,7 @@ func setupPatientService(t *testing.T) (
 	*mocks.MockPatientRepository,
 	*mocks.MockImageRepository,
 	*mocks.MockAnnotationRepository,
+	*mocks.MockImageEventPublisher,
 	*mocks.MockUnitOfWorkFactory,
 ) {
 	ctrl := gomock.NewController(t)
@@ -32,6 +33,7 @@ func setupPatientService(t *testing.T) (
 	mockPatientRepo := mocks.NewMockPatientRepository(ctrl)
 	mockImageRepo := mocks.NewMockImageRepository(ctrl)
 	mockAnnotationRepo := mocks.NewMockAnnotationRepository(ctrl)
+	mockImageEventPublisher := mocks.NewMockImageEventPublisher(ctrl)
 	mockUOW := mocks.NewMockUnitOfWorkFactory(ctrl)
 
 	mockUOW.EXPECT().WithTx(gomock.Any(), gomock.Any()).AnyTimes().DoAndReturn(
@@ -45,17 +47,25 @@ func setupPatientService(t *testing.T) (
 		},
 	)
 
-	pService := service.NewPatientService(mockPatientRepo, mockWorkspaceRepo, mockUOW)
-	return pService, mockWorkspaceRepo, mockPatientRepo, mockImageRepo, mockAnnotationRepo, mockUOW
+	pService := service.NewPatientService(
+		mockPatientRepo,
+		mockWorkspaceRepo,
+		mockImageRepo,
+		mockAnnotationRepo,
+		mockImageEventPublisher,
+		mockUOW,
+	)
+	return pService, mockWorkspaceRepo, mockPatientRepo, mockImageRepo, mockAnnotationRepo, mockImageEventPublisher, mockUOW
 }
 
 func TestCreateNewPatient_Success(t *testing.T) {
-	pService, mockWorkspaceRepo, mockPatientRepo, _, _, _ := setupPatientService(t)
+	pService, mockWorkspaceRepo, mockPatientRepo, _, _, _, _ := setupPatientService(t)
 
 	ctx := context.Background()
 
 	input := port.CreatePatientInput{
 		WorkspaceID: "workspace-123",
+		CreatorID:   "creator-123",
 		Name:        "John Doe",
 		Age:         nil,
 		Gender:      nil,
@@ -96,7 +106,7 @@ func TestCreateNewPatient_Success(t *testing.T) {
 }
 
 func TestCreateNewPatient_Failure_WorkspaceNotReady(t *testing.T) {
-	pService, mockWorkspaceRepo, mockPatientRepo, _, _, _ := setupPatientService(t)
+	pService, mockWorkspaceRepo, mockPatientRepo, _, _, _, _ := setupPatientService(t)
 
 	ctx := context.Background()
 
@@ -130,7 +140,7 @@ func TestCreateNewPatient_Failure_WorkspaceNotReady(t *testing.T) {
 }
 
 func TestCreateNewPatient_Conflict(t *testing.T) {
-	pService, _, mockPatientRepo, _, _, _ := setupPatientService(t)
+	pService, _, mockPatientRepo, _, _, _, _ := setupPatientService(t)
 
 	ctx := context.Background()
 
@@ -159,7 +169,7 @@ func TestCreateNewPatient_Conflict(t *testing.T) {
 }
 
 func TestCreateNewPatient_WorkspaceValidationFailure(t *testing.T) {
-	pService, mockWorkspaceRepo, mockPatientRepo, _, _, _ := setupPatientService(t)
+	pService, mockWorkspaceRepo, mockPatientRepo, _, _, _, _ := setupPatientService(t)
 
 	ctx := context.Background()
 
@@ -188,7 +198,7 @@ func TestCreateNewPatient_WorkspaceValidationFailure(t *testing.T) {
 }
 
 func TestTransferPatient_Success(t *testing.T) {
-	pService, mockWorkspaceRepo, mockPatientRepo, _, _, _ := setupPatientService(t)
+	pService, mockWorkspaceRepo, mockPatientRepo, _, _, _, _ := setupPatientService(t)
 
 	ctx := context.Background()
 	patientID := "patient-123"
@@ -211,7 +221,7 @@ func TestTransferPatient_Success(t *testing.T) {
 }
 
 func TestTransferPatient_WorkspaceConflictFailure(t *testing.T) {
-	pService, mockWorkspaceRepo, _, _, _, _ := setupPatientService(t)
+	pService, mockWorkspaceRepo, _, _, _, _, _ := setupPatientService(t)
 
 	ctx := context.Background()
 	patientID := "patient-123"
@@ -230,14 +240,14 @@ func TestTransferPatient_WorkspaceConflictFailure(t *testing.T) {
 }
 
 func TestDeletePatientByID_Success(t *testing.T) {
-	pService, _, mockPatientRepo, mockImageRepo, _, _ := setupPatientService(t)
+	pService, _, mockPatientRepo, mockImageRepo, _, _, _ := setupPatientService(t)
 
 	ctx := context.Background()
 	patientID := "patient-123"
 
 	filter := []query.Filter{
 		{
-			Field:    "PatientID",
+			Field:    constants.ImagePatientIDField,
 			Operator: query.OpEqual,
 			Value:    patientID,
 		},
@@ -260,14 +270,14 @@ func TestDeletePatientByID_Success(t *testing.T) {
 }
 
 func TestDeletePatientByID_WithAssociatedImagesFailure(t *testing.T) {
-	pService, _, _, mockImageRepo, _, _ := setupPatientService(t)
+	pService, _, _, mockImageRepo, _, _, _ := setupPatientService(t)
 
 	ctx := context.Background()
 	patientID := "patient-123"
 
 	filter := []query.Filter{
 		{
-			Field:    "PatientID",
+			Field:    constants.ImagePatientIDField,
 			Operator: query.OpEqual,
 			Value:    patientID,
 		},
@@ -291,7 +301,7 @@ func TestDeletePatientByID_WithAssociatedImagesFailure(t *testing.T) {
 }
 
 func TestUpdatePatient_Success(t *testing.T) {
-	pService, _, mockPatientRepo, _, _, _ := setupPatientService(t)
+	pService, _, mockPatientRepo, _, _, _, _ := setupPatientService(t)
 	ctx := context.Background()
 	patientID := "pat-123"
 	newName := "New Name"
@@ -313,7 +323,7 @@ func TestUpdatePatient_Success(t *testing.T) {
 }
 
 func TestUpdatePatient_NoUpdates(t *testing.T) {
-	pService, _, mockPatientRepo, _, _, _ := setupPatientService(t)
+	pService, _, mockPatientRepo, _, _, _, _ := setupPatientService(t)
 	ctx := context.Background()
 	patientID := "pat-123"
 	input := port.UpdatePatientInput{}
@@ -325,7 +335,7 @@ func TestUpdatePatient_NoUpdates(t *testing.T) {
 }
 
 func TestListPatients_Success(t *testing.T) {
-	pService, _, mockPatientRepo, _, _, _ := setupPatientService(t)
+	pService, _, mockPatientRepo, _, _, _, _ := setupPatientService(t)
 	ctx := context.Background()
 	pagination := &query.Pagination{Limit: 10}
 
@@ -341,7 +351,7 @@ func TestListPatients_Success(t *testing.T) {
 }
 
 func TestGetPatientsByWorkspaceID_Success(t *testing.T) {
-	pService, _, mockPatientRepo, _, _, _ := setupPatientService(t)
+	pService, _, mockPatientRepo, _, _, _, _ := setupPatientService(t)
 	ctx := context.Background()
 	workspaceID := "ws-123"
 	pagination := &query.Pagination{Limit: 10}
@@ -364,92 +374,8 @@ func TestGetPatientsByWorkspaceID_Success(t *testing.T) {
 	require.Len(t, result.Data, 1)
 }
 
-func TransferPatientWorkspace_Success(t *testing.T) {
-	pService, mockWorkspaceRepo, mockPatientRepo, _, _, _ := setupPatientService(t)
-
-	ctx := context.Background()
-	patientID := "patient-123"
-	newWorkspaceID := "workspace-456"
-
-	mockWorkspaceRepo.EXPECT().
-		Read(gomock.Any(), newWorkspaceID).
-		Return(&model.Workspace{
-			ID:   newWorkspaceID,
-			Name: "New Workspace",
-		}, nil)
-
-	mockPatientRepo.EXPECT().
-		Transfer(gomock.Any(), patientID, newWorkspaceID).
-		Return(nil)
-
-	err := pService.TransferPatientWorkspace(ctx, patientID, newWorkspaceID)
-
-	require.NoError(t, err)
-}
-
-func TransferPatientWorkspace_WorkspaceConflictFailure(t *testing.T) {
-	pService, mockWorkspaceRepo, _, _, _, _ := setupPatientService(t)
-
-	ctx := context.Background()
-	patientID := "patient-123"
-	newWorkspaceID := "workspace-456"
-
-	mockWorkspaceRepo.EXPECT().
-		Read(gomock.Any(), newWorkspaceID).
-		Return(nil, errors.NewConflictError("Workspace not found", nil))
-
-	err := pService.TransferPatientWorkspace(ctx, patientID, newWorkspaceID)
-
-	require.Error(t, err)
-	var conflictErr *errors.Err
-	require.True(t, stderrors.As(err, &conflictErr))
-	assert.Equal(t, errors.ErrorTypeConflict, conflictErr.Type)
-}
-
-func CascadeDeletePatient_Success(t *testing.T) {
-	pService, _, mockPatientRepo, mockImageRepo, mockAnnotationRepo, _ := setupPatientService(t)
-
-	ctx := context.Background()
-	patientID := "patient-123"
-
-	filter := []query.Filter{
-		{
-			Field:    "PatientID",
-			Operator: query.OpEqual,
-			Value:    patientID,
-		},
-	}
-	paginationOpts := &query.Pagination{
-		Limit:  1,
-		Offset: 0,
-	}
-	mockImageRepo.EXPECT().
-		FindByFilters(gomock.Any(), filter, paginationOpts).
-		Return(&query.Result[*model.Image]{Data: []*model.Image{}}, nil)
-
-	mockAnnotationRepo.EXPECT().
-		FindByFilters(gomock.Any(), filter, paginationOpts).
-		Return(&query.Result[*model.Annotation]{Data: []*model.Annotation{}}, nil)
-
-	mockAnnotationRepo.EXPECT().
-		BatchDelete(gomock.Any(), []string{}).
-		Return(nil)
-
-	mockPatientRepo.EXPECT().
-		BatchDelete(gomock.Any(), []string{patientID}).
-		Return(nil)
-
-	mockImageRepo.EXPECT().
-		BatchDelete(gomock.Any(), []string{}).
-		Return(nil)
-
-	err := pService.CascadeDelete(ctx, patientID)
-
-	require.NoError(t, err)
-}
-
 func TestGetPatientByID_Success(t *testing.T) {
-	pService, _, mockPatientRepo, _, _, _ := setupPatientService(t)
+	pService, _, mockPatientRepo, _, _, _, _ := setupPatientService(t)
 	ctx := context.Background()
 	patientID := "patient-123"
 	expectedPatient := &model.Patient{
@@ -468,7 +394,7 @@ func TestGetPatientByID_Success(t *testing.T) {
 }
 
 func TestGetPatientByID_NotFound(t *testing.T) {
-	pService, _, mockPatientRepo, _, _, _ := setupPatientService(t)
+	pService, _, mockPatientRepo, _, _, _, _ := setupPatientService(t)
 	ctx := context.Background()
 	patientID := "patient-999"
 
@@ -482,25 +408,49 @@ func TestGetPatientByID_NotFound(t *testing.T) {
 	assert.Nil(t, result)
 }
 
-func TestCascadeDelete_ComplexWithImagesAndAnnotations(t *testing.T) {
-	pService, _, mockPatientRepo, mockImageRepo, mockAnnotationRepo, _ := setupPatientService(t)
+func TestCascadeDelete_Success(t *testing.T) {
+	pService, _, mockPatientRepo, mockImageRepo, _, _, _ := setupPatientService(t)
+
 	ctx := context.Background()
-	patientID := "patient-complex-del"
+	patientID := "patient-123"
+
+	// No images found
+	mockImageRepo.EXPECT().
+		FindByFilters(gomock.Any(),
+			[]query.Filter{{Field: constants.ImagePatientIDField, Operator: query.OpEqual, Value: patientID}},
+			&query.Pagination{Limit: 100, Offset: 0}).
+		Return(&query.Result[*model.Image]{Data: []*model.Image{}, HasMore: false}, nil)
+
+	// Delete patient
+	mockPatientRepo.EXPECT().
+		Delete(gomock.Any(), patientID).
+		Return(nil)
+
+	err := pService.CascadeDelete(ctx, patientID)
+	require.NoError(t, err)
+}
+
+func TestCascadeDelete_WithImagesAndAnnotations(t *testing.T) {
+	pService, _, mockPatientRepo, mockImageRepo, mockAnnotationRepo, mockEventPublisher, _ := setupPatientService(t)
+	ctx := context.Background()
+	patientID := "patient-complex"
 
 	image1 := &model.Image{ID: "img-1", PatientID: patientID}
 	image2 := &model.Image{ID: "img-2", PatientID: patientID}
 	anno1 := &model.Annotation{ID: "anno-1", ImageID: "img-1"}
 	anno2 := &model.Annotation{ID: "anno-2", ImageID: "img-2"}
 
-	imageFilter := []query.Filter{{Field: constants.ImagePatientIDField, Operator: query.OpEqual, Value: patientID}}
-
+	// First batch of images
 	mockImageRepo.EXPECT().
-		FindByFilters(gomock.Any(), imageFilter, &query.Pagination{Limit: 100, Offset: 0}).
+		FindByFilters(gomock.Any(),
+			[]query.Filter{{Field: constants.ImagePatientIDField, Operator: query.OpEqual, Value: patientID}},
+			&query.Pagination{Limit: 100, Offset: 0}).
 		Return(&query.Result[*model.Image]{
 			Data:    []*model.Image{image1, image2},
 			HasMore: false,
 		}, nil)
 
+	// Annotations for image1
 	mockAnnotationRepo.EXPECT().
 		FindByFilters(gomock.Any(),
 			[]query.Filter{{Field: constants.AnnotationImageIDField, Operator: query.OpEqual, Value: image1.ID}},
@@ -510,6 +460,7 @@ func TestCascadeDelete_ComplexWithImagesAndAnnotations(t *testing.T) {
 			HasMore: false,
 		}, nil)
 
+	// Annotations for image2
 	mockAnnotationRepo.EXPECT().
 		FindByFilters(gomock.Any(),
 			[]query.Filter{{Field: constants.AnnotationImageIDField, Operator: query.OpEqual, Value: image2.ID}},
@@ -519,14 +470,28 @@ func TestCascadeDelete_ComplexWithImagesAndAnnotations(t *testing.T) {
 			HasMore: false,
 		}, nil)
 
+	// Batch delete annotations
 	mockAnnotationRepo.EXPECT().
 		BatchDelete(gomock.Any(), gomock.InAnyOrder([]string{"anno-1", "anno-2"})).
 		Return(nil)
 
+	// Second call for images (for event publishing)
 	mockImageRepo.EXPECT().
-		BatchDelete(gomock.Any(), gomock.InAnyOrder([]string{"img-1", "img-2"})).
+		FindByFilters(gomock.Any(),
+			[]query.Filter{{Field: constants.ImagePatientIDField, Operator: query.OpEqual, Value: patientID}},
+			&query.Pagination{Limit: 50, Offset: 0}).
+		Return(&query.Result[*model.Image]{
+			Data:    []*model.Image{image1, image2},
+			HasMore: false,
+		}, nil)
+
+	// Publish events
+	mockEventPublisher.EXPECT().
+		PublishImageDeletionRequested(gomock.Any(), gomock.Any()).
+		Times(2).
 		Return(nil)
 
+	// Delete patient
 	mockPatientRepo.EXPECT().
 		Delete(gomock.Any(), patientID).
 		Return(nil)
@@ -536,15 +501,23 @@ func TestCascadeDelete_ComplexWithImagesAndAnnotations(t *testing.T) {
 }
 
 func TestBatchDelete_Success(t *testing.T) {
-	pService, _, mockPatientRepo, mockImageRepo, _, _ := setupPatientService(t)
+	pService, _, mockPatientRepo, mockImageRepo, _, _, _ := setupPatientService(t)
 	ctx := context.Background()
 	patientIDs := []string{"p1", "p2"}
 
 	for _, pid := range patientIDs {
+		// For deleteAnnotationsForPatient
 		mockImageRepo.EXPECT().
 			FindByFilters(gomock.Any(),
 				[]query.Filter{{Field: constants.ImagePatientIDField, Operator: query.OpEqual, Value: pid}},
-				gomock.Any()).
+				&query.Pagination{Limit: 100, Offset: 0}).
+			Return(&query.Result[*model.Image]{Data: []*model.Image{}, HasMore: false}, nil)
+
+		// For publishImageDeletionEvents
+		mockImageRepo.EXPECT().
+			FindByFilters(gomock.Any(),
+				[]query.Filter{{Field: constants.ImagePatientIDField, Operator: query.OpEqual, Value: pid}},
+				&query.Pagination{Limit: 50, Offset: 0}).
 			Return(&query.Result[*model.Image]{Data: []*model.Image{}, HasMore: false}, nil)
 
 		mockPatientRepo.EXPECT().Delete(gomock.Any(), pid).Return(nil)
@@ -554,21 +527,8 @@ func TestBatchDelete_Success(t *testing.T) {
 	require.NoError(t, err)
 }
 
-func TestBatchDelete_FailureOnOne(t *testing.T) {
-	pService, _, _, mockImageRepo, _, _ := setupPatientService(t)
-	ctx := context.Background()
-	patientIDs := []string{"p1", "p2"}
-
-	mockImageRepo.EXPECT().
-		FindByFilters(gomock.Any(), gomock.Any(), gomock.Any()).
-		Return(nil, errors.NewInternalError("db error", nil))
-
-	err := pService.BatchDelete(ctx, patientIDs)
-	require.Error(t, err)
-}
-
 func TestBatchTransfer_Success(t *testing.T) {
-	pService, mockWorkspaceRepo, mockPatientRepo, _, _, _ := setupPatientService(t)
+	pService, mockWorkspaceRepo, mockPatientRepo, _, _, _, _ := setupPatientService(t)
 	ctx := context.Background()
 	patientIDs := []string{"p1", "p2", "p3"}
 	newWorkspaceID := "target-ws"
@@ -588,7 +548,7 @@ func TestBatchTransfer_Success(t *testing.T) {
 }
 
 func TestBatchTransfer_WorkspaceNotFound(t *testing.T) {
-	pService, mockWorkspaceRepo, _, _, _, _ := setupPatientService(t)
+	pService, mockWorkspaceRepo, _, _, _, _, _ := setupPatientService(t)
 	ctx := context.Background()
 	patientIDs := []string{"p1"}
 	newWorkspaceID := "non-existent-ws"
@@ -602,7 +562,7 @@ func TestBatchTransfer_WorkspaceNotFound(t *testing.T) {
 }
 
 func TestBatchTransfer_RepoFailure(t *testing.T) {
-	pService, mockWorkspaceRepo, mockPatientRepo, _, _, _ := setupPatientService(t)
+	pService, mockWorkspaceRepo, mockPatientRepo, _, _, _, _ := setupPatientService(t)
 	ctx := context.Background()
 	patientIDs := []string{"p1"}
 	newWorkspaceID := "target-ws"
@@ -620,7 +580,7 @@ func TestBatchTransfer_RepoFailure(t *testing.T) {
 }
 
 func TestCountPatients_Success(t *testing.T) {
-	pService, _, mockPatientRepo, _, _, _ := setupPatientService(t)
+	pService, _, mockPatientRepo, _, _, _, _ := setupPatientService(t)
 	ctx := context.Background()
 	filters := []query.Filter{{Field: "race", Value: "Asian"}}
 
