@@ -262,12 +262,17 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.PatientService = service.NewPatientService(
 		c.Repos.PatientRepo,
 		c.Repos.WorkspaceRepo,
+		c.Repos.ImageRepo,
+		c.Repos.AnnotationRepo,
+		c.ImageEventPublisher,
 		c.UOW,
 	)
 
 	// Workspace Service
 	c.WorkspaceService = service.NewWorkspaceService(
 		c.Repos.WorkspaceRepo,
+		c.Repos.PatientRepo,
+		c.PatientService,
 		c.UOW,
 	)
 
