@@ -9,6 +9,7 @@ const (
 	StatusProcessing ImageStatus = "PROCESSING"
 	StatusProcessed  ImageStatus = "PROCESSED"
 	StatusFailed     ImageStatus = "FAILED"
+	StatusDeleting   ImageStatus = "DELETING" // Added
 )
 
 type Image struct {
@@ -33,6 +34,10 @@ type Image struct {
 }
 
 func (i *Image) IsRetryable(maxRetries int) bool {
+	// Prevent retry if status is DELETING
+	if i.Status == StatusDeleting {
+		return false
+	}
 	if i.Status == StatusFailed && i.RetryCount < maxRetries {
 		return true
 	}
