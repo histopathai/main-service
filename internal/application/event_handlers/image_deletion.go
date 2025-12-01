@@ -61,14 +61,23 @@ func (h *ImageDeletionHandler) processEvent(ctx context.Context, data []byte, at
 	h.logger.Info("Processing image deletion request",
 		slog.String("image_id", event.ImageID))
 
-	image, err := h.imageRepo.Read(ctx, event.ImageID)
-	if err != nil {
+	if err := h.imageRepo.Update(ctx, event.ImageID, map[string]interface{}{
+		"Status": model.StatusDeleting,
+	}); err != nil {
 		if isNotFoundError(err) {
 			h.logger.Warn("Image not found in database, assuming already deleted",
 				slog.String("image_id", event.ImageID))
 			return nil
 		}
+		h.logger.Warn("Failed to mark image as DELETING, proceeding with file deletion",
+			slog.String("error", err.Error()))
+	}
 
+	image, err := h.imageRepo.Read(ctx, event.ImageID)
+	if err != nil {
+		if isNotFoundError(err) {
+			return nil
+		}
 		return NewRetryableError(
 			fmt.Errorf("failed to read image: %w", err),
 			events.CategoryDatabase,

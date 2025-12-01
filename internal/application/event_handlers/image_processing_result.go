@@ -140,6 +140,12 @@ func (h *ImageProcessingResultHandler) handleFailure(ctx context.Context, result
 		).WithContext("image_id", result.ImageID)
 	}
 
+	if image.Status == model.StatusDeleting {
+		h.logger.Info("Image is being deleted, skipping retry logic",
+			slog.String("image_id", result.ImageID))
+		return nil
+	}
+
 	// Check if retryable and under max retry limit
 	maxRetries := 3
 	if retryable && image.RetryCount < maxRetries {

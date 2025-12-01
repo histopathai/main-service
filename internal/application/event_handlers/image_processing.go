@@ -57,6 +57,17 @@ func (h *ImageProcessingRequestHandler) processEvent(ctx context.Context, data [
 		return err
 	}
 
+	existingImage, err := h.imageRepo.Read(ctx, event.ImageID)
+	if err != nil {
+		return NewRetryableError(fmt.Errorf("failed to read image state: %w", err), events.CategoryDatabase, events.SeverityHigh)
+	}
+
+	if existingImage.Status == model.StatusDeleting {
+		h.logger.Info("Skipping processing for image marked as DELETING",
+			slog.String("image_id", event.ImageID))
+		return nil
+	}
+
 	h.logger.Info("Processing image processing request",
 		slog.String("image_id", event.ImageID),
 		slog.String("origin_path", event.OriginPath))
