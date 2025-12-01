@@ -52,7 +52,6 @@ func (h *ImageProcessingRequestHandler) Handle(ctx context.Context, data []byte,
 }
 
 func (h *ImageProcessingRequestHandler) processEvent(ctx context.Context, data []byte, attributes map[string]string) error {
-	// Deserialize event
 	var event events.ImageProcessingRequestedEvent
 	if err := h.DeserializeEvent(data, &event); err != nil {
 		return err
@@ -62,10 +61,31 @@ func (h *ImageProcessingRequestHandler) processEvent(ctx context.Context, data [
 		slog.String("image_id", event.ImageID),
 		slog.String("origin_path", event.OriginPath))
 
+	exists, err := h.storage.ObjectExists(ctx, h.bucketName, event.OriginPath)
+	if err != nil {
+		return NewRetryableError(
+			fmt.Errorf("failed to check object existence: %w", err),
+			events.CategoryStorage,
+			events.SeverityHigh,
+		).WithContext("origin_path", event.OriginPath)
+	}
+
+	if !exists {
+		h.logger.Error("File does not exist in storage, aborting processing",
+			slog.String("image_id", event.ImageID),
+			slog.String("origin_path", event.OriginPath))
+
+		return NewNonRetryableError(
+			fmt.Errorf("file not found in bucket %s", h.bucketName),
+			events.CategoryStorage,
+			events.SeverityHigh,
+		).WithContext("origin_path", event.OriginPath)
+	}
+
 	objMetadata, err := h.storage.GetObjectMetadata(ctx, h.bucketName, event.OriginPath)
 	if err != nil {
 		return NewRetryableError(
-			fmt.Errorf("failed to get object metadata from GCS: %w", err),
+			fmt.Errorf("failed to get object metadata: %w", err),
 			events.CategoryStorage,
 			events.SeverityHigh,
 		).WithContext("origin_path", event.OriginPath)
@@ -76,12 +96,11 @@ func (h *ImageProcessingRequestHandler) processEvent(ctx context.Context, data [
 		slog.String("image_id", event.ImageID),
 		slog.Int64("size", imageSize))
 
-	// Update image status to PROCESSING
 	if err := h.updateImageStatus(ctx, event.ImageID, model.StatusProcessing); err != nil {
-		return err
+		h.logger.Warn("Could not update image status to PROCESSING",
+			slog.String("error", err.Error()))
 	}
 
-	// Trigger worker (Cloud Run Job)
 	workerInput := &port.ProcessingInput{
 		ImageID:    event.ImageID,
 		OriginPath: event.OriginPath,
@@ -94,11 +113,7 @@ func (h *ImageProcessingRequestHandler) processEvent(ctx context.Context, data [
 			slog.String("image_id", event.ImageID),
 			slog.String("error", err.Error()))
 
-		// Update image status to FAILED
-		if updateErr := h.updateImageStatusWithFailure(ctx, event.ImageID, err.Error()); updateErr != nil {
-			h.logger.Error("Failed to update image status after worker failure",
-				slog.String("error", updateErr.Error()))
-		}
+		_ = h.updateImageStatusWithFailure(ctx, event.ImageID, err.Error())
 
 		return err
 	}
