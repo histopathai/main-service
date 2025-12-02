@@ -48,6 +48,9 @@ func annotationToFirestoreMap(a *model.Annotation) map[string]interface{} {
 	if a.Class != nil {
 		m["class"] = *a.Class
 	}
+	if a.Description != nil {
+		m["description"] = *a.Description
+	}
 	return m
 }
 
@@ -145,6 +148,12 @@ func annotationMapFilters(filters []query.Filter) ([]query.Filter, error) {
 		case constants.UpdatedAtField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "updated_at",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.AnnotationDescriptionField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "description",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
