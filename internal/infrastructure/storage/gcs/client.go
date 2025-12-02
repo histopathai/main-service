@@ -55,7 +55,7 @@ func (g *GCSClient) GenerateSignedURL(
 		"x-goog-meta-patient-id:" + image.PatientID,
 		"x-goog-meta-creator-id:" + image.CreatorID,
 		"x-goog-meta-format:" + image.Format,
-		"x-goog-meta-file-name:" + image.Name,
+		"x-goog-meta-name:" + image.Name,
 		"x-goog-meta-origin-path:" + image.OriginPath,
 		"x-goog-meta-status:" + string(image.Status),
 	}
