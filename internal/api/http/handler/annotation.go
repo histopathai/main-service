@@ -14,14 +14,6 @@ import (
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
-var allowedAnnotationSortFields = map[string]bool{
-	"created_at": true,
-	"updated_at": true,
-	"name":       true,
-	"score":      true,
-	"class":      true,
-}
-
 type AnnotationHandler struct {
 	annotationService port.IAnnotationService
 	validator         *validator.RequestValidator

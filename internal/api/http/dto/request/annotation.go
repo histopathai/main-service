@@ -13,7 +13,7 @@ type CreateAnnotationRequest struct {
 }
 
 type UpdateAnnotationRequest struct {
-	Polygon     *[]model.Point `json:"polygon,omitempty" binding:"dive"`
+	Polygon     *[]model.Point `json:"polygon,omitempty" binding:"omitempty,dive"`
 	Score       *float64       `json:"score,omitempty"`
 	Class       *string        `json:"class,omitempty"`
 	Description *string        `json:"description,omitempty"`
