@@ -29,3 +29,14 @@ type ListPatientsRequest struct {
 	Filters    []JSONFilterRequest   `json:"filters,omitempty" binding:"omitempty,dive"`
 	Pagination JSONPaginationRequest `json:"pagination"`
 }
+
+var ValidPatientSortFields = map[string]bool{
+	"created_at": true,
+	"updated_at": true,
+	"name":       true,
+	"age":        true,
+	"disease":    true,
+	"grade":      true,
+	"gender":     true,
+	"race":       true,
+}

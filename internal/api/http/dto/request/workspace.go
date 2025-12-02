@@ -28,3 +28,13 @@ type ListWorkspacesRequest struct {
 	Filters    []JSONFilterRequest   `json:"filters,omitempty" binding:"omitempty,dive"`
 	Pagination JSONPaginationRequest `json:"pagination"`
 }
+
+var ValidWorkspaceSortFields = map[string]bool{
+	"created_at":   true,
+	"updated_at":   true,
+	"name":         true,
+	"organ_type":   true,
+	"release_year": true,
+	"organization": true,
+	"license":      true,
+}

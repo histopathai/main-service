@@ -25,3 +25,9 @@ type ListAnnotationTypeRequest struct {
 	Filters    []JSONFilterRequest   `json:"filters,omitempty" binding:"omitempty,dive"`
 	Pagination JSONPaginationRequest `json:"pagination"`
 }
+
+var ValidAnnotationTypeSortFields = map[string]bool{
+	"created_at": true,
+	"updated_at": true,
+	"name":       true,
+}

@@ -11,3 +11,11 @@ type CreateAnnotationRequest struct {
 	Class       *string       `json:"class,omitempty"`
 	Description *string       `json:"description,omitempty"`
 }
+
+var ValidAnnotationSortFields = map[string]bool{
+	"image_id":     true,
+	"annotator_id": true,
+	"score":        true,
+	"class":        true,
+	"created_at":   true,
+}
