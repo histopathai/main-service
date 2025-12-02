@@ -327,3 +327,75 @@ func TestDeleteAnnotation_Failure(t *testing.T) {
 	err := aService.DeleteAnnotation(ctx, id)
 	require.Error(t, err)
 }
+
+func TestUpdateAnnotation_Success(t *testing.T) {
+	aService, mockAnnotationRepo, _ := setupAnnotationService(t)
+	ctx := context.Background()
+	annotationID := "annotation-123"
+	score := 4.8
+	class := "Benign"
+	description := "This is a benign annotation."
+	polygon := []model.Point{
+		{X: 10, Y: 10},
+		{X: 50, Y: 10},
+		{X: 50, Y: 50},
+		{X: 10, Y: 50},
+	}
+
+	input := &port.UpdateAnnotationInput{
+		Score:       &score,
+		Class:       &class,
+		Description: &description,
+		Polygon:     &polygon,
+	}
+
+	expectedUpdates := map[string]interface{}{
+		constants.AnnotationScoreField:       score,
+		constants.AnnotationClassField:       class,
+		constants.AnnotationDescriptionField: description,
+		constants.AnnotationPolygonField:     polygon,
+	}
+
+	mockAnnotationRepo.EXPECT().
+		Update(ctx, annotationID, expectedUpdates).
+		Return(nil)
+
+	err := aService.UpdateAnnotation(ctx, annotationID, input)
+	require.NoError(t, err)
+}
+
+func TestUpdateAnnotation_NoFieldsToUpdate(t *testing.T) {
+	aService, _, _ := setupAnnotationService(t)
+	ctx := context.Background()
+	annotationID := "annotation-123"
+
+	input := &port.UpdateAnnotationInput{
+		// No fields set
+	}
+
+	// Expect no calls to the repository since there's nothing to update
+	err := aService.UpdateAnnotation(ctx, annotationID, input)
+	require.NoError(t, err)
+}
+
+func TestUpdateAnnotation_RepoFailure(t *testing.T) {
+	aService, mockAnnotationRepo, _ := setupAnnotationService(t)
+	ctx := context.Background()
+	annotationID := "annotation-123"
+	score := 2.5
+
+	input := &port.UpdateAnnotationInput{
+		Score: &score,
+	}
+
+	expectedUpdates := map[string]interface{}{
+		constants.AnnotationScoreField: score,
+	}
+
+	mockAnnotationRepo.EXPECT().
+		Update(ctx, annotationID, expectedUpdates).
+		Return(errors.NewInternalError("db error", nil))
+
+	err := aService.UpdateAnnotation(ctx, annotationID, input)
+	require.Error(t, err)
+}

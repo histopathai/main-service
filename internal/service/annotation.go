@@ -79,6 +79,31 @@ func (as *AnnotationService) GetAnnotationsByImageID(ctx context.Context, imageI
 	return result, nil
 }
 
+func (as *AnnotationService) UpdateAnnotation(ctx context.Context, id string, input *port.UpdateAnnotationInput) error {
+	updates := make(map[string]interface{})
+
+	if input.Polygon != nil {
+		updates[constants.AnnotationPolygonField] = *input.Polygon
+	}
+	if input.Score != nil {
+		updates[constants.AnnotationScoreField] = *input.Score
+	}
+	if input.Class != nil {
+		updates[constants.AnnotationClassField] = *input.Class
+	}
+	if input.Description != nil {
+		updates[constants.AnnotationDescriptionField] = *input.Description
+	}
+	if len(updates) == 0 {
+		return nil // Nothing to update
+	}
+
+	if err := as.annotationRepo.Update(ctx, id, updates); err != nil {
+		return err
+	}
+
+	return nil
+}
 func (as *AnnotationService) DeleteAnnotation(ctx context.Context, id string) error {
 	return as.annotationRepo.Delete(ctx, id)
 }
