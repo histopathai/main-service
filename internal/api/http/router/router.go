@@ -162,6 +162,7 @@ func (r *Router) setupAnnotationRoutes(rg *gin.RouterGroup) {
 	annotations := rg.Group("/annotations")
 	{
 		annotations.POST("", r.annotationHandler.CreateNewAnnotation)
+		annotations.PUT("/:annotation_id", r.annotationHandler.UpdateAnnotation)
 		annotations.GET("/:annotation_id", r.annotationHandler.GetAnnotationByID)
 		annotations.DELETE("/:annotation_id", r.annotationHandler.DeleteAnnotation)
 		annotations.GET("/image/:image_id", r.annotationHandler.GetAnnotationsByImageID)

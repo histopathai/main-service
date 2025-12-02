@@ -124,11 +124,18 @@ type CreateAnnotationInput struct {
 	Class       *string
 	Description *string
 }
+type UpdateAnnotationInput struct {
+	Polygon     *[]model.Point
+	Score       *float64
+	Class       *string
+	Description *string
+}
 
 type IAnnotationService interface {
 	CreateNewAnnotation(ctx context.Context, input *CreateAnnotationInput) (*model.Annotation, error)
 	GetAnnotationByID(ctx context.Context, id string) (*model.Annotation, error)
 	GetAnnotationsByImageID(ctx context.Context, imageID string, pagination *query.Pagination) (*query.Result[*model.Annotation], error)
+	UpdateAnnotation(ctx context.Context, id string, input *UpdateAnnotationInput) error
 	DeleteAnnotation(ctx context.Context, id string) error
 	BatchDeleteAnnotations(ctx context.Context, ids []string) error
 	CountAnnotations(ctx context.Context, filters []query.Filter) (int64, error)
