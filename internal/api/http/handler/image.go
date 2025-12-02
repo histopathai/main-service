@@ -159,19 +159,16 @@ func (ih *ImageHandler) ListImageByPatientID(c *gin.Context) {
 		}))
 		return
 	}
-	if err := queryReq.ValidateSortFields(allowedImageSortFields); err != nil {
+
+	pagination := queryReq.ToPagination()
+	pagination.ApplyDefaults()
+
+	if err := pagination.ValidateSortFields(request.ValidImageSortFields); err != nil {
 		ih.handleError(c, err)
 		return
 	}
 
-	pagination := query.Pagination{
-		Limit:   queryReq.Limit,
-		Offset:  queryReq.Offset,
-		SortBy:  queryReq.SortBy,
-		SortDir: queryReq.SortDir,
-	}
-
-	result, err := ih.imageService.ListImageByPatientID(c.Request.Context(), patient_id, &pagination)
+	result, err := ih.imageService.ListImageByPatientID(c.Request.Context(), patient_id, pagination)
 	if err != nil {
 		ih.handleError(c, err)
 		return

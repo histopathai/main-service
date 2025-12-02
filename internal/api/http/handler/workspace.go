@@ -157,18 +157,12 @@ func (wh *WorkspaceHandler) ListWorkspaces(c *gin.Context) {
 		return
 	}
 
-	queryReq.ApplyDefaults()
+	pagination := queryReq.ToPagination()
+	pagination.ApplyDefaults()
 
-	if err := queryReq.ValidateSortFields(allowedWorkspaceSortFields); err != nil {
+	if err := pagination.ValidateSortFields(request.ValidWorkspaceSortFields); err != nil {
 		wh.handleError(c, err)
 		return
-	}
-
-	pagination := &query.Pagination{
-		Limit:   queryReq.Limit,
-		Offset:  queryReq.Offset,
-		SortBy:  queryReq.SortBy,
-		SortDir: queryReq.SortDir,
 	}
 
 	result, err := wh.workspaceService.ListWorkspaces(c.Request.Context(), pagination)

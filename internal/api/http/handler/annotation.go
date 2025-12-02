@@ -164,18 +164,13 @@ func (ah *AnnotationHandler) GetAnnotationsByImageID(c *gin.Context) {
 		return
 	}
 
-	queryReq.ApplyDefaults()
+	pagination := queryReq.ToPagination()
 
-	if err := queryReq.ValidateSortFields(allowedAnnotationSortFields); err != nil {
+	pagination.ApplyDefaults()
+
+	if err := pagination.ValidateSortFields(request.ValidAnnotationSortFields); err != nil {
 		ah.handleError(c, err)
 		return
-	}
-
-	pagination := &query.Pagination{
-		Limit:   queryReq.Limit,
-		Offset:  queryReq.Offset,
-		SortBy:  queryReq.SortBy,
-		SortDir: queryReq.SortDir,
 	}
 
 	result, err := ah.annotationService.GetAnnotationsByImageID(c.Request.Context(), imageID, pagination)
@@ -187,8 +182,8 @@ func (ah *AnnotationHandler) GetAnnotationsByImageID(c *gin.Context) {
 	// Service Output -> DTO
 
 	paginationResp := &response.PaginationResponse{
-		Limit:   queryReq.Limit,
-		Offset:  queryReq.Offset,
+		Limit:   result.Limit,
+		Offset:  result.Offset,
 		HasMore: result.HasMore,
 	}
 

@@ -158,18 +158,12 @@ func (ph *PatientHandler) GetPatientsByWorkspaceID(c *gin.Context) {
 	}
 	workspaceID := c.Param("workspace_id")
 
-	queryReq.ApplyDefaults()
+	pagination := queryReq.ToPagination()
+	pagination.ApplyDefaults()
 
-	if err := queryReq.ValidateSortFields(allowedPatientSortFields); err != nil {
+	if err := pagination.ValidateSortFields(request.ValidPatientSortFields); err != nil {
 		ph.handleError(c, err)
 		return
-	}
-
-	pagination := &query.Pagination{
-		Limit:   queryReq.Limit,
-		Offset:  queryReq.Offset,
-		SortBy:  queryReq.SortBy,
-		SortDir: queryReq.SortDir,
 	}
 
 	result, err := ph.patientService.GetPatientsByWorkspaceID(c.Request.Context(), workspaceID, pagination)
@@ -221,18 +215,12 @@ func (ph *PatientHandler) ListPatients(c *gin.Context) {
 		return
 	}
 
-	queryReq.ApplyDefaults()
+	pagination := queryReq.ToPagination()
+	pagination.ApplyDefaults()
 
-	if err := queryReq.ValidateSortFields(allowedPatientSortFields); err != nil {
+	if err := pagination.ValidateSortFields(request.ValidPatientSortFields); err != nil {
 		ph.handleError(c, err)
 		return
-	}
-
-	pagination := &query.Pagination{
-		Limit:   queryReq.Limit,
-		Offset:  queryReq.Offset,
-		SortBy:  queryReq.SortBy,
-		SortDir: queryReq.SortDir,
 	}
 
 	result, err := ph.patientService.ListPatients(c.Request.Context(), pagination)

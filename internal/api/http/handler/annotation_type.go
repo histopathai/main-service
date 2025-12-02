@@ -161,18 +161,13 @@ func (ath *AnnotationTypeHandler) ListAnnotationTypes(c *gin.Context) {
 		return
 	}
 
-	queryReq.ApplyDefaults()
+	pagination := queryReq.ToPagination()
 
-	if err := queryReq.ValidateSortFields(allowedAnnotationTypeSortFields); err != nil {
+	pagination.ApplyDefaults()
+
+	if err := pagination.ValidateSortFields(request.ValidAnnotationSortFields); err != nil {
 		ath.handleError(c, err)
 		return
-	}
-
-	pagination := &query.Pagination{
-		Limit:   queryReq.Limit,
-		Offset:  queryReq.Offset,
-		SortBy:  queryReq.SortBy,
-		SortDir: queryReq.SortDir,
 	}
 
 	result, err := ath.annotationTypeService.ListAnnotationTypes(c.Request.Context(), pagination)
@@ -223,18 +218,13 @@ func (ath *AnnotationTypeHandler) GetClassificationOptionedAnnotationTypes(c *gi
 		return
 	}
 
-	queryReq.ApplyDefaults()
+	pagination := queryReq.ToPagination()
 
-	if err := queryReq.ValidateSortFields(allowedAnnotationTypeSortFields); err != nil {
+	pagination.ApplyDefaults()
+
+	if err := pagination.ValidateSortFields(request.ValidAnnotationTypeSortFields); err != nil {
 		ath.handleError(c, err)
 		return
-	}
-
-	pagination := &query.Pagination{
-		Limit:   queryReq.Limit,
-		Offset:  queryReq.Offset,
-		SortBy:  queryReq.SortBy,
-		SortDir: queryReq.SortDir,
 	}
 
 	result, err := ath.annotationTypeService.GetClassificationAnnotationTypes(c.Request.Context(), pagination)
@@ -286,18 +276,13 @@ func (ath *AnnotationTypeHandler) GetScoreOptionedAnnotationTypes(c *gin.Context
 		return
 	}
 
-	queryReq.ApplyDefaults()
+	pagination := queryReq.ToPagination()
 
-	if err := queryReq.ValidateSortFields(allowedAnnotationTypeSortFields); err != nil {
+	pagination.ApplyDefaults()
+
+	if err := pagination.ValidateSortFields(request.ValidAnnotationTypeSortFields); err != nil {
 		ath.handleError(c, err)
 		return
-	}
-
-	pagination := &query.Pagination{
-		Limit:   queryReq.Limit,
-		Offset:  queryReq.Offset,
-		SortBy:  queryReq.SortBy,
-		SortDir: queryReq.SortDir,
 	}
 
 	result, err := ath.annotationTypeService.GetScoreAnnotationTypes(c.Request.Context(), pagination)
