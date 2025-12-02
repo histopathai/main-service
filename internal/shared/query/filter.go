@@ -14,6 +14,18 @@ const (
 	OpContains  FilterOp = "contains"
 )
 
+var SupportedFilterOps = []FilterOp{
+	OpEqual,
+	OpNotEqual,
+	OpGreater,
+	OpLess,
+	OpGreaterEq,
+	OpLessEq,
+	OpIn,
+	OpNotIn,
+	OpContains,
+}
+
 type Filter struct {
 	Field    string
 	Operator FilterOp
