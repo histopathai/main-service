@@ -23,7 +23,7 @@ func NewAnnotationService(
 	}
 }
 
-func (as *AnnotationService) validateAnnotationInput(ctx context.Context, input *port.CreateAnnotationInput) error {
+func (as *AnnotationService) validateAnnotationInput(input *port.CreateAnnotationInput) error {
 	if input.Score == nil && input.Class == nil {
 		details := map[string]interface{}{"annotation": "At least one of score or class must be provided."}
 		return errors.NewValidationError("invalid annotation input", details)
@@ -32,7 +32,7 @@ func (as *AnnotationService) validateAnnotationInput(ctx context.Context, input 
 }
 
 func (as *AnnotationService) CreateNewAnnotation(ctx context.Context, input *port.CreateAnnotationInput) (*model.Annotation, error) {
-	if err := as.validateAnnotationInput(ctx, input); err != nil {
+	if err := as.validateAnnotationInput(input); err != nil {
 		return nil, err
 	}
 
