@@ -220,6 +220,65 @@ func (ah *AnnotationHandler) CountV1Annotations(c *gin.Context) {
 	ah.response.Success(c, http.StatusOK, countResp)
 }
 
+// UpdateAnnotation [put] godoc
+// @Summary Update an annotation by ID
+// @Description Update an annotation's details using its unique ID
+// @Tags Annotations
+// @Accept json
+// @Produce json
+// @Param id path string true "Annotation ID"
+// @Param        request body request.UpdateAnnotationRequest true "Annotation update request"
+// @Success 204 "Annotation updated successfully"
+// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
+// @Failure 404 {object} response.ErrorResponse "Annotation not found"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Security BearerAuth
+// @Router /annotations/{annotation_id} [put]
+func (ah *AnnotationHandler) UpdateAnnotation(c *gin.Context) {
+	annotationID := c.Param("annotation_id")
+	if annotationID == "" {
+		ah.handleError(c, errors.NewValidationError("invalid annotation ID", map[string]interface{}{
+			"annotation_id": "Annotation ID cannot be empty",
+		}))
+		return
+	}
+
+	var req request.UpdateAnnotationRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ah.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
+	}
+
+	if err := ah.validator.ValidateStruct(&req); err != nil {
+		ah.handleError(c, err)
+		return
+	}
+
+	// DTO -> Service Input
+	input := port.UpdateAnnotationInput{
+		Polygon:     req.Polygon,
+		Score:       req.Score,
+		Class:       req.Class,
+		Description: req.Description,
+	}
+
+	err := ah.annotationService.UpdateAnnotation(c.Request.Context(), annotationID, &input)
+	if err != nil {
+		ah.handleError(c, err)
+		return
+	}
+
+	ah.logger.Info("Annotation updated successfully",
+		slog.String("annotation_id", annotationID),
+	)
+
+	// No content to return
+	ah.response.NoContent(c)
+}
+
 // DeleteAnnotation [delete] godoc
 // @Summary Delete an annotation by ID
 // @Description Delete an annotation using its unique ID

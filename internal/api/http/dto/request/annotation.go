@@ -12,6 +12,13 @@ type CreateAnnotationRequest struct {
 	Description *string       `json:"description,omitempty"`
 }
 
+type UpdateAnnotationRequest struct {
+	Polygon     *[]model.Point `json:"polygon,omitempty" binding:"dive"`
+	Score       *float64       `json:"score,omitempty"`
+	Class       *string        `json:"class,omitempty"`
+	Description *string        `json:"description,omitempty"`
+}
+
 var ValidAnnotationSortFields = map[string]bool{
 	"image_id":     true,
 	"annotator_id": true,
