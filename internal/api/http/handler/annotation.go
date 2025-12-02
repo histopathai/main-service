@@ -187,7 +187,7 @@ func (ah *AnnotationHandler) GetAnnotationsByImageID(c *gin.Context) {
 		HasMore: result.HasMore,
 	}
 
-	annotationsResp := make([]response.AnnotationResponse, 0, len(result.Data))
+	annotationsResp := make([]response.AnnotationResponse, len(result.Data))
 	for i, at := range result.Data {
 		annotationsResp[i] = *response.NewAnnotationResponse(at)
 	}
