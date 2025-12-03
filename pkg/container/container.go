@@ -272,8 +272,10 @@ func (c *Container) initServices(ctx context.Context) error {
 	c.WorkspaceService = service.NewWorkspaceService(
 		c.Repos.WorkspaceRepo,
 		c.Repos.PatientRepo,
+		c.Repos.AnnotationTypeRepo,
 		c.PatientService,
 		c.UOW,
+		c.Logger,
 	)
 
 	// Annotation Type Service

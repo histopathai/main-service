@@ -3,6 +3,7 @@ package service_test
 import (
 	"context"
 	stderrors "errors"
+	"log/slog"
 	"testing"
 
 	"github.com/histopathai/main-service/internal/domain/model"
@@ -41,6 +42,7 @@ func setupWorkspaceService(t *testing.T) (
 	mockPatientRepo := mocks.NewMockPatientRepository(ctrl)
 	mockImageRepo := mocks.NewMockImageRepository(ctrl)
 	mockAnnotationRepo := mocks.NewMockAnnotationRepository(ctrl)
+	mockAnnotationTypeRepo := mocks.NewMockAnnotationTypeRepository(ctrl)
 	mockImageEventPub := mocks.NewMockImageEventPublisher(ctrl)
 	mockUOW := mocks.NewMockUnitOfWorkFactory(ctrl)
 
@@ -64,7 +66,7 @@ func setupWorkspaceService(t *testing.T) (
 		},
 	)
 
-	wsService := service.NewWorkspaceService(mockWorkspaceRepo, mockPatientRepo, mockPatientService, mockUOW)
+	wsService := service.NewWorkspaceService(mockWorkspaceRepo, mockPatientRepo, mockAnnotationTypeRepo, mockPatientService, mockUOW, slog.Default())
 	return wsService, mockPatientService, mockWorkspaceRepo, mockPatientRepo, mockImageRepo, mockAnnotationRepo, mockImageEventPub, mockUOW
 }
 
@@ -135,6 +137,9 @@ func TestDeleteWorkspace_Success_NoPatients(t *testing.T) {
 		Return(&query.Result[*model.Patient]{Data: []*model.Patient{}}, nil)
 
 	mockWorkspaceRepo.EXPECT().
+		Read(ctx, workspaceID).
+		Return(&model.Workspace{}, nil)
+	mockWorkspaceRepo.EXPECT().
 		Delete(ctx, workspaceID).
 		Return(nil)
 
@@ -144,7 +149,7 @@ func TestDeleteWorkspace_Success_NoPatients(t *testing.T) {
 }
 
 func TestDeleteWorkspace_Failure_HasPatients(t *testing.T) {
-	wsService, _, _, mockPatientRepo, _, _, _, _ := setupWorkspaceService(t)
+	wsService, _, mockWorkspaceRepo, mockPatientRepo, _, _, _, _ := setupWorkspaceService(t)
 	ctx := context.Background()
 	workspaceID := "workspace-123"
 
@@ -153,6 +158,10 @@ func TestDeleteWorkspace_Failure_HasPatients(t *testing.T) {
 		Return(&query.Result[*model.Patient]{Data: []*model.Patient{
 			{ID: "patient-1"},
 		}}, nil)
+
+	mockWorkspaceRepo.EXPECT().
+		Read(ctx, workspaceID).
+		Return(&model.Workspace{}, nil)
 
 	err := wsService.DeleteWorkspace(ctx, workspaceID)
 

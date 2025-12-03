@@ -3,6 +3,7 @@ package service
 import (
 	"context"
 	"fmt"
+	"log/slog"
 
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/port"
@@ -12,23 +13,29 @@ import (
 )
 
 type WorkspaceService struct {
-	workspaceRepo  port.WorkspaceRepository
-	patientRepo    port.PatientRepository
-	patientService port.IPatientService
-	uow            port.UnitOfWorkFactory
+	workspaceRepo      port.WorkspaceRepository
+	patientRepo        port.PatientRepository
+	annotationTypeRepo port.AnnotationTypeRepository
+	patientService     port.IPatientService
+	uow                port.UnitOfWorkFactory
+	logger             *slog.Logger
 }
 
 func NewWorkspaceService(
 	workspaceRepo port.WorkspaceRepository,
 	patientRepo port.PatientRepository,
+	annotationTypeRepo port.AnnotationTypeRepository,
 	patientService port.IPatientService,
 	uow port.UnitOfWorkFactory,
+	logger *slog.Logger,
 ) *WorkspaceService {
 	return &WorkspaceService{
-		workspaceRepo:  workspaceRepo,
-		patientRepo:    patientRepo,
-		patientService: patientService,
-		uow:            uow,
+		workspaceRepo:      workspaceRepo,
+		patientRepo:        patientRepo,
+		annotationTypeRepo: annotationTypeRepo,
+		patientService:     patientService,
+		uow:                uow,
+		logger:             logger,
 	}
 }
 
@@ -152,8 +159,18 @@ func (ws *WorkspaceService) ListWorkspaces(ctx context.Context, pagination *shar
 func (ws *WorkspaceService) DeleteWorkspace(ctx context.Context, id string) error {
 
 	uowerr := ws.uow.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
-		patientRepo := repos.PatientRepo
 
+		wsEntity, err := repos.WorkspaceRepo.Read(txCtx, id)
+		if err != nil {
+			return err
+		}
+		if wsEntity == nil {
+			details := map[string]interface{}{"workspace_id": "Workspace not found."}
+			return errors.NewValidationError("workspace not found", details)
+		}
+
+		// Check for existing patients linked to the workspace
+		patientRepo := repos.PatientRepo
 		pagination := &sharedQuery.Pagination{Limit: 1, Offset: 0}
 
 		patientFilter := []sharedQuery.Filter{
@@ -171,9 +188,33 @@ func (ws *WorkspaceService) DeleteWorkspace(ctx context.Context, id string) erro
 			details := map[string]interface{}{"workspace_id": "Workspace is in use by one or more patients."}
 			return errors.NewConflictError("workspace in use", details)
 		}
-
 		if err := repos.WorkspaceRepo.Delete(txCtx, id); err != nil {
 			return err
+		}
+
+		// Checkout annotationtype non used anymore delete
+		annotationTypeID := wsEntity.AnnotationTypeID
+		if annotationTypeID != nil {
+			annotationTypeFilter := []sharedQuery.Filter{
+				{
+					Field:    constants.WorkspaceAnnotationTypeIDField,
+					Operator: sharedQuery.OpEqual,
+					Value:    *annotationTypeID,
+				},
+			}
+			annotationTypeWorkspaces, err := repos.WorkspaceRepo.FindByFilters(txCtx, annotationTypeFilter, &sharedQuery.Pagination{Limit: 1, Offset: 0})
+			if err != nil {
+				slog.Warn("failed to check annotation type usage after workspace deletion",
+					slog.String("annotation_type_id", *annotationTypeID),
+					slog.String("error", err.Error()))
+			}
+			if len(annotationTypeWorkspaces.Data) == 0 {
+				if err := repos.AnnotationTypeRepo.Delete(txCtx, *annotationTypeID); err != nil {
+					slog.Warn("failed to delete unused annotation type after workspace deletion",
+						slog.String("annotation_type_id", *annotationTypeID),
+						slog.String("error", err.Error()))
+				}
+			}
 		}
 		return nil
 	})
@@ -213,7 +254,7 @@ func (ws *WorkspaceService) CountWorkspaces(ctx context.Context, filters []share
 }
 
 func (ws *WorkspaceService) CascadeDeleteWorkspace(ctx context.Context, workspaceID string) error {
-	_, err := ws.workspaceRepo.Read(ctx, workspaceID)
+	wsEntity, err := ws.workspaceRepo.Read(ctx, workspaceID)
 	if err != nil {
 		return err
 	}
@@ -274,6 +315,30 @@ func (ws *WorkspaceService) CascadeDeleteWorkspace(ctx context.Context, workspac
 
 	if err := ws.workspaceRepo.Delete(ctx, workspaceID); err != nil {
 		return errors.NewInternalError("failed to delete workspace", err)
+	}
+
+	annotationTypeId := wsEntity.AnnotationTypeID
+	if annotationTypeId != nil {
+		annotationTypeFilter := []sharedQuery.Filter{
+			{
+				Field:    constants.WorkspaceAnnotationTypeIDField,
+				Operator: sharedQuery.OpEqual,
+				Value:    *annotationTypeId,
+			},
+		}
+		annotationTypeWorkspaces, err := ws.workspaceRepo.FindByFilters(ctx, annotationTypeFilter, &sharedQuery.Pagination{Limit: 1, Offset: 0})
+		if err != nil {
+			ws.logger.Warn("failed to check annotation type usage after workspace deletion",
+				slog.String("annotation_type_id", *annotationTypeId),
+				slog.String("error", err.Error()))
+		}
+		if len(annotationTypeWorkspaces.Data) == 0 {
+			if err := ws.annotationTypeRepo.Delete(ctx, *annotationTypeId); err != nil {
+				ws.logger.Warn("failed to delete unused annotation type after workspace deletion",
+					slog.String("annotation_type_id", *annotationTypeId),
+					slog.String("error", err.Error()))
+			}
+		}
 	}
 
 	return nil
