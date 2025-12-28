@@ -13,6 +13,7 @@ const (
 )
 
 type Image struct {
+	BaseEntity
 	PatientID     string
 	Format        string
 	Width         *int
