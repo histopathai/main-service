@@ -40,6 +40,14 @@ func (e *BaseEntity) SetUpdatedAt(t time.Time) {
 	e.UpdatedAt = t
 }
 
+func (e *BaseEntity) GetCreatedAt() time.Time {
+	return e.CreatedAt
+}
+
+func (e *BaseEntity) GetUpdatedAt() time.Time {
+	return e.UpdatedAt
+}
+
 func (e *BaseEntity) IsDeleted() bool {
 	return e.Deleted
 }
