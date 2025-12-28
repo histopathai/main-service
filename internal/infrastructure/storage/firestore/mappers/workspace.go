@@ -84,12 +84,6 @@ func (wm *WorkspaceMapper) MapUpdates(updates map[string]interface{}) (map[strin
 	beMapper := &BaseEntityMapper{}
 	firestoreUpdates, _ := beMapper.MapUpdates(updates)
 
-	// Clear BaseEntity related fields from updates to avoid duplication
-	delete(updates, constants.NameField)
-	delete(updates, constants.DeletedField)
-	delete(updates, constants.UpdatedAtField)
-	delete(updates, constants.CreatorIDField)
-
 	for key, value := range updates {
 		switch key {
 		case constants.WorkspaceOrganTypeField:
@@ -122,18 +116,7 @@ func (wm *WorkspaceMapper) MapFilters(filters []query.Filter) ([]query.Filter, e
 	beMapper := &BaseEntityMapper{}
 	mappedFilters, _ := beMapper.MapFilters(filters)
 
-	// Clear BaseEntity related fields from filters to avoid duplication
-	filteredFilters := make([]query.Filter, 0)
-	for _, filter := range filters {
-		if filter.Field == constants.NameField ||
-			filter.Field == constants.DeletedField ||
-			filter.Field == constants.CreatorIDField {
-			continue
-		}
-		filteredFilters = append(filteredFilters, filter)
-	}
-
-	for _, f := range filteredFilters {
+	for _, f := range filters {
 		switch f.Field {
 		case constants.WorkspaceOrganTypeField:
 			mappedFilters = append(mappedFilters, query.Filter{

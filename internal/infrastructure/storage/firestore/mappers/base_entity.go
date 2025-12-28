@@ -44,10 +44,10 @@ func (bem *BaseEntityMapper) ToFirestoreMap(be *model.BaseEntity) map[string]int
 }
 
 func (bem *BaseEntityMapper) MapUpdates(updates map[string]interface{}) (map[string]interface{}, error) {
-
 	if len(updates) == 0 {
 		return nil, nil
 	}
+
 	firestoreUpdates := make(map[string]interface{})
 
 	for k, v := range updates {
@@ -60,13 +60,13 @@ func (bem *BaseEntityMapper) MapUpdates(updates map[string]interface{}) (map[str
 			firestoreUpdates["deleted"] = v
 		case constants.UpdatedAtField:
 			firestoreUpdates["updated_at"] = v
-
-		default:
-			// Ignore unknown fields
-			continue
 		}
-
 	}
+
+	delete(updates, constants.NameField)
+	delete(updates, constants.CreatorIDField)
+	delete(updates, constants.DeletedField)
+	delete(updates, constants.UpdatedAtField)
 
 	return firestoreUpdates, nil
 }
@@ -76,9 +76,12 @@ func (bem *BaseEntityMapper) MapFilters(filters []query.Filter) ([]query.Filter,
 		return nil, nil
 	}
 
-	mappedFilters := make([]query.Filter, 0, len(filters))
+	mappedFilters := make([]query.Filter, 0)
 
-	for _, filter := range filters {
+	unprocessedIdx := 0
+	for i, filter := range filters {
+		processed := false
+
 		switch filter.Field {
 		case constants.NameField:
 			mappedFilters = append(mappedFilters, query.Filter{
@@ -86,36 +89,45 @@ func (bem *BaseEntityMapper) MapFilters(filters []query.Filter) ([]query.Filter,
 				Operator: filter.Operator,
 				Value:    filter.Value,
 			})
+			processed = true
 		case constants.DeletedField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "deleted",
 				Operator: filter.Operator,
 				Value:    filter.Value,
 			})
+			processed = true
 		case constants.CreatorIDField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "creator_id",
 				Operator: filter.Operator,
 				Value:    filter.Value,
 			})
+			processed = true
 		case constants.CreatedAtField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "created_at",
 				Operator: filter.Operator,
 				Value:    filter.Value,
 			})
+			processed = true
 		case constants.UpdatedAtField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "updated_at",
 				Operator: filter.Operator,
 				Value:    filter.Value,
 			})
-		default:
-			// Ignore unknown fields
-			continue
-
+			processed = true
 		}
 
+		if !processed {
+			filters[unprocessedIdx] = filters[i]
+			unprocessedIdx++
+		}
+	}
+
+	for i := unprocessedIdx; i < len(filters); i++ {
+		filters[i] = query.Filter{}
 	}
 
 	return mappedFilters, nil
