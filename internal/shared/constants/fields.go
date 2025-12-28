@@ -1,8 +1,6 @@
 package constants
 
 const (
-	WorkspaceCreatorIDField        = "CreatorID"
-	WorkspaceNameField             = "Name"
 	WorkspaceDescField             = "Desc"
 	WorkspaceOrganTypeField        = "OrganType"
 	WorkspaceOrganizationField     = "Organization"
@@ -14,8 +12,6 @@ const (
 
 const (
 	PatientWorkspaceIDField = "WorkspaceID"
-	PatientCreatorIDField   = "CreatorID"
-	PatientNameField        = "Name"
 	PatientAgeField         = "Age"
 	PatientGenderField      = "Gender"
 	PatientRaceField        = "Race"
@@ -27,8 +23,6 @@ const (
 
 const (
 	ImagePatientIDField       = "PatientID"
-	ImageCreatorIDField       = "CreatorID"
-	ImageNameField            = "Name"
 	ImageFormatField          = "Format"
 	ImageWidthField           = "Width"
 	ImageHeightField          = "Height"
@@ -42,8 +36,6 @@ const (
 )
 
 const (
-	AnnotationTypeNameField                  = "Name"
-	AnnotationTypeCreatorIDField             = "CreatorID"
 	AnnotationTypeDescField                  = "Desc"
 	AnnotationTypeScoreEnabledField          = "ScoreEnabled"
 	AnnotationTypeScoreNameField             = "ScoreName"
@@ -63,6 +55,10 @@ const (
 )
 
 const (
+	IDField        = "ID"
+	NameField      = "Name"
+	CreatorIDField = "CreatorID"
+	DeletedField   = "Deleted"
 	CreatedAtField = "CreatedAt"
 	UpdatedAtField = "UpdatedAt"
 )
