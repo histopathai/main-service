@@ -13,10 +13,7 @@ const (
 )
 
 type Image struct {
-	ID            string
 	PatientID     string
-	CreatorID     string
-	Name          string
 	Format        string
 	Width         *int
 	Height        *int
@@ -28,9 +25,6 @@ type Image struct {
 	FailureReason   *string
 	RetryCount      int
 	LastProcessedAt *time.Time
-
-	CreatedAt time.Time
-	UpdatedAt time.Time
 }
 
 func (i *Image) IsRetryable(maxRetries int) bool {
@@ -49,20 +43,4 @@ func (i *Image) MarkForRetry() {
 	i.RetryCount++
 	now := time.Now()
 	i.LastProcessedAt = &now
-}
-
-func (i Image) GetID() string {
-	return i.ID
-}
-
-func (i *Image) SetID(id string) {
-	i.ID = id
-}
-
-func (i *Image) SetCreatedAt(t time.Time) {
-	i.CreatedAt = t
-}
-
-func (i *Image) SetUpdatedAt(t time.Time) {
-	i.UpdatedAt = t
 }
