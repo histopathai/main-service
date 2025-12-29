@@ -71,7 +71,7 @@ func (r *RepositoryImpl[T]) Create(ctx context.Context, entity T) (T, error) {
 	docRef := r.client.Collection(r.collection).Doc(entity.GetID())
 
 	var err error
-	if tx := fromCtx(ctx); tx != nil {
+	if tx := FromCtx(ctx); tx != nil {
 		err = tx.Set(docRef, entityMap)
 	} else {
 		_, err = docRef.Set(ctx, entityMap)
@@ -88,7 +88,7 @@ func (r *RepositoryImpl[T]) Read(ctx context.Context, id string) (T, error) {
 	var doc *firestore.DocumentSnapshot
 	var err error
 
-	if tx := fromCtx(ctx); tx != nil {
+	if tx := FromCtx(ctx); tx != nil {
 		doc, err = tx.Get(docRef)
 	} else {
 		doc, err = docRef.Get(ctx)
@@ -118,7 +118,7 @@ func (r *RepositoryImpl[T]) Update(ctx context.Context, id string, updates map[s
 
 	docRef := r.client.Collection(r.collection).Doc(id)
 
-	if tx := fromCtx(ctx); tx != nil {
+	if tx := FromCtx(ctx); tx != nil {
 		err = tx.Set(docRef, mappedUpdates, firestore.MergeAll)
 	} else {
 		_, err = docRef.Get(ctx)
@@ -139,7 +139,7 @@ func (r *RepositoryImpl[T]) Delete(ctx context.Context, id string) error {
 	docRef := r.client.Collection(r.collection).Doc(id)
 
 	var err error
-	if tx := fromCtx(ctx); tx != nil {
+	if tx := FromCtx(ctx); tx != nil {
 		err = tx.Delete(docRef)
 	} else {
 		_, err = docRef.Get(ctx)
@@ -191,7 +191,7 @@ func (r *RepositoryImpl[T]) FindByFilters(
 	q = q.OrderBy(paginationOpts.SortBy, firestore.Direction(firestoreSortOrder))
 
 	var iter *firestore.DocumentIterator
-	if tx := fromCtx(ctx); tx != nil {
+	if tx := FromCtx(ctx); tx != nil {
 		iter = tx.Documents(q)
 	} else {
 		iter = q.Documents(ctx)
@@ -287,7 +287,7 @@ func (r *RepositoryImpl[T]) ReadMany(ctx context.Context, ids []string, includeD
 		}
 
 		var iter *firestore.DocumentIterator
-		if tx := fromCtx(ctx); tx != nil {
+		if tx := FromCtx(ctx); tx != nil {
 			iter = tx.Documents(q)
 		} else {
 			iter = q.Documents(ctx)
@@ -330,7 +330,7 @@ func (r *RepositoryImpl[T]) UpdateMany(ctx context.Context, updates map[string]a
 
 	mappedUpdates["updated_at"] = time.Now()
 
-	if tx := fromCtx(ctx); tx != nil {
+	if tx := FromCtx(ctx); tx != nil {
 		for _, id := range ids {
 			docRef := r.client.Collection(r.collection).Doc(id)
 			if err := tx.Set(docRef, mappedUpdates, firestore.MergeAll); err != nil {
@@ -375,7 +375,7 @@ func (r *RepositoryImpl[T]) DeleteMany(ctx context.Context, ids []string) error 
 		return nil
 	}
 
-	if tx := fromCtx(ctx); tx != nil {
+	if tx := FromCtx(ctx); tx != nil {
 		for _, id := range ids {
 			docRef := r.client.Collection(r.collection).Doc(id)
 			if err := tx.Delete(docRef); err != nil {
@@ -424,7 +424,7 @@ func (tr *TransferableRepositoryImpl[T]) Transfer(ctx context.Context, id, newOw
 	}
 
 	var err error
-	if tx := fromCtx(ctx); tx != nil {
+	if tx := FromCtx(ctx); tx != nil {
 		err = tx.Set(docRef, updates, firestore.MergeAll)
 	} else {
 		_, err = docRef.Set(ctx, updates, firestore.MergeAll)
@@ -446,7 +446,7 @@ func (tr *TransferableRepositoryImpl[T]) TransferMany(ctx context.Context, ids [
 		"updated_at":  time.Now(),
 	}
 
-	if tx := fromCtx(ctx); tx != nil {
+	if tx := FromCtx(ctx); tx != nil {
 		for _, id := range ids {
 			docRef := tr.client.Collection(tr.collection).Doc(id)
 			if err := tx.Set(docRef, updates, firestore.MergeAll); err != nil {
