@@ -34,6 +34,6 @@ type Repositories struct {
 	AnnotationTypeRepo Repository[*model.AnnotationType]
 }
 
-type TransactionManager[T any] interface {
-	WithTx(ctx context.Context, fn func(ctx context.Context, repo Repository[T]) error) error
+type UnitOfWorkFactory interface {
+	WithTx(ctx context.Context, fn func(ctx context.Context, repos *Repositories) error) error
 }
