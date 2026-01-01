@@ -22,6 +22,12 @@ func (bem *BaseEntityMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (
 	be.SetCreatedAt(data["created_at"].(time.Time))
 	be.SetUpdatedAt(data["updated_at"].(time.Time))
 
+	parentRefType := data["parent_type"]
+	parentRefID := data["parent_id"]
+	if parentRefType != nil && parentRefID != nil {
+		be.SetParent(parentRefID.(string), model.ParentType(parentRefType.(string)))
+	}
+
 	if data["name"] != nil {
 		be.SetName(data["name"].(string))
 	}
@@ -34,6 +40,11 @@ func (bem *BaseEntityMapper) ToFirestoreMap(be *model.BaseEntity) map[string]int
 		"deleted":    be.IsDeleted(),
 		"created_at": be.GetCreatedAt(),
 		"updated_at": be.GetUpdatedAt(),
+	}
+
+	if be.HasParent() {
+		m["parent_id"] = be.GetParentID()
+		m["parent_type"] = be.GetParentType()
 	}
 
 	if be.GetName() != "" {
@@ -60,14 +71,30 @@ func (bem *BaseEntityMapper) MapUpdates(updates map[string]interface{}) (map[str
 			firestoreUpdates["deleted"] = v
 		case constants.UpdatedAtField:
 			firestoreUpdates["updated_at"] = v
+		case constants.ParentIDField:
+			parentType, ok := updates[constants.ParentTypeField]
+			if !ok {
+				return nil, nil
+			}
+			if v == nil || v == "" || parentType == nil || parentType == "" {
+				firestoreUpdates["parent_id"] = nil
+				firestoreUpdates["parent_type"] = nil
+			} else {
+				firestoreUpdates["parent_id"] = v
+				firestoreUpdates["parent_type"] = parentType
+			}
+		case constants.ParentTypeField:
+
 		}
+
 	}
 
 	delete(updates, constants.NameField)
 	delete(updates, constants.CreatorIDField)
 	delete(updates, constants.DeletedField)
 	delete(updates, constants.UpdatedAtField)
-
+	delete(updates, constants.ParentIDField)
+	delete(updates, constants.ParentTypeField)
 	return firestoreUpdates, nil
 }
 
@@ -118,6 +145,21 @@ func (bem *BaseEntityMapper) MapFilters(filters []query.Filter) ([]query.Filter,
 				Value:    filter.Value,
 			})
 			processed = true
+		case constants.ParentIDField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "parent_id",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+			processed = true
+		case constants.ParentTypeField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "parent_type",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+			processed = true
+
 		}
 
 		if !processed {

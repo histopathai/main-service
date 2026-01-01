@@ -29,7 +29,6 @@ func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model
 	}
 
 	ir.BaseEntity = *baseEntity
-	ir.PatientID = data["patient_id"].(string)
 	ir.Format = data["format"].(string)
 	ir.OriginPath = data["origin_path"].(string)
 
@@ -69,7 +68,6 @@ func (im *ImageMapper) ToFirestoreMap(i *model.Image) map[string]interface{} {
 	beMapper := &BaseEntityMapper{}
 	m := beMapper.ToFirestoreMap(&i.BaseEntity)
 
-	m["patient_id"] = i.PatientID
 	m["format"] = i.Format
 	m["origin_path"] = i.OriginPath
 	m["status"] = i.Status
@@ -143,12 +141,6 @@ func (im *ImageMapper) MapFilters(filters []query.Filter) ([]query.Filter, error
 
 	for _, filter := range filters {
 		switch filter.Field {
-		case constants.ImagePatientIDField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "patient_id",
-				Operator: filter.Operator,
-				Value:    filter.Value,
-			})
 		case constants.ImageStatusField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "status",

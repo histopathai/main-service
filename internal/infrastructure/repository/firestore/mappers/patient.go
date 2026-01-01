@@ -29,8 +29,6 @@ func (pm *PatientMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*mod
 
 	fp.BaseEntity = *baseEntity
 
-	fp.WorkspaceID = data["workspace_id"].(string)
-
 	if v, ok := data["age"]; ok && v != nil {
 		age := int(v.(int64))
 		fp.Age = &age
@@ -67,8 +65,6 @@ func (pm *PatientMapper) ToFirestoreMap(p *model.Patient) map[string]interface{}
 	beMapper := &BaseEntityMapper{}
 	m := beMapper.ToFirestoreMap(&p.BaseEntity)
 
-	m["workspace_id"] = p.WorkspaceID
-
 	if p.Age != nil {
 		m["age"] = *p.Age
 	}
@@ -102,8 +98,6 @@ func (pm *PatientMapper) MapUpdates(updates map[string]interface{}) (map[string]
 
 	for k, v := range updates {
 		switch k {
-		case constants.PatientWorkspaceIDField:
-			firestoreUpdates["workspace_id"] = v
 		case constants.PatientAgeField:
 			firestoreUpdates["age"] = v
 		case constants.PatientGenderField:
@@ -137,12 +131,6 @@ func (pm *PatientMapper) MapFilters(filters []query.Filter) ([]query.Filter, err
 
 	for _, filter := range filters {
 		switch filter.Field {
-		case constants.PatientWorkspaceIDField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "workspace_id",
-				Operator: filter.Operator,
-				Value:    filter.Value,
-			})
 		case constants.PatientAgeField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "age",

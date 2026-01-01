@@ -32,10 +32,6 @@ func (wm *WorkspaceMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*m
 	fw.Organization = data["organization"].(string)
 	fw.License = data["license"].(string)
 
-	if data["annotation_type_id"] != nil {
-		annotationTypeID := data["annotation_type_id"].(string)
-		fw.AnnotationTypeID = &annotationTypeID
-	}
 	if data["resource_url"] != nil {
 		resourceURL := data["resource_url"].(string)
 		fw.ResourceURL = &resourceURL
@@ -60,9 +56,6 @@ func (wm *WorkspaceMapper) ToFirestoreMap(w *model.Workspace) map[string]interfa
 	m["organization"] = w.Organization
 	m["license"] = w.License
 
-	if w.AnnotationTypeID != nil {
-		m["annotation_type_id"] = *w.AnnotationTypeID
-	}
 	if w.ResourceURL != nil {
 		m["resource_url"] = *w.ResourceURL
 	}
@@ -92,8 +85,6 @@ func (wm *WorkspaceMapper) MapUpdates(updates map[string]interface{}) (map[strin
 			firestoreUpdates["organization"] = value
 		case constants.WorkspaceLicenseField:
 			firestoreUpdates["license"] = value
-		case constants.WorkspaceAnnotationTypeIDField:
-			firestoreUpdates["annotation_type_id"] = value
 		case constants.WorkspaceResourceURLField:
 			firestoreUpdates["resource_url"] = value
 		case constants.WorkspaceReleaseYearField:
@@ -127,12 +118,6 @@ func (wm *WorkspaceMapper) MapFilters(filters []query.Filter) ([]query.Filter, e
 		case constants.WorkspaceOrganizationField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "organization",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.WorkspaceAnnotationTypeIDField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "annotation_type_id",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
