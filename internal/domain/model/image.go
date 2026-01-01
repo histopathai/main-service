@@ -9,12 +9,11 @@ const (
 	StatusProcessing ImageStatus = "PROCESSING"
 	StatusProcessed  ImageStatus = "PROCESSED"
 	StatusFailed     ImageStatus = "FAILED"
-	StatusDeleting   ImageStatus = "DELETING" // Added
+	StatusDeleting   ImageStatus = "DELETING"
 )
 
 type Image struct {
 	BaseEntity
-	PatientID     string
 	Format        string
 	Width         *int
 	Height        *int

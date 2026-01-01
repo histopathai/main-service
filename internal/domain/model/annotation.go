@@ -7,7 +7,6 @@ type Point struct {
 
 type Annotation struct {
 	BaseEntity
-	ImageID     string
 	AnnotatorID string
 	Polygon     []Point
 	Score       *float64
