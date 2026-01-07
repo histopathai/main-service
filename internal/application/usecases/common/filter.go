@@ -3,8 +3,8 @@ package common
 import (
 	"context"
 
-	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -72,7 +72,7 @@ func NewFilterByNameUseCase[T any](repo repository.Repository[T]) *FilterByNameU
 	return &FilterByNameUseCase[T]{repo: repo}
 }
 
-func (uc *FilterByNameUseCase[T]) Execute(ctx context.Context, name string, pagination *query.Pagination, entityType *model.EntityType) (*query.Result[T], error) {
+func (uc *FilterByNameUseCase[T]) Execute(ctx context.Context, name string, pagination *query.Pagination, entityType *vobj.EntityType) (*query.Result[T], error) {
 
 	filters := []query.Filter{
 		{

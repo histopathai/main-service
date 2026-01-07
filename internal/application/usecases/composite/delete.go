@@ -4,8 +4,8 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 )
@@ -26,22 +26,22 @@ type EntityIDCollection struct {
 	AnnotationTypeIDs []string
 }
 
-func (uc *DeleteUseCase) Execute(ctx context.Context, id string, entityType model.EntityType) error {
+func (uc *DeleteUseCase) Execute(ctx context.Context, id string, entityType vobj.EntityType) error {
 	repos, err := uc.uowFactory.WithoutTx(ctx)
 	if err != nil {
 		return err
 	}
 
 	switch entityType {
-	case constants.EntityTypeWorkspace:
+	case vobj.EntityTypeWorkspace:
 		return uc.deleteWorkspace(ctx, id, repos)
-	case constants.EntityTypePatient:
+	case vobj.EntityTypePatient:
 		return uc.deletePatient(ctx, id, repos)
-	case constants.EntityTypeImage:
+	case vobj.EntityTypeImage:
 		return uc.deleteImage(ctx, id, repos)
-	case constants.EntityTypeAnnotation:
+	case vobj.EntityTypeAnnotation:
 		return uc.deleteAnnotation(ctx, id, repos)
-	case constants.EntityTypeAnnotationType:
+	case vobj.EntityTypeAnnotationType:
 		return uc.deleteAnnotationType(ctx, id, repos)
 	default:
 		return errors.NewValidationError("unsupported entity type for delete", nil)
@@ -124,7 +124,7 @@ func (uc *DeleteUseCase) deleteWorkspace(
 		}
 	}
 
-	annotationTypeID := workspace.GetParentID()
+	annotationTypeID := workspace.GetParent().GetID()
 	if annotationTypeID != "" {
 		annotationType, err := repos.AnnotationTypeRepo.Read(ctx, annotationTypeID)
 		if err != nil {
@@ -292,7 +292,7 @@ func (uc *DeleteUseCase) deleteAnnotationType(
 func (uc *DeleteUseCase) ExecuteMany(
 	ctx context.Context,
 	ids []string,
-	entityType model.EntityType,
+	entityType vobj.EntityType,
 ) error {
 	for _, id := range ids {
 		if err := uc.Execute(ctx, id, entityType); err != nil {

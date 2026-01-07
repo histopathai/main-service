@@ -22,7 +22,7 @@ func (uc *CreateImageUseCase) Execute(ctx context.Context, entity *model.Image) 
 
 	uowerr := uc.uowFactory.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
 
-		parentID := entity.GetParentID()
+		parentID := entity.GetParent().GetID()
 
 		parentEntity, err := repos.PatientRepo.Read(txCtx, parentID)
 		if err != nil {

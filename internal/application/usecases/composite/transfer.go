@@ -3,8 +3,8 @@ package composite
 import (
 	"context"
 
-	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 )
@@ -19,18 +19,18 @@ func NewTransferUseCase(uowFactory repository.UnitOfWorkFactory) *TransferUseCas
 	}
 }
 
-func (uc *TransferUseCase) Execute(ctx context.Context, id, newParentID string, entityType model.EntityType) error {
+func (uc *TransferUseCase) Execute(ctx context.Context, id, newParentID string, entityType vobj.EntityType) error {
 	switch entityType {
-	case constants.EntityTypePatient:
+	case vobj.EntityTypePatient:
 		return uc.transferPatient(ctx, id, newParentID)
-	case constants.EntityTypeImage:
+	case vobj.EntityTypeImage:
 		return uc.transferImage(ctx, id, newParentID)
 	default:
 		return errors.NewValidationError("unsupported entity type for transfer", nil)
 	}
 }
 
-func (uc *TransferUseCase) ExecuteMany(ctx context.Context, ids []string, newParentID string, entityType model.EntityType) error {
+func (uc *TransferUseCase) ExecuteMany(ctx context.Context, ids []string, newParentID string, entityType vobj.EntityType) error {
 	//Will be optimized later with batch transfer if needed
 	for _, id := range ids {
 		if err := uc.Execute(ctx, id, newParentID, entityType); err != nil {
@@ -47,7 +47,7 @@ func (uc *TransferUseCase) transferPatient(ctx context.Context, id, parentId str
 			return err
 		}
 
-		oldWorkspaceID := *(*patient).GetParentID()
+		oldWorkspaceID := (*patient).GetParent().GetID()
 
 		if oldWorkspaceID == "" {
 			return errors.NewValidationError("patient has no workspace", nil)
@@ -70,13 +70,13 @@ func (uc *TransferUseCase) transferPatient(ctx context.Context, id, parentId str
 
 		// Update child counts
 		if err := repos.WorkspaceRepo.Update(txCtx, oldWorkspace.ID, map[string]any{
-			constants.ChildCountField: oldWorkspace.ChildCount - 1,
+			constants.ChildCountField: oldWorkspace.GetChildCount() - 1,
 		}); err != nil {
 			return err
 		}
 
 		if err := repos.WorkspaceRepo.Update(txCtx, newWorkspace.ID, map[string]any{
-			constants.ChildCountField: newWorkspace.ChildCount + 1,
+			constants.ChildCountField: newWorkspace.GetChildCount() + 1,
 		}); err != nil {
 			return err
 		}
@@ -92,7 +92,7 @@ func (uc *TransferUseCase) transferImage(ctx context.Context, id, parentId strin
 			return err
 		}
 
-		oldPatientID := image.GetParentID()
+		oldPatientID := image.GetParent().GetID()
 
 		if oldPatientID == "" {
 			return errors.NewValidationError("image has no patient", nil)
@@ -115,13 +115,13 @@ func (uc *TransferUseCase) transferImage(ctx context.Context, id, parentId strin
 
 		// Update child counts
 		if err := repos.PatientRepo.Update(txCtx, oldPatient.ID, map[string]any{
-			constants.ChildCountField: oldPatient.ChildCount - 1,
+			constants.ChildCountField: oldPatient.GetChildCount() - 1,
 		}); err != nil {
 			return err
 		}
 
 		if err := repos.PatientRepo.Update(txCtx, newPatient.ID, map[string]any{
-			constants.ChildCountField: newPatient.ChildCount + 1,
+			constants.ChildCountField: newPatient.GetChildCount() + 1,
 		}); err != nil {
 			return err
 		}

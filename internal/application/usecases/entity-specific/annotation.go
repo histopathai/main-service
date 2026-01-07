@@ -22,7 +22,7 @@ func (uc *CreateaAnnotationUseCase) Execute(ctx context.Context, entity *model.A
 	uowerr := uc.uowFactory.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
 
 		//check parent existence
-		parentID := entity.GetParentID()
+		parentID := entity.GetParent().GetID()
 
 		parentEntity, err := repos.ImageRepo.Read(txCtx, parentID)
 		if err != nil {

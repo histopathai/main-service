@@ -5,6 +5,7 @@ import (
 
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
@@ -22,7 +23,7 @@ func (uc *CreatePatientUseCase) Execute(ctx context.Context, entity *model.Patie
 	createdEntity := &model.Patient{}
 	uowerr := uc.uowFactory.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
 		// Check parent ID existence
-		parentID := entity.GetParentID()
+		parentID := entity.GetParent().GetID()
 
 		parentEntity, err := repos.WorkspaceRepo.Read(txCtx, parentID)
 		if err != nil {
@@ -47,7 +48,7 @@ func (uc *CreatePatientUseCase) Execute(ctx context.Context, entity *model.Patie
 			return errors.NewValidationError("cannot add patient to deleted workspace", details)
 		}
 
-		if parentEntity.GetParentID() == "" {
+		if parentEntity.GetParent().GetID() == "" {
 			details := map[string]any{
 				"where":     "CreatePatientUseCase.Execute",
 				"type":      "invalid parent",
@@ -66,7 +67,7 @@ func (uc *CreatePatientUseCase) Execute(ctx context.Context, entity *model.Patie
 			{
 				Field:    constants.ParentTypeField,
 				Operator: query.OpEqual,
-				Value:    constants.EntityTypeWorkspace,
+				Value:    vobj.EntityTypeWorkspace,
 			},
 			{
 				Field:    constants.ParentIDField,
@@ -146,7 +147,7 @@ func (uc *UpdatePatientUseCase) Execute(ctx context.Context, id string, updates 
 				{
 					Field:    constants.ParentTypeField,
 					Operator: query.OpEqual,
-					Value:    constants.EntityTypeWorkspace,
+					Value:    vobj.EntityTypeWorkspace,
 				},
 			}
 			count, err := repos.PatientRepo.Count(txCtx, filters)
