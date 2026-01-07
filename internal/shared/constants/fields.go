@@ -33,21 +33,30 @@ const (
 )
 
 const (
-	AnnotationTypeDescField                  = "Desc"
-	AnnotationTypeScoreEnabledField          = "ScoreEnabled"
-	AnnotationTypeScoreNameField             = "ScoreName"
-	AnnotationTypeScoreRangeField            = "ScoreRange"
-	AnnotationTypeClassificationEnabledField = "ClassificationEnabled"
-	AnnotationTypeClassListField             = "ClassList"
+	TagTypeField     = "Type"
+	TagColorField    = "Color"
+	TagOptionsField  = "Options"
+	TagGlobalField   = "Global"
+	TagRequiredField = "Required"
+	TagMinField      = "Min"
+	TagMaxField      = "Max"
 )
 
 const (
-	AnnotationAnnotatorIDField      = "AnnotatorID"
+	TagValueTypeField   = "Type"
+	TagValueNameField   = "Name"
+	TagValueField       = "Value"
+	TagValueColorField  = "Color"
+	TagValueGlobalField = "Global"
+)
+
+const (
+	AnnotationTypeTagsField = "Tags"
+)
+const (
 	AnnotationAnnotationTypeIDField = "AnnotationTypeID"
-	AnnotationScoreField            = "Score"
-	AnnotationClassField            = "Class"
 	AnnotationPolygonField          = "Polygon"
-	AnnotationDescriptionField      = "Description"
+	AnnotationTagValueField         = "TagValue"
 )
 
 const (
@@ -59,4 +68,6 @@ const (
 	UpdatedAtField  = "UpdatedAt"
 	ParentIDField   = "ParentID"
 	ParentTypeField = "ParentType"
+	ChildCountField = "ChildCount"
+	EntityTypeField = "EntityType"
 )
