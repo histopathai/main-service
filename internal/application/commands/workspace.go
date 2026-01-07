@@ -2,6 +2,7 @@ package commands
 
 import (
 	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 )
@@ -9,6 +10,7 @@ import (
 type CreateWorkspaceCommand struct {
 	Name         string
 	CreatorID    string
+	ParentID     *string
 	OrganType    string
 	Organization string
 	Description  string
@@ -17,18 +19,77 @@ type CreateWorkspaceCommand struct {
 	ReleaseYear  *int
 }
 
+func NewCreateWorkspaceCommand(
+	name string,
+	creatorID string,
+	parentID *string,
+	organType string,
+	organization string,
+	description string,
+	license string,
+	resourceURL *string,
+	releaseYear *int,
+) (*CreateWorkspaceCommand, error) {
+	details := make(map[string]any)
+	if name == "" {
+		details["name required"] = name
+	}
+
+	if creatorID == "" {
+		details["creator_id required"] = creatorID
+	}
+	if organization == "" {
+		details["organization required"] = organization
+	}
+	if license == "" {
+		details["license required"] = license
+	}
+
+	if len(details) > 0 {
+		return nil, errors.NewValidationError("invalid create workspace command", details)
+	}
+
+	ot, err := vobj.NewOrganTypeFromString(organType)
+	if err != nil {
+		return nil, err
+	}
+
+	return &CreateWorkspaceCommand{
+		Name:         name,
+		CreatorID:    creatorID,
+		ParentID:     parentID,
+		OrganType:    string(ot),
+		Organization: organization,
+		Description:  description,
+		License:      license,
+		ResourceURL:  resourceURL,
+		ReleaseYear:  releaseYear,
+	}, nil
+}
+
 func (c *CreateWorkspaceCommand) ToEntity() (model.Workspace, error) {
-	if constants.ValidateEntityType(constants.EntityTypeWorkspace) == false {
-		details := map[string]any{"entity_type": constants.EntityTypeWorkspace}
-		return model.Workspace{}, errors.NewValidationError("invalid entity type for workspace", details)
+	var parentRef *vobj.ParentRef
+	var err error
+
+	if c.ParentID != nil {
+		parentRef, err = vobj.NewParentRef(*c.ParentID, vobj.ParentTypeWorkspace)
+		if err != nil {
+			return model.Workspace{}, err
+		}
+	}
+
+	entity, err := vobj.NewEntity(
+		vobj.EntityTypeWorkspace,
+		&c.Name,
+		c.CreatorID,
+		parentRef,
+	)
+	if err != nil {
+		return model.Workspace{}, err
 	}
 
 	return model.Workspace{
-		BaseEntity: model.BaseEntity{
-			Name:       &c.Name,
-			CreatorID:  c.CreatorID,
-			EntityType: constants.EntityTypeWorkspace,
-		},
+		Entity:       *entity,
 		OrganType:    c.OrganType,
 		Organization: c.Organization,
 		Description:  c.Description,
@@ -39,10 +100,9 @@ func (c *CreateWorkspaceCommand) ToEntity() (model.Workspace, error) {
 }
 
 type UpdateWorkspaceCommand struct {
-	ID        string
-	Name      *string
-	CreatorID *string
-
+	ID           string
+	Name         *string
+	CreatorID    *string
 	OrganType    *string
 	Organization *string
 	Description  *string
@@ -55,7 +115,7 @@ func (c *UpdateWorkspaceCommand) GetID() string {
 	return c.ID
 }
 
-func (c *UpdateWorkspaceCommand) ApplyTo(entity *model.Workspace) *model.Workspace {
+func (c *UpdateWorkspaceCommand) ApplyTo(entity model.Workspace) (model.Workspace, error) {
 	if c.Name != nil {
 		entity.Name = c.Name
 	}
@@ -63,7 +123,11 @@ func (c *UpdateWorkspaceCommand) ApplyTo(entity *model.Workspace) *model.Workspa
 		entity.CreatorID = *c.CreatorID
 	}
 	if c.OrganType != nil {
-		entity.OrganType = *c.OrganType
+		ot, err := vobj.NewOrganTypeFromString(*c.OrganType)
+		if err != nil {
+			return model.Workspace{}, err
+		}
+		entity.OrganType = string(ot)
 	}
 	if c.Organization != nil {
 		entity.Organization = *c.Organization
@@ -80,5 +144,40 @@ func (c *UpdateWorkspaceCommand) ApplyTo(entity *model.Workspace) *model.Workspa
 	if c.ReleaseYear != nil {
 		entity.ReleaseYear = c.ReleaseYear
 	}
-	return entity
+	return entity, nil
+}
+
+func (c *UpdateWorkspaceCommand) GetUpdates() (map[string]any, error) {
+	updates := make(map[string]any)
+
+	if c.Name != nil {
+		updates[constants.NameField] = *c.Name
+	}
+	if c.CreatorID != nil {
+		updates[constants.CreatorIDField] = *c.CreatorID
+	}
+	if c.OrganType != nil {
+		ot, err := vobj.NewOrganTypeFromString(*c.OrganType)
+		if err != nil {
+			return nil, err
+		}
+		updates[constants.WorkspaceOrganTypeField] = string(ot)
+	}
+	if c.Organization != nil {
+		updates[constants.WorkspaceOrganizationField] = *c.Organization
+	}
+	if c.Description != nil {
+		updates[constants.WorkspaceDescField] = *c.Description
+	}
+	if c.License != nil {
+		updates[constants.WorkspaceLicenseField] = *c.License
+	}
+	if c.ResourceURL != nil {
+		updates[constants.WorkspaceResourceURLField] = *c.ResourceURL
+	}
+	if c.ReleaseYear != nil {
+		updates[constants.WorkspaceReleaseYearField] = *c.ReleaseYear
+	}
+
+	return updates, nil
 }
