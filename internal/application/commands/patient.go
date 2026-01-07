@@ -2,32 +2,89 @@ package commands
 
 import (
 	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/constants"
+	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
 type CreatePatientCommand struct {
-	//Base Entity fields
 	Name      string
 	CreatorID string
 	ParentID  string
-	//Patient specific fields
-	Age     *int
-	Gender  *string
-	Race    *string
-	Disease *string
-	Subtype *string
-	Grade   *int
-	History *string
+	Age       *int
+	Gender    *string
+	Race      *string
+	Disease   *string
+	Subtype   *string
+	Grade     *int
+	History   *string
 }
 
-func (c *CreatePatientCommand) ToEntity() model.Patient {
+func NewCreatePatientCommand(
+	name string,
+	creatorID string,
+	parentID string,
+	age *int,
+	gender *string,
+	race *string,
+	disease *string,
+	subtype *string,
+	grade *int,
+	history *string,
+) (*CreatePatientCommand, error) {
+
+	details := make(map[string]any)
+	if name == "" {
+		details["name required"] = name
+	}
+
+	if creatorID == "" {
+		details["creator_id required"] = creatorID
+	}
+
+	if parentID == "" {
+		details["parent_id required"] = parentID
+	}
+
+	if age != nil && *age < 0 {
+		details["age cannot be negative"] = *age
+	}
+
+	if len(details) > 0 {
+		return nil, errors.NewValidationError("invalid create patient command", details)
+	}
+	return &CreatePatientCommand{
+		Name:      name,
+		CreatorID: creatorID,
+		ParentID:  parentID,
+		Age:       age,
+		Gender:    gender,
+		Race:      race,
+		Disease:   disease,
+		Subtype:   subtype,
+		Grade:     grade,
+		History:   history,
+	}, nil
+}
+
+func (c *CreatePatientCommand) ToEntity() (model.Patient, error) {
+	parentRef, err := vobj.NewParentRef(c.ParentID, vobj.ParentTypeWorkspace)
+	if err != nil {
+		return model.Patient{}, err
+	}
+
+	entity, err := vobj.NewEntity(
+		vobj.EntityTypePatient,
+		&c.Name,
+		c.CreatorID,
+		parentRef,
+	)
+	if err != nil {
+		return model.Patient{}, err
+	}
+
 	return model.Patient{
-		BaseEntity: model.BaseEntity{
-			EntityType: constants.EntityTypePatient,
-			Name:       &c.Name,
-			CreatorID:  c.CreatorID,
-			Parent:     &model.ParentRef{ID: c.ParentID, Type: constants.ParentTypeWorkspace},
-		},
+		Entity:  *entity,
 		Age:     c.Age,
 		Gender:  c.Gender,
 		Race:    c.Race,
@@ -35,42 +92,47 @@ func (c *CreatePatientCommand) ToEntity() model.Patient {
 		Subtype: c.Subtype,
 		Grade:   c.Grade,
 		History: c.History,
-	}
-
+	}, nil
 }
 
 type UpdatePatientCommand struct {
-	// Base Entity fields
 	ID        string
 	Name      *string
 	CreatorID *string
 	ParentID  *string
-	// Patient specific fields
-
-	Age     *int
-	Gender  *string
-	Race    *string
-	Disease *string
-	Subtype *string
-	Grade   *int
-	History *string
+	Age       *int
+	Gender    *string
+	Race      *string
+	Disease   *string
+	Subtype   *string
+	Grade     *int
+	History   *string
 }
 
 func (c *UpdatePatientCommand) GetID() string {
 	return c.ID
 }
 
-func (c *UpdatePatientCommand) ApplyTo(entity model.Patient) model.Patient {
+func (c *UpdatePatientCommand) ApplyTo(entity model.Patient) (model.Patient, error) {
 	if c.Name != nil {
-		entity.Name = c.Name
+		entity.SetName(*c.Name)
 	}
 	if c.CreatorID != nil {
-		entity.CreatorID = *c.CreatorID
+		entity.SetCreatorID(*c.CreatorID)
 	}
 	if c.ParentID != nil {
-		entity.Parent = &model.ParentRef{ID: *c.ParentID, Type: constants.ParentTypeWorkspace}
+		parentRef, err := vobj.NewParentRef(*c.ParentID, vobj.ParentTypeWorkspace)
+		if err != nil {
+			return model.Patient{}, err
+		}
+		entity.Parent = parentRef
 	}
+
 	if c.Age != nil {
+		if *c.Age < 0 {
+			details := map[string]any{"age": *c.Age}
+			return model.Patient{}, errors.NewValidationError("age cannot be negative", details)
+		}
 		entity.Age = c.Age
 	}
 	if c.Gender != nil {
@@ -91,5 +153,47 @@ func (c *UpdatePatientCommand) ApplyTo(entity model.Patient) model.Patient {
 	if c.History != nil {
 		entity.History = c.History
 	}
-	return entity
+
+	return entity, nil
+}
+
+func (c *UpdatePatientCommand) GetUpdates() (map[string]any, error) {
+	updates := make(map[string]any)
+
+	if c.Name != nil {
+		updates[constants.NameField] = *c.Name
+	}
+	if c.CreatorID != nil {
+		updates[constants.CreatorIDField] = *c.CreatorID
+	}
+	if c.ParentID != nil {
+		updates[constants.ParentIDField] = *c.ParentID
+	}
+	if c.Age != nil {
+		if *c.Age < 0 {
+			details := map[string]any{"age cannot be negative": *c.Age}
+			return nil, errors.NewValidationError("age cannot be negative", details)
+		}
+		updates[constants.PatientAgeField] = *c.Age
+	}
+	if c.Gender != nil {
+		updates[constants.PatientGenderField] = *c.Gender
+	}
+	if c.Race != nil {
+		updates[constants.PatientRaceField] = *c.Race
+	}
+	if c.Disease != nil {
+		updates[constants.PatientDiseaseField] = *c.Disease
+	}
+	if c.Subtype != nil {
+		updates[constants.PatientSubtypeField] = *c.Subtype
+	}
+	if c.Grade != nil {
+		updates[constants.PatientGradeField] = *c.Grade
+	}
+	if c.History != nil {
+		updates[constants.PatientHistoryField] = *c.History
+	}
+
+	return updates, nil
 }
