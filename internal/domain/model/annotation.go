@@ -1,15 +1,9 @@
 package model
 
-type Point struct {
-	X float64
-	Y float64
-}
+import "github.com/histopathai/main-service/internal/domain/vobj"
 
 type Annotation struct {
-	BaseEntity
-	AnnotatorID string
-	Polygon     []Point
-	Score       *float64
-	Class       *string
-	Description *string
+	vobj.Entity
+	Polygon []vobj.Point
+	Tag     vobj.TagValue
 }

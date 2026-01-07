@@ -1,6 +1,8 @@
 package model
 
+import "github.com/histopathai/main-service/internal/domain/vobj"
+
 type AnnotationType struct {
-	BaseEntity
-	TagIDs []string
+	vobj.Entity
+	Tags []vobj.Tag
 }
