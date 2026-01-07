@@ -9,3 +9,8 @@ const (
 	UserCollection            = "users"
 	TelemetryCollection       = "telemetry"
 )
+
+const (
+	RoleAdmin = "admin"
+	RoleUser  = "user"
+)
