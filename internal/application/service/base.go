@@ -7,18 +7,19 @@ import (
 	"github.com/histopathai/main-service/internal/application/usecases/common"
 	"github.com/histopathai/main-service/internal/application/usecases/composite"
 	"github.com/histopathai/main-service/internal/domain/vobj"
+	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
-type CreateExecutor[T any] interface {
+type CreateExecutor[T port.Entity] interface {
 	Execute(ctx context.Context, entity *T) (*T, error)
 }
 
-type UpdateExecutor[T any] interface {
+type UpdateExecutor[T port.Entity] interface {
 	Execute(ctx context.Context, id string, updates map[string]any) (*T, error)
 }
 
-type BaseService[T any] struct {
+type BaseService[T port.Entity] struct {
 	readUc          *common.ReadUseCase[T]
 	listUc          *common.ListUseCase[T]
 	countUc         *common.CountUseCase[T]
@@ -33,7 +34,7 @@ type BaseService[T any] struct {
 	entityType      vobj.EntityType
 }
 
-func NewBaseService[T any](
+func NewBaseService[T port.Entity](
 	readUc *common.ReadUseCase[T],
 	listUc *common.ListUseCase[T],
 	countUc *common.CountUseCase[T],
