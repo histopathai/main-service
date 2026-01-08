@@ -7,9 +7,8 @@ import (
 	"log"
 
 	"github.com/histopathai/main-service/internal/application/commands"
-	entityspecific "github.com/histopathai/main-service/internal/application/usecases/entity-specific"
+	"github.com/histopathai/main-service/internal/application/service"
 	"github.com/histopathai/main-service/internal/domain/events"
-	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
 )
@@ -19,26 +18,23 @@ const (
 )
 
 type ImageEventHandlers struct {
-	createUC  entityspecific.CreateExecutor[model.Image]
-	updateUC  entityspecific.UpdateExecutor[model.Image]
-	worker    port.ImageProcessingWorker
-	storage   port.Storage
-	publisher port.EventPublisher
+	imageService *service.ImageService
+	worker       port.ImageProcessingWorker
+	storage      port.Storage
+	publisher    port.EventPublisher
 }
 
 func NewImageEventHandlers(
-	createUC entityspecific.CreateExecutor[model.Image],
-	updateUC entityspecific.UpdateExecutor[model.Image],
+	imageService *service.ImageService,
 	worker port.ImageProcessingWorker,
 	storage port.Storage,
 	publisher port.EventPublisher,
 ) *ImageEventHandlers {
 	return &ImageEventHandlers{
-		createUC:  createUC,
-		updateUC:  updateUC,
-		worker:    worker,
-		storage:   storage,
-		publisher: publisher,
+		imageService: imageService,
+		worker:       worker,
+		storage:      storage,
+		publisher:    publisher,
 	}
 }
 
@@ -81,12 +77,7 @@ func (h *ImageEventHandlers) HandleUploaded(event *vobj.Event) error {
 		return fmt.Errorf("create command error: %w", err)
 	}
 
-	entity, err := cmd.ToEntity()
-	if err != nil {
-		return fmt.Errorf("to entity error: %w", err)
-	}
-
-	_, err = h.createUC.Execute(context.Background(), &entity)
+	_, err = h.imageService.Create(context.Background(), cmd)
 	if err != nil {
 		return fmt.Errorf("create image error: %w", err)
 	}
@@ -124,23 +115,21 @@ func (h *ImageEventHandlers) HandleProcessingCompleted(event *vobj.Event) error 
 	}
 
 	// Update image entity
-	cmd := &commands.UpdateImageCommand{
-		ID:            payload.ImageID,
-		ProcessedPath: payload.ProcessedPath,
-		Width:         payload.Width,
-		Height:        payload.Height,
-		Size:          payload.Size,
-	}
+	//cmd := &commands.UpdateImageCommand{
+	//		ID:            payload.ImageID,
+	//		ProcessedPath: payload.ProcessedPath,
+	//		Width:         payload.Width,
+	//		Height:        payload.Height,
+	//		Size:          payload.Size,
+	//	}
 
-	updates, err := cmd.GetUpdates()
-	if err != nil {
-		return fmt.Errorf("get updates error: %w", err)
-	}
+	// TODO: Uncomment when UpdateUseCase is implemented
+	// _, err := h.imageService.Update(context.Background(), cmd)
+	// if err != nil {
+	// 	return fmt.Errorf("update image error: %w", err)
+	// }
 
-	_, err = h.updateUC.Execute(context.Background(), cmd.ID, updates)
-	if err != nil {
-		return fmt.Errorf("update image error: %w", err)
-	}
+	log.Printf("Image processing completed: id=%s (update pending UpdateUseCase implementation)", payload.ImageID)
 
 	return nil
 }
