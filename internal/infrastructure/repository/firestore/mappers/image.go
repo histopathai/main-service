@@ -63,7 +63,7 @@ func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model
 	if err != nil {
 		return nil, err
 	}
-	image.ProcessReport = *processReport
+	image.ProcessReport = processReport
 
 	return image, nil
 }
