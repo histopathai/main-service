@@ -6,18 +6,11 @@ import (
 	"github.com/histopathai/main-service/internal/application/commands"
 	"github.com/histopathai/main-service/internal/application/usecases/common"
 	"github.com/histopathai/main-service/internal/application/usecases/composite"
+	entityspecific "github.com/histopathai/main-service/internal/application/usecases/entity-specific"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
-
-type CreateExecutor[T port.Entity] interface {
-	Execute(ctx context.Context, entity *T) (*T, error)
-}
-
-type UpdateExecutor[T port.Entity] interface {
-	Execute(ctx context.Context, id string, updates map[string]any) (*T, error)
-}
 
 type BaseService[T port.Entity] struct {
 	readUc          *common.ReadUseCase[T]
@@ -29,8 +22,8 @@ type BaseService[T port.Entity] struct {
 	findByCreatorUc *common.FilterByCreatorUseCase[T]
 	findByNameUc    *common.FilterByNameUseCase[T]
 	hdeleteUc       *composite.DeleteUseCase
-	createUC        CreateExecutor[T]
-	updateUC        UpdateExecutor[T]
+	createUC        entityspecific.CreateExecutor[T]
+	updateUC        entityspecific.UpdateExecutor[T]
 	entityType      vobj.EntityType
 }
 
@@ -44,8 +37,8 @@ func NewBaseService[T port.Entity](
 	findByCreatorUc *common.FilterByCreatorUseCase[T],
 	findByNameUc *common.FilterByNameUseCase[T],
 	hdeleteUc *composite.DeleteUseCase,
-	createUC CreateExecutor[T],
-	updateUC UpdateExecutor[T],
+	createUC entityspecific.CreateExecutor[T],
+	updateUC entityspecific.UpdateExecutor[T],
 	entityType vobj.EntityType,
 ) *BaseService[T] {
 	return &BaseService[T]{
