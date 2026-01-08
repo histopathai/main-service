@@ -4,24 +4,24 @@ import (
 	"context"
 
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/repository"
 	"github.com/histopathai/main-service/internal/domain/vobj"
+	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
 type CreatePatientUseCase struct {
-	uowFactory repository.UnitOfWorkFactory
+	uowFactory port.UnitOfWorkFactory
 }
 
-func NewCreatePatientUseCase(uowFactory repository.UnitOfWorkFactory) *CreatePatientUseCase {
+func NewCreatePatientUseCase(uowFactory port.UnitOfWorkFactory) *CreatePatientUseCase {
 	return &CreatePatientUseCase{uowFactory: uowFactory}
 }
 
 func (uc *CreatePatientUseCase) Execute(ctx context.Context, entity *model.Patient) (*model.Patient, error) {
 	createdEntity := &model.Patient{}
-	uowerr := uc.uowFactory.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+	uowerr := uc.uowFactory.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
 		// Check parent ID existence
 		parentID := entity.GetParent().GetID()
 
@@ -126,16 +126,16 @@ func (uc *CreatePatientUseCase) ExecuteMany(ctx context.Context, entities []mode
 }
 
 type UpdatePatientUseCase struct {
-	uowFactory repository.UnitOfWorkFactory
+	uowFactory port.UnitOfWorkFactory
 }
 
-func NewUpdatePatientUseCase(uowFactory repository.UnitOfWorkFactory) *UpdatePatientUseCase {
+func NewUpdatePatientUseCase(uowFactory port.UnitOfWorkFactory) *UpdatePatientUseCase {
 	return &UpdatePatientUseCase{uowFactory: uowFactory}
 }
 
 func (uc *UpdatePatientUseCase) Execute(ctx context.Context, id string, updates map[string]any) (*model.Patient, error) {
 
-	uowerr := uc.uowFactory.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+	uowerr := uc.uowFactory.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
 		if name, ok := updates[constants.NameField]; ok {
 			// Check name uniqueness within parent scope
 			filters := []query.Filter{

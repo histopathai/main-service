@@ -3,14 +3,14 @@ package common
 import (
 	"context"
 
-	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/port"
 )
 
 type SoftDeleteUseCase[T any] struct {
-	repo repository.Repository[T]
+	repo port.Repository[T]
 }
 
-func NewSoftDeleteUseCase[T any](repo repository.Repository[T]) *SoftDeleteUseCase[T] {
+func NewSoftDeleteUseCase[T any](repo port.Repository[T]) *SoftDeleteUseCase[T] {
 	return &SoftDeleteUseCase[T]{repo: repo}
 }
 

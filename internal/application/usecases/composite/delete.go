@@ -4,17 +4,17 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/histopathai/main-service/internal/domain/repository"
 	"github.com/histopathai/main-service/internal/domain/vobj"
+	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
 type DeleteUseCase struct {
-	uowFactory repository.UnitOfWorkFactory
+	uowFactory port.UnitOfWorkFactory
 }
 
-func NewDeleteUseCase(uowFactory repository.UnitOfWorkFactory) *DeleteUseCase {
+func NewDeleteUseCase(uowFactory port.UnitOfWorkFactory) *DeleteUseCase {
 	return &DeleteUseCase{uowFactory: uowFactory}
 }
 
@@ -51,7 +51,7 @@ func (uc *DeleteUseCase) Execute(ctx context.Context, id string, entityType vobj
 func (uc *DeleteUseCase) deleteWorkspace(
 	ctx context.Context,
 	id string,
-	repos *repository.Repositories,
+	repos *port.Repositories,
 ) error {
 	workspace, err := repos.WorkspaceRepo.Read(ctx, id)
 	if err != nil {
@@ -154,7 +154,7 @@ func (uc *DeleteUseCase) deleteWorkspace(
 func (uc *DeleteUseCase) deletePatient(
 	ctx context.Context,
 	id string,
-	repos *repository.Repositories,
+	repos *port.Repositories,
 ) error {
 	patient, err := repos.PatientRepo.Read(ctx, id)
 	if err != nil {
@@ -212,7 +212,7 @@ func (uc *DeleteUseCase) deletePatient(
 func (uc *DeleteUseCase) deleteImage(
 	ctx context.Context,
 	id string,
-	repos *repository.Repositories,
+	repos *port.Repositories,
 ) error {
 	image, err := repos.ImageRepo.Read(ctx, id)
 	if err != nil {
@@ -248,7 +248,7 @@ func (uc *DeleteUseCase) deleteImage(
 func (uc *DeleteUseCase) deleteAnnotation(
 	ctx context.Context,
 	id string,
-	repos *repository.Repositories,
+	repos *port.Repositories,
 ) error {
 	annotation, err := repos.AnnotationRepo.Read(ctx, id)
 	if err != nil {
@@ -265,7 +265,7 @@ func (uc *DeleteUseCase) deleteAnnotation(
 func (uc *DeleteUseCase) deleteAnnotationType(
 	ctx context.Context,
 	id string,
-	repos *repository.Repositories,
+	repos *port.Repositories,
 ) error {
 	annotationType, err := repos.AnnotationTypeRepo.Read(ctx, id)
 	if err != nil {

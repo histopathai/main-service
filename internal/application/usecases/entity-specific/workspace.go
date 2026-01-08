@@ -4,17 +4,17 @@ import (
 	"context"
 
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
 type CreateWorkspaceUseCase struct {
-	repo repository.Repository[model.Workspace]
+	repo port.Repository[model.Workspace]
 }
 
-func NewCreateWorkspaceUseCase(repo repository.Repository[model.Workspace]) *CreateWorkspaceUseCase {
+func NewCreateWorkspaceUseCase(repo port.Repository[model.Workspace]) *CreateWorkspaceUseCase {
 	return &CreateWorkspaceUseCase{repo: repo}
 }
 
@@ -65,10 +65,10 @@ func (uc *CreateWorkspaceUseCase) ExecuteMany(ctx context.Context, entities []mo
 }
 
 type UpdateWorkspaceUseCase struct {
-	repo repository.Repository[model.Workspace]
+	repo port.Repository[model.Workspace]
 }
 
-func NewUpdateWorkspaceUseCase(repo repository.Repository[model.Workspace]) *UpdateWorkspaceUseCase {
+func NewUpdateWorkspaceUseCase(repo port.Repository[model.Workspace]) *UpdateWorkspaceUseCase {
 	return &UpdateWorkspaceUseCase{repo: repo}
 }
 

@@ -4,23 +4,23 @@ import (
 	"context"
 
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
 type CreateImageUseCase struct {
-	uowFactory repository.UnitOfWorkFactory
+	uowFactory port.UnitOfWorkFactory
 }
 
-func NewCreateImageUseCase(uowFactory repository.UnitOfWorkFactory) *CreateImageUseCase {
+func NewCreateImageUseCase(uowFactory port.UnitOfWorkFactory) *CreateImageUseCase {
 	return &CreateImageUseCase{uowFactory: uowFactory}
 }
 
 func (uc *CreateImageUseCase) Execute(ctx context.Context, entity *model.Image) (*model.Image, error) {
 	var createdEntity *model.Image
 
-	uowerr := uc.uowFactory.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+	uowerr := uc.uowFactory.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
 
 		parentID := entity.GetParent().GetID()
 
@@ -82,4 +82,37 @@ func (uc *CreateImageUseCase) ExecuteMany(ctx context.Context, entities []model.
 		created = append(created, *createdEntity)
 	}
 	return created, nil
+}
+
+type UpdateImageUseCase struct {
+	uowFactory port.UnitOfWorkFactory
+}
+
+func NewUpdateImageUseCase(uowFactory port.UnitOfWorkFactory) *UpdateImageUseCase {
+	return &UpdateImageUseCase{uowFactory: uowFactory}
+}
+
+func (uc *UpdateImageUseCase) Execute(ctx context.Context, id string, updates map[string]any) (*model.Image, error) {
+	var updatedEntity *model.Image
+
+	uowerr := uc.uowFactory.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
+
+		err := repos.ImageRepo.Update(txCtx, id, updates)
+		if err != nil {
+			return err
+		}
+
+		updated, err := repos.ImageRepo.Read(txCtx, id)
+		if err != nil {
+			return err
+		}
+
+		updatedEntity = updated
+		return nil
+	})
+
+	if uowerr != nil {
+		return nil, uowerr
+	}
+	return updatedEntity, nil
 }

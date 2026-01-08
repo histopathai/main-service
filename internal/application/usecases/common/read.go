@@ -3,14 +3,14 @@ package common
 import (
 	"context"
 
-	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/port"
 )
 
 type ReadUseCase[T any] struct {
-	repo repository.Repository[T]
+	repo port.Repository[T]
 }
 
-func NewReadUseCase[T any](repo repository.Repository[T]) *ReadUseCase[T] {
+func NewReadUseCase[T any](repo port.Repository[T]) *ReadUseCase[T] {
 	return &ReadUseCase[T]{repo: repo}
 }
 

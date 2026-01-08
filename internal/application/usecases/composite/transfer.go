@@ -3,17 +3,17 @@ package composite
 import (
 	"context"
 
-	"github.com/histopathai/main-service/internal/domain/repository"
 	"github.com/histopathai/main-service/internal/domain/vobj"
+	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
 type TransferUseCase struct {
-	uowFactory repository.UnitOfWorkFactory
+	uowFactory port.UnitOfWorkFactory
 }
 
-func NewTransferUseCase(uowFactory repository.UnitOfWorkFactory) *TransferUseCase {
+func NewTransferUseCase(uowFactory port.UnitOfWorkFactory) *TransferUseCase {
 	return &TransferUseCase{
 		uowFactory: uowFactory,
 	}
@@ -41,7 +41,7 @@ func (uc *TransferUseCase) ExecuteMany(ctx context.Context, ids []string, newPar
 }
 
 func (uc *TransferUseCase) transferPatient(ctx context.Context, id, parentId string) error {
-	return uc.uowFactory.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+	return uc.uowFactory.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
 		patient, err := repos.PatientRepo.Read(txCtx, id)
 		if err != nil {
 			return err
@@ -86,7 +86,7 @@ func (uc *TransferUseCase) transferPatient(ctx context.Context, id, parentId str
 }
 
 func (uc *TransferUseCase) transferImage(ctx context.Context, id, parentId string) error {
-	return uc.uowFactory.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+	return uc.uowFactory.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
 		image, err := repos.ImageRepo.Read(txCtx, id)
 		if err != nil {
 			return err

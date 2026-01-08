@@ -4,22 +4,22 @@ import (
 	"context"
 
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
 type CreateaAnnotationUseCase struct {
-	uowFactory repository.UnitOfWorkFactory
+	uowFactory port.UnitOfWorkFactory
 }
 
-func NewCreateAnnotationUseCase(uowFactory repository.UnitOfWorkFactory) *CreateaAnnotationUseCase {
+func NewCreateAnnotationUseCase(uowFactory port.UnitOfWorkFactory) *CreateaAnnotationUseCase {
 	return &CreateaAnnotationUseCase{uowFactory: uowFactory}
 }
 
 func (uc *CreateaAnnotationUseCase) Execute(ctx context.Context, entity *model.Annotation) (*model.Annotation, error) {
 	createdEntity := &model.Annotation{}
-	uowerr := uc.uowFactory.WithTx(ctx, func(txCtx context.Context, repos *repository.Repositories) error {
+	uowerr := uc.uowFactory.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
 
 		//check parent existence
 		parentID := entity.GetParent().GetID()
@@ -69,4 +69,31 @@ func (uc *CreateaAnnotationUseCase) Execute(ctx context.Context, entity *model.A
 	}
 
 	return createdEntity, nil
+}
+
+type UpdateAnnotationUseCase struct {
+	uowFactory port.UnitOfWorkFactory
+}
+
+func NewUpdateAnnotationUseCase(uowFactory port.UnitOfWorkFactory) *UpdateAnnotationUseCase {
+	return &UpdateAnnotationUseCase{uowFactory: uowFactory}
+}
+
+func (uc *UpdateAnnotationUseCase) Execute(ctx context.Context, id string, updates map[string]any) (*model.Annotation, error) {
+	// Will be improve later
+	repos, err := uc.uowFactory.WithoutTx(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	err = repos.AnnotationRepo.Update(ctx, id, updates)
+	if err != nil {
+		return nil, err
+	}
+
+	updatedEntity, err := repos.AnnotationRepo.Read(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	return updatedEntity, nil
 }

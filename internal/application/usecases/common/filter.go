@@ -3,17 +3,17 @@ package common
 import (
 	"context"
 
-	"github.com/histopathai/main-service/internal/domain/repository"
 	"github.com/histopathai/main-service/internal/domain/vobj"
+	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
 type FilterUseCase[T any] struct {
-	repo repository.Repository[T]
+	repo port.Repository[T]
 }
 
-func NewFilterUseCase[T any](repo repository.Repository[T]) *FilterUseCase[T] {
+func NewFilterUseCase[T any](repo port.Repository[T]) *FilterUseCase[T] {
 	return &FilterUseCase[T]{repo: repo}
 }
 
@@ -22,10 +22,10 @@ func (uc *FilterUseCase[T]) Execute(ctx context.Context, filters []query.Filter,
 }
 
 type FilterByParentUseCase[T any] struct {
-	repo repository.Repository[T]
+	repo port.Repository[T]
 }
 
-func NewFilterByParentUseCase[T any](repo repository.Repository[T]) *FilterByParentUseCase[T] {
+func NewFilterByParentUseCase[T any](repo port.Repository[T]) *FilterByParentUseCase[T] {
 	return &FilterByParentUseCase[T]{repo: repo}
 }
 
@@ -46,10 +46,10 @@ func (uc *FilterByParentUseCase[T]) Execute(ctx context.Context, parentID string
 }
 
 type FilterByCreatorUseCase[T any] struct {
-	repo repository.Repository[T]
+	repo port.Repository[T]
 }
 
-func NewFilterByCreatorUseCase[T any](repo repository.Repository[T]) *FilterByCreatorUseCase[T] {
+func NewFilterByCreatorUseCase[T any](repo port.Repository[T]) *FilterByCreatorUseCase[T] {
 	return &FilterByCreatorUseCase[T]{repo: repo}
 }
 
@@ -65,10 +65,10 @@ func (uc *FilterByCreatorUseCase[T]) Execute(ctx context.Context, creatorID stri
 }
 
 type FilterByNameUseCase[T any] struct {
-	repo repository.Repository[T]
+	repo port.Repository[T]
 }
 
-func NewFilterByNameUseCase[T any](repo repository.Repository[T]) *FilterByNameUseCase[T] {
+func NewFilterByNameUseCase[T any](repo port.Repository[T]) *FilterByNameUseCase[T] {
 	return &FilterByNameUseCase[T]{repo: repo}
 }
 

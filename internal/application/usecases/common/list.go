@@ -3,15 +3,15 @@ package common
 import (
 	"context"
 
-	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
 type ListUseCase[T any] struct {
-	repo repository.Repository[T]
+	repo port.Repository[T]
 }
 
-func NewListUseCase[T any](repo repository.Repository[T]) *ListUseCase[T] {
+func NewListUseCase[T any](repo port.Repository[T]) *ListUseCase[T] {
 	return &ListUseCase[T]{repo: repo}
 }
 
