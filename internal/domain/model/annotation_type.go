@@ -4,5 +4,5 @@ import "github.com/histopathai/main-service/internal/domain/vobj"
 
 type AnnotationType struct {
 	*vobj.Entity
-	Tags []vobj.Tag
+	Tag *vobj.Tag
 }

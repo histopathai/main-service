@@ -6,10 +6,11 @@ import (
 
 type Workspace struct {
 	*vobj.Entity
-	OrganType    string
-	Organization string
-	Description  string
-	License      string
-	ResourceURL  *string
-	ReleaseYear  *int
+	OrganType       string
+	Organization    string
+	Description     string
+	License         string
+	ResourceURL     *string
+	ReleaseYear     *int
+	AnnotationTypes *[]string
 }

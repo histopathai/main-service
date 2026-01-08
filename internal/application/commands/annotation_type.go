@@ -10,13 +10,13 @@ import (
 type CreateAnnotationTypeCommand struct {
 	Name      string
 	CreatorID string
-	Tags      []vobj.Tag
+	Tag       vobj.Tag
 }
 
 func NewCreateAnnotationTypeCommand(
 	name string,
 	creatorID string,
-	tags []vobj.Tag,
+	tag vobj.Tag,
 ) (*CreateAnnotationTypeCommand, error) {
 	details := make(map[string]any)
 	if name == "" {
@@ -27,8 +27,8 @@ func NewCreateAnnotationTypeCommand(
 		details["creator_id required"] = creatorID
 	}
 
-	if len(tags) == 0 {
-		details["tags required"] = tags
+	if tag.Name == "" {
+		details["tag name required"] = tag.Name
 	}
 
 	if len(details) > 0 {
@@ -38,7 +38,7 @@ func NewCreateAnnotationTypeCommand(
 	return &CreateAnnotationTypeCommand{
 		Name:      name,
 		CreatorID: creatorID,
-		Tags:      tags,
+		Tag:       tag,
 	}, nil
 }
 
@@ -55,7 +55,7 @@ func (c *CreateAnnotationTypeCommand) ToEntity() (model.AnnotationType, error) {
 
 	return model.AnnotationType{
 		Entity: entity,
-		Tags:   c.Tags,
+		Tag:    &c.Tag,
 	}, nil
 }
 
@@ -63,7 +63,7 @@ type UpdateAnnotationTypeCommand struct {
 	ID        string
 	Name      *string
 	CreatorID *string
-	Tags      *[]vobj.Tag
+	Tag       *vobj.Tag
 }
 
 func (c *UpdateAnnotationTypeCommand) GetID() string {
@@ -77,8 +77,8 @@ func (c *UpdateAnnotationTypeCommand) ApplyTo(entity model.AnnotationType) (mode
 	if c.CreatorID != nil {
 		entity.SetCreatorID(*c.CreatorID)
 	}
-	if c.Tags != nil {
-		entity.Tags = *c.Tags
+	if c.Tag != nil {
+		entity.Tag = c.Tag
 	}
 
 	return entity, nil
@@ -93,8 +93,8 @@ func (c *UpdateAnnotationTypeCommand) GetUpdates() (map[string]any, error) {
 	if c.CreatorID != nil {
 		updates[constants.CreatorIDField] = *c.CreatorID
 	}
-	if c.Tags != nil {
-		updates[constants.TagsField] = *c.Tags
+	if c.Tag != nil {
+		updates[constants.TagField] = c.Tag
 	}
 
 	return updates, nil
