@@ -4,7 +4,7 @@ import (
 	"context"
 
 	"cloud.google.com/go/firestore"
-	"github.com/histopathai/main-service/internal/domain/repository"
+	"github.com/histopathai/main-service/internal/port"
 )
 
 type txKey struct{}
@@ -20,13 +20,13 @@ func FromCtx(ctx context.Context) *firestore.Transaction {
 
 type FirestoreUnitOfWorkFactory struct {
 	client *firestore.Client
-	repos  *repository.Repositories
+	repos  *port.Repositories
 }
 
 func NewFirestoreUnitOfWorkFactory(
 	client *firestore.Client,
-	repos *repository.Repositories,
-) repository.UnitOfWorkFactory {
+	repos *port.Repositories,
+) port.UnitOfWorkFactory {
 	return &FirestoreUnitOfWorkFactory{
 		client: client,
 		repos:  repos,
@@ -35,10 +35,14 @@ func NewFirestoreUnitOfWorkFactory(
 
 func (f *FirestoreUnitOfWorkFactory) WithTx(
 	ctx context.Context,
-	fn func(ctx context.Context, repos *repository.Repositories) error,
+	fn func(ctx context.Context, repos *port.Repositories) error,
 ) error {
 	return f.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 		txCtx := withTx(ctx, tx)
 		return fn(txCtx, f.repos)
 	})
+}
+
+func (f *FirestoreUnitOfWorkFactory) WithoutTx(ctx context.Context) (*port.Repositories, error) {
+	return f.repos, nil
 }

@@ -8,25 +8,25 @@ import (
 	"time"
 
 	"cloud.google.com/go/firestore"
-	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/query"
 	"google.golang.org/api/iterator"
 )
 
-type Mapper[T model.Entity] interface {
+type Mapper[T port.Entity] interface {
 	FromFirestoreDoc(doc *firestore.DocumentSnapshot) (T, error)
 	ToFirestoreMap(entity T) map[string]interface{}
 	MapUpdates(updates map[string]interface{}) (map[string]interface{}, error)
 	MapFilters(filters []query.Filter) ([]query.Filter, error)
 }
 
-type RepositoryImpl[T model.Entity] struct {
+type RepositoryImpl[T port.Entity] struct {
 	client     *firestore.Client
 	collection string
 	mapper     Mapper[T]
 }
 
-func NewRepositoryImpl[T model.Entity](
+func NewRepositoryImpl[T port.Entity](
 	client *firestore.Client,
 	collection string,
 	mapper Mapper[T],
@@ -38,11 +38,11 @@ func NewRepositoryImpl[T model.Entity](
 	}
 }
 
-type TransferableRepositoryImpl[T model.Entity] struct {
+type TransferableRepositoryImpl[T port.Entity] struct {
 	*RepositoryImpl[T]
 }
 
-func NewTransferableRepositoryImpl[T model.Entity](
+func NewTransferableRepositoryImpl[T port.Entity](
 	client *firestore.Client,
 	collection string,
 	mapper Mapper[T],
@@ -51,6 +51,9 @@ func NewTransferableRepositoryImpl[T model.Entity](
 		RepositoryImpl: NewRepositoryImpl[T](client, collection, mapper),
 	}
 }
+
+// Create, Read, Update, Delete ve diğer tüm metodlar aynı kalır
+// Sadece type constraint değişti: model.Entity -> port.Entity
 
 func (r *RepositoryImpl[T]) Create(ctx context.Context, entity T) (T, error) {
 	if reflect.ValueOf(entity).IsNil() {
@@ -172,7 +175,6 @@ func (r *RepositoryImpl[T]) FindByFilters(
 	}
 
 	if paginationOpts == nil {
-
 		paginationOpts = &query.Pagination{Limit: 50, Offset: 0, SortBy: "created_at", SortDir: "desc"}
 	}
 
@@ -413,6 +415,116 @@ func (r *RepositoryImpl[T]) DeleteMany(ctx context.Context, ids []string) error 
 	writer.End()
 
 	return nil
+}
+
+// GetChildren ve GetChildrenPaginated ekle
+func (r *RepositoryImpl[T]) GetChildren(ctx context.Context, parentID string, includeDeleted bool) ([]T, error) {
+	q := r.client.Collection(r.collection).Where("parent_id", "==", parentID)
+
+	if !includeDeleted {
+		q = q.Where("deleted", "==", false)
+	}
+
+	var iter *firestore.DocumentIterator
+	if tx := FromCtx(ctx); tx != nil {
+		iter = tx.Documents(q)
+	} else {
+		iter = q.Documents(ctx)
+	}
+	defer iter.Stop()
+
+	var results []T
+
+	for {
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, mapFirestoreError(err)
+		}
+
+		entity, err := r.mapper.FromFirestoreDoc(doc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to map firestore document: %w", err)
+		}
+
+		results = append(results, entity)
+	}
+
+	return results, nil
+}
+
+func (r *RepositoryImpl[T]) GetChildrenPaginated(ctx context.Context, parentID string, includeDeleted bool, pagination *query.Pagination) (*query.Result[T], error) {
+	if pagination == nil {
+		pagination = &query.Pagination{Limit: 50, Offset: 0, SortBy: "created_at", SortDir: "desc"}
+	}
+
+	q := r.client.Collection(r.collection).Where("parent_id", "==", parentID)
+
+	if !includeDeleted {
+		q = q.Where("deleted", "==", false)
+	}
+
+	isLimited := pagination.Limit > 0
+	if isLimited {
+		q = q.Limit(pagination.Limit + 1).Offset(pagination.Offset)
+	}
+
+	var firestoreSortOrder firestore.Direction
+	if pagination.SortDir == "asc" {
+		firestoreSortOrder = firestore.Asc
+	} else {
+		firestoreSortOrder = firestore.Desc
+	}
+
+	q = q.OrderBy(pagination.SortBy, firestoreSortOrder)
+
+	var iter *firestore.DocumentIterator
+	if tx := FromCtx(ctx); tx != nil {
+		iter = tx.Documents(q)
+	} else {
+		iter = q.Documents(ctx)
+	}
+	defer iter.Stop()
+
+	results := make([]T, 0, pagination.Limit)
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		default:
+		}
+
+		doc, err := iter.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return nil, mapFirestoreError(err)
+		}
+
+		entity, err := r.mapper.FromFirestoreDoc(doc)
+		if err != nil {
+			return nil, fmt.Errorf("failed to map firestore document: %w", err)
+		}
+
+		results = append(results, entity)
+	}
+
+	hasMore := false
+	if isLimited && len(results) > pagination.Limit {
+		hasMore = true
+		results = results[:pagination.Limit]
+	}
+
+	return &query.Result[T]{
+		Data:    results,
+		HasMore: hasMore,
+		Limit:   pagination.Limit,
+		Offset:  pagination.Offset,
+	}, nil
 }
 
 func (tr *TransferableRepositoryImpl[T]) Transfer(ctx context.Context, id, newOwnerID, transferField string) error {
