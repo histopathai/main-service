@@ -7,6 +7,9 @@ import (
 	"github.com/histopathai/main-service/internal/port"
 )
 
+var _ CreateExecutor[model.AnnotationType] = (*CreateAnnotationTypeUseCase)(nil)
+var _ UpdateExecutor[model.AnnotationType] = (*UpdateAnnotationTypeUseCase)(nil)
+
 type CreateAnnotationTypeUseCase struct {
 	repo port.Repository[model.AnnotationType]
 }

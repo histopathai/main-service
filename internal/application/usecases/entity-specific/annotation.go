@@ -9,15 +9,19 @@ import (
 	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
-type CreateaAnnotationUseCase struct {
+// Interface'leri implement ettiğini garanti et
+var _ CreateExecutor[model.Annotation] = (*CreateAnnotationUseCase)(nil)
+var _ UpdateExecutor[model.Annotation] = (*UpdateAnnotationUseCase)(nil)
+
+type CreateAnnotationUseCase struct {
 	uowFactory port.UnitOfWorkFactory
 }
 
-func NewCreateAnnotationUseCase(uowFactory port.UnitOfWorkFactory) *CreateaAnnotationUseCase {
-	return &CreateaAnnotationUseCase{uowFactory: uowFactory}
+func NewCreateAnnotationUseCase(uowFactory port.UnitOfWorkFactory) *CreateAnnotationUseCase {
+	return &CreateAnnotationUseCase{uowFactory: uowFactory}
 }
 
-func (uc *CreateaAnnotationUseCase) Execute(ctx context.Context, entity *model.Annotation) (*model.Annotation, error) {
+func (uc *CreateAnnotationUseCase) Execute(ctx context.Context, entity *model.Annotation) (*model.Annotation, error) {
 	createdEntity := &model.Annotation{}
 	uowerr := uc.uowFactory.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
 

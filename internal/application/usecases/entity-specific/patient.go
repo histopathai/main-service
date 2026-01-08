@@ -11,6 +11,10 @@ import (
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
+// Interface'leri implement ettiğini garanti et
+var _ CreateExecutor[model.Patient] = (*CreatePatientUseCase)(nil)
+var _ UpdateExecutor[model.Patient] = (*UpdatePatientUseCase)(nil)
+
 type CreatePatientUseCase struct {
 	uowFactory port.UnitOfWorkFactory
 }

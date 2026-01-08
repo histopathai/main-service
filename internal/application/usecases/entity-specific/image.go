@@ -9,6 +9,10 @@ import (
 	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
+// Interface'leri implement ettiğini garanti et
+var _ CreateExecutor[model.Image] = (*CreateImageUseCase)(nil)
+var _ UpdateExecutor[model.Image] = (*UpdateImageUseCase)(nil)
+
 type CreateImageUseCase struct {
 	uowFactory port.UnitOfWorkFactory
 }

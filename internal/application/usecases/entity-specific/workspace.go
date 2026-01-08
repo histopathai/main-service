@@ -10,6 +10,10 @@ import (
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
+// Interface'leri implement ettiğini garanti et
+var _ CreateExecutor[model.Workspace] = (*CreateWorkspaceUseCase)(nil)
+var _ UpdateExecutor[model.Workspace] = (*UpdateWorkspaceUseCase)(nil)
+
 type CreateWorkspaceUseCase struct {
 	repo port.Repository[model.Workspace]
 }
