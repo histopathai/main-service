@@ -6,11 +6,11 @@ import (
 	"github.com/histopathai/main-service/internal/port"
 )
 
-type SoftDeleteUseCase[T any] struct {
+type SoftDeleteUseCase[T port.Entity] struct {
 	repo port.Repository[T]
 }
 
-func NewSoftDeleteUseCase[T any](repo port.Repository[T]) *SoftDeleteUseCase[T] {
+func NewSoftDeleteUseCase[T port.Entity](repo port.Repository[T]) *SoftDeleteUseCase[T] {
 	return &SoftDeleteUseCase[T]{repo: repo}
 }
 

@@ -6,11 +6,11 @@ import (
 	"github.com/histopathai/main-service/internal/port"
 )
 
-type ReadUseCase[T any] struct {
+type ReadUseCase[T port.Entity] struct {
 	repo port.Repository[T]
 }
 
-func NewReadUseCase[T any](repo port.Repository[T]) *ReadUseCase[T] {
+func NewReadUseCase[T port.Entity](repo port.Repository[T]) *ReadUseCase[T] {
 	return &ReadUseCase[T]{repo: repo}
 }
 

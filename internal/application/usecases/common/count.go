@@ -7,11 +7,11 @@ import (
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
-type CountUseCase[T any] struct {
+type CountUseCase[T port.Entity] struct {
 	repo port.Repository[T]
 }
 
-func NewCountUseCase[T any](repo port.Repository[T]) *CountUseCase[T] {
+func NewCountUseCase[T port.Entity](repo port.Repository[T]) *CountUseCase[T] {
 	return &CountUseCase[T]{repo: repo}
 }
 

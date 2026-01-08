@@ -7,11 +7,11 @@ import (
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
-type ListUseCase[T any] struct {
+type ListUseCase[T port.Entity] struct {
 	repo port.Repository[T]
 }
 
-func NewListUseCase[T any](repo port.Repository[T]) *ListUseCase[T] {
+func NewListUseCase[T port.Entity](repo port.Repository[T]) *ListUseCase[T] {
 	return &ListUseCase[T]{repo: repo}
 }
 

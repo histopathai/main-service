@@ -9,11 +9,11 @@ import (
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
-type FilterUseCase[T any] struct {
+type FilterUseCase[T port.Entity] struct {
 	repo port.Repository[T]
 }
 
-func NewFilterUseCase[T any](repo port.Repository[T]) *FilterUseCase[T] {
+func NewFilterUseCase[T port.Entity](repo port.Repository[T]) *FilterUseCase[T] {
 	return &FilterUseCase[T]{repo: repo}
 }
 
@@ -21,11 +21,11 @@ func (uc *FilterUseCase[T]) Execute(ctx context.Context, filters []query.Filter,
 	return uc.repo.FindByFilters(ctx, filters, pagination)
 }
 
-type FilterByParentUseCase[T any] struct {
+type FilterByParentUseCase[T port.Entity] struct {
 	repo port.Repository[T]
 }
 
-func NewFilterByParentUseCase[T any](repo port.Repository[T]) *FilterByParentUseCase[T] {
+func NewFilterByParentUseCase[T port.Entity](repo port.Repository[T]) *FilterByParentUseCase[T] {
 	return &FilterByParentUseCase[T]{repo: repo}
 }
 
@@ -45,11 +45,11 @@ func (uc *FilterByParentUseCase[T]) Execute(ctx context.Context, parentID string
 	return uc.repo.FindByFilters(ctx, filters, pagination)
 }
 
-type FilterByCreatorUseCase[T any] struct {
+type FilterByCreatorUseCase[T port.Entity] struct {
 	repo port.Repository[T]
 }
 
-func NewFilterByCreatorUseCase[T any](repo port.Repository[T]) *FilterByCreatorUseCase[T] {
+func NewFilterByCreatorUseCase[T port.Entity](repo port.Repository[T]) *FilterByCreatorUseCase[T] {
 	return &FilterByCreatorUseCase[T]{repo: repo}
 }
 
@@ -64,11 +64,11 @@ func (uc *FilterByCreatorUseCase[T]) Execute(ctx context.Context, creatorID stri
 	return uc.repo.FindByFilters(ctx, filters, pagination)
 }
 
-type FilterByNameUseCase[T any] struct {
+type FilterByNameUseCase[T port.Entity] struct {
 	repo port.Repository[T]
 }
 
-func NewFilterByNameUseCase[T any](repo port.Repository[T]) *FilterByNameUseCase[T] {
+func NewFilterByNameUseCase[T port.Entity](repo port.Repository[T]) *FilterByNameUseCase[T] {
 	return &FilterByNameUseCase[T]{repo: repo}
 }
 
