@@ -32,7 +32,7 @@ func (pm *PatientMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*mod
 	}
 
 	patient := &model.Patient{
-		Entity: entity,
+		Entity: *entity,
 	}
 
 	if v, ok := data["age"]; ok && v != nil {
@@ -75,7 +75,7 @@ func (pm *PatientMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*mod
 
 func (pm *PatientMapper) ToFirestoreMap(patient *model.Patient) map[string]interface{} {
 
-	m := pm.entityMapper.ToFirestoreMap(patient.Entity)
+	m := pm.entityMapper.ToFirestoreMap(&patient.Entity)
 
 	if patient.Age != nil {
 		m["age"] = *patient.Age

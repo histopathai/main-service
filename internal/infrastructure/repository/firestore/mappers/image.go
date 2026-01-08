@@ -35,7 +35,7 @@ func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model
 	}
 
 	image := &model.Image{
-		Entity:     entity,
+		Entity:     *entity,
 		Format:     data["format"].(string),
 		OriginPath: data["origin_path"].(string),
 	}
@@ -100,7 +100,7 @@ func (im *ImageMapper) parseProcessReport(data map[string]interface{}) (*vobj.Im
 }
 
 func (im *ImageMapper) ToFirestoreMap(image *model.Image) map[string]interface{} {
-	m := im.entityMapper.ToFirestoreMap(image.Entity)
+	m := im.entityMapper.ToFirestoreMap(&image.Entity)
 
 	m["format"] = image.Format
 	m["origin_path"] = image.OriginPath

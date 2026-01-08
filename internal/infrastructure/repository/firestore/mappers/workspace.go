@@ -32,7 +32,7 @@ func (wm *WorkspaceMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*m
 	}
 
 	workspace := &model.Workspace{
-		Entity:       entity,
+		Entity:       *entity,
 		OrganType:    data["organ_type"].(string),
 		Organization: data["organization"].(string),
 		License:      data["license"].(string),
@@ -57,7 +57,7 @@ func (wm *WorkspaceMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*m
 
 func (wm *WorkspaceMapper) ToFirestoreMap(workspace *model.Workspace) map[string]interface{} {
 
-	m := wm.entityMapper.ToFirestoreMap(workspace.Entity)
+	m := wm.entityMapper.ToFirestoreMap(&workspace.Entity)
 
 	m["organ_type"] = workspace.OrganType
 	m["organization"] = workspace.Organization

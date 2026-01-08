@@ -40,7 +40,7 @@ func (atm *AnnotationTypeMapper) FromFirestoreDoc(doc *firestore.DocumentSnapsho
 		return nil, errors.NewValidationError("tag field is missing or invalid", nil)
 	}
 	return &model.AnnotationType{
-		Entity: entity,
+		Entity: *entity,
 		Tag:    &tag,
 	}, nil
 }
@@ -88,7 +88,7 @@ func (atm *AnnotationTypeMapper) parseTag(tagMap map[string]interface{}) (*vobj.
 }
 
 func (atm *AnnotationTypeMapper) ToFirestoreMap(annotationType *model.AnnotationType) map[string]interface{} {
-	m := atm.entityMapper.ToFirestoreMap(annotationType.Entity)
+	m := atm.entityMapper.ToFirestoreMap(&annotationType.Entity)
 	m["tag"] = atm.tagToMap(annotationType.Tag)
 
 	return m

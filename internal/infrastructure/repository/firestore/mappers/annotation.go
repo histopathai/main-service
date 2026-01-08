@@ -56,7 +56,7 @@ func (am *AnnotationMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*
 	}
 
 	return &model.Annotation{
-		Entity:  entity,
+		Entity:  *entity,
 		Polygon: polygon,
 		Tag:     *tag,
 	}, nil
@@ -90,10 +90,8 @@ func (am *AnnotationMapper) parseTag(data map[string]interface{}) (*vobj.TagValu
 }
 
 func (am *AnnotationMapper) ToFirestoreMap(annotation *model.Annotation) map[string]interface{} {
-	// Base entity map'ini al
-	m := am.entityMapper.ToFirestoreMap(annotation.Entity)
+	m := am.entityMapper.ToFirestoreMap(&annotation.Entity)
 
-	// Polygon'u serialize et
 	if len(annotation.Polygon) > 0 {
 		points := make([]map[string]float64, len(annotation.Polygon))
 		for i, p := range annotation.Polygon {
@@ -107,7 +105,6 @@ func (am *AnnotationMapper) ToFirestoreMap(annotation *model.Annotation) map[str
 		m["polygon"] = []map[string]float64{}
 	}
 
-	// Tag'i serialize et
 	m["tag_type"] = annotation.Tag.TagType.String()
 	m["tag_name"] = annotation.Tag.TagName
 	m["tag_value"] = annotation.Tag.Value
@@ -124,7 +121,6 @@ func (am *AnnotationMapper) MapUpdates(updates map[string]interface{}) (map[stri
 		return nil, nil
 	}
 
-	// Base entity updates'lerini al
 	firestoreUpdates, err := am.entityMapper.MapUpdates(updates)
 	if err != nil {
 		return nil, err
@@ -162,7 +158,6 @@ func (am *AnnotationMapper) MapUpdates(updates map[string]interface{}) (map[stri
 			delete(updates, constants.TagField)
 
 		case constants.TagValueField:
-			// Tag value'yu tek başına güncellemek için
 			firestoreUpdates["tag_value"] = v
 			delete(updates, constants.TagValueField)
 		}
@@ -176,7 +171,6 @@ func (am *AnnotationMapper) MapFilters(filters []query.Filter) ([]query.Filter, 
 		return nil, nil
 	}
 
-	// Base entity filters'ları map'le
 	mappedFilters, err := am.entityMapper.MapFilters(filters)
 	if err != nil {
 		return nil, err
@@ -226,7 +220,6 @@ func (am *AnnotationMapper) MapFilters(filters []query.Filter) ([]query.Filter, 
 		}
 	}
 
-	// İşlenmemiş filtreleri temizle
 	for i := unprocessedIdx; i < len(filters); i++ {
 		filters[i] = query.Filter{}
 	}
