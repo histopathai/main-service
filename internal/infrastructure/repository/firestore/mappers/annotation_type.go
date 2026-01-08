@@ -28,27 +28,20 @@ func (atm *AnnotationTypeMapper) FromFirestoreDoc(doc *firestore.DocumentSnapsho
 
 	data := doc.Data()
 
-	// Parse tags
-	var tags []vobj.Tag
-	if tagsData, ok := data["tags"].([]interface{}); ok {
-		tags = make([]vobj.Tag, 0, len(tagsData))
-		for _, tagInterface := range tagsData {
-			tagMap, ok := tagInterface.(map[string]interface{})
-			if !ok {
-				continue
-			}
-
-			tag, err := atm.parseTag(tagMap)
-			if err != nil {
-				return nil, err
-			}
-			tags = append(tags, *tag)
+	// Parse tag
+	var tag vobj.Tag
+	if tagData, ok := data["tag"].(map[string]interface{}); ok {
+		parsedTag, err := atm.parseTag(tagData)
+		if err != nil {
+			return nil, err
 		}
+		tag = *parsedTag
+	} else {
+		return nil, errors.NewValidationError("tag field is missing or invalid", nil)
 	}
-
 	return &model.AnnotationType{
 		Entity: entity,
-		Tags:   tags,
+		Tag:    &tag,
 	}, nil
 }
 
@@ -96,16 +89,7 @@ func (atm *AnnotationTypeMapper) parseTag(tagMap map[string]interface{}) (*vobj.
 
 func (atm *AnnotationTypeMapper) ToFirestoreMap(annotationType *model.AnnotationType) map[string]interface{} {
 	m := atm.entityMapper.ToFirestoreMap(annotationType.Entity)
-
-	if len(annotationType.Tags) > 0 {
-		tagsData := make([]map[string]interface{}, len(annotationType.Tags))
-		for i, tag := range annotationType.Tags {
-			tagsData[i] = atm.tagToMap(&tag)
-		}
-		m["tags"] = tagsData
-	} else {
-		m["tags"] = []map[string]interface{}{}
-	}
+	m["tag"] = atm.tagToMap(annotationType.Tag)
 
 	return m
 }
@@ -145,19 +129,13 @@ func (atm *AnnotationTypeMapper) MapUpdates(updates map[string]interface{}) (map
 	if err != nil {
 		return nil, err
 	}
-
-	if tagsValue, ok := updates[constants.TagsField]; ok {
-		tags, ok := tagsValue.([]vobj.Tag)
-		if !ok {
-			return nil, errors.NewValidationError("invalid tags type", nil)
+	// Annotation type specific updates
+	if tagUpdate, ok := updates[constants.TagField]; ok {
+		if tag, ok := tagUpdate.(*vobj.Tag); ok {
+			firestoreUpdates["tag"] = atm.tagToMap(tag)
+		} else {
+			return nil, errors.NewValidationError("invalid tag update value", nil)
 		}
-
-		tagsData := make([]map[string]interface{}, len(tags))
-		for i, tag := range tags {
-			tagsData[i] = atm.tagToMap(&tag)
-		}
-		firestoreUpdates["tags"] = tagsData
-		delete(updates, constants.TagsField)
 	}
 
 	return firestoreUpdates, nil
