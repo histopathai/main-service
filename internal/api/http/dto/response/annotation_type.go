@@ -7,29 +7,71 @@ import (
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
+type TagResponse struct {
+	Name     string   `json:"name" example:"Grade"`
+	Type     string   `json:"type" example:"NUMBER"`
+	Options  []string `json:"options,omitempty"`
+	Global   bool     `json:"global" example:"false"`
+	Required bool     `json:"required" example:"true"`
+	Min      *float64 `json:"min,omitempty" example:"1.0"`
+	Max      *float64 `json:"max,omitempty" example:"5.0"`
+	Color    *string  `json:"color,omitempty" example:"#FF0000"`
+}
+
+type ParentRefResponse struct {
+	ID   string `json:"id" example:"workspace-123"`
+	Type string `json:"type" example:"workspace"`
+}
+
 type AnnotationTypeResponse struct {
-	ID                    string    `json:"id"`
-	CreatorID             string    `json:"creator_id"`
-	Name                  string    `json:"name"`
-	Description           *string   `json:"description,omitempty"`
-	ScoreEnabled          bool      `json:"score_enabled"`
-	ClassificationEnabled bool      `json:"classification_enabled"`
-	ClassList             []string  `json:"class_list,omitempty"`
-	CreatedAt             time.Time `json:"created_at"`
-	UpdatedAt             time.Time `json:"updated_at"`
+	ID          string             `json:"id"`
+	EntityType  string             `json:"entity_type" example:"annotation_type"`
+	Name        *string            `json:"name,omitempty"`
+	CreatorID   string             `json:"creator_id"`
+	Parent      *ParentRefResponse `json:"parent,omitempty"`
+	Tags        []TagResponse      `json:"tags"`
+	HasChildren bool               `json:"has_children"`
+	ChildCount  *int64             `json:"child_count,omitempty"`
+	CreatedAt   time.Time          `json:"created_at"`
+	UpdatedAt   time.Time          `json:"updated_at"`
+	Deleted     bool               `json:"deleted"`
 }
 
 func NewAnnotationTypeResponse(at *model.AnnotationType) *AnnotationTypeResponse {
+	var parent *ParentRefResponse
+	if at.Parent != nil {
+		parent = &ParentRefResponse{
+			ID:   at.Parent.ID,
+			Type: at.Parent.Type.String(),
+		}
+	}
+
+	tags := make([]TagResponse, len(at.Tags))
+	for i, tag := range at.Tags {
+		tags[i] = TagResponse{
+			Name:     tag.Name,
+			Type:     tag.Type.String(),
+			Options:  tag.Options,
+			Global:   tag.Global,
+			Required: tag.Required,
+			Min:      tag.Min,
+			Max:      tag.Max,
+			Color:    tag.Color,
+		}
+	}
+
 	return &AnnotationTypeResponse{
-		ID:                    at.ID,
-		CreatorID:             at.CreatorID,
-		Name:                  at.Name,
-		Description:           at.Description,
-		ScoreEnabled:          at.ScoreEnabled,
-		ClassificationEnabled: at.ClassificationEnabled,
-		ClassList:             at.ClassList,
-		CreatedAt:             at.CreatedAt,
-		UpdatedAt:             at.UpdatedAt,
+		ID:          at.ID,
+		EntityType:  at.EntityType.String(),
+		Name:        at.Name,
+		CreatorID:   at.CreatorID,
+		Parent:      parent,
+		Tags:        tags,
+		HasChildren: at.HasChildren,
+		ChildCount:  at.ChildCount,
+		CreatedAt:   at.CreatedAt,
+		UpdatedAt:   at.UpdatedAt,
+		Deleted:     at.Deleted,
 	}
 }
 
