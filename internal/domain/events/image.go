@@ -2,26 +2,19 @@ package events
 
 import "github.com/histopathai/main-service/internal/domain/vobj"
 
-type ImageUploadedEvent struct {
-	vobj.Event
-	Name     string
-	Bucket   string
-	Metadata ImageUploadedMetadata
-}
-
-type ImageUploadedMetadata struct {
-	imageID   string
-	CreatorID string
-	Parent    vobj.ParentRef
-	Format    string
-	Name      string
-
-	Width         *int
-	Height        *int
-	Size          *int64
-	OriginPath    string
-	ProcessedPath *string
-	Status        string
+type ImageUploadedPayload struct {
+	ImageID       string         `json:"image_id"`
+	Name          string         `json:"name"`
+	Bucket        string         `json:"bucket"`
+	CreatorID     string         `json:"creator_id"`
+	Parent        vobj.ParentRef `json:"parent"`
+	Format        string         `json:"format"`
+	Width         *int           `json:"width,omitempty"`
+	Height        *int           `json:"height,omitempty"`
+	Size          *int64         `json:"size,omitempty"`
+	OriginPath    string         `json:"origin_path"`
+	ProcessedPath *string        `json:"processed_path,omitempty"`
+	IsProcessed   bool           `json:"is_processed"`
 }
 
 func NewImageUploadedEvent(
@@ -31,77 +24,80 @@ func NewImageUploadedEvent(
 	height *int,
 	size *int64,
 	processedPath *string,
-) *ImageUploadedEvent {
-	metadata := ImageUploadedMetadata{
-		imageID:       imageID,
+	isProcessed bool,
+) (*vobj.Event, error) {
+	payload := ImageUploadedPayload{
+		ImageID:       imageID,
 		CreatorID:     creatorID,
+		Name:          name,
+		Bucket:        bucket,
 		Parent:        parent,
 		Format:        format,
-		Name:          name,
 		Width:         width,
 		Height:        height,
 		Size:          size,
 		OriginPath:    originPath,
 		ProcessedPath: processedPath,
-		Status:        status,
+		IsProcessed:   isProcessed,
 	}
 
-	return &ImageUploadedEvent{
-		Event: vobj.Event{
-			Type: vobj.EventTypeImageUploaded,
-		},
-		Name:     name,
-		Bucket:   bucket,
-		Metadata: metadata,
+	return vobj.NewEvent(vobj.EventTypeImageUploaded, payload)
+}
+
+type ImageDeletionRequestPayload struct {
+	Targets map[string][]string `json:"targets"`
+}
+
+func NewImageDeletionRequestEvent(
+	originBucket string, originPath string,
+	processedBucket string, processedPath string,
+) (*vobj.Event, error) {
+
+	targets := make(map[string][]string)
+
+	if originBucket != "" && originPath != "" {
+		targets[originBucket] = append(targets[originBucket], originPath)
 	}
-}
 
-type ImageDeletionRequestEvent struct {
-	vobj.Event
-	ImageID string
-}
-
-func NewImageDeletionRequestEvent(imageID string) *ImageDeletionRequestEvent {
-	return &ImageDeletionRequestEvent{
-		Event: vobj.Event{
-			Type: vobj.EventTypeImageDeletionRequested,
-		},
-		ImageID: imageID,
+	if processedBucket != "" && processedPath != "" {
+		targets[processedBucket] = append(targets[processedBucket], processedPath)
 	}
+
+	if len(targets) == 0 {
+		return nil, nil
+	}
+
+	payload := ImageDeletionRequestPayload{
+		Targets: targets,
+	}
+
+	return vobj.NewEvent(vobj.EventTypeImageDeletionRequested, payload)
 }
 
-type ImageProcessingRequestedEvent struct {
-	vobj.Event
-	ImageID    string
-	OriginPath string
+type ImageProcessingRequestedPayload struct {
+	ImageID    string `json:"image_id"`
+	OriginPath string `json:"origin_path"`
+	BucketName string `json:"bucket_name"`
+	Size       int64  `json:"size"`
 }
 
-func NewImageProcessingRequestedEvent(imageID, originPath string) *ImageProcessingRequestedEvent {
-	return &ImageProcessingRequestedEvent{
-		Event: vobj.Event{
-			Type: vobj.EventTypeImageProcessingRequested,
-		},
+func NewImageProcessingRequestedEvent(imageID, originPath string) (*vobj.Event, error) {
+	payload := ImageProcessingRequestedPayload{
 		ImageID:    imageID,
 		OriginPath: originPath,
 	}
+	return vobj.NewEvent(vobj.EventTypeImageProcessingRequested, payload)
 }
 
-type ImageProcessingResultEvent struct {
-	vobj.Event
-	ImageID       string
-	Success       bool
-	ProcessedPath *string
-	Width         *int
-	Height        *int
-	Size          *int64
-	FailureReason *string
-	Retryable     *bool
-}
-
-type ImageProcessingDLQEvent struct {
-	vobj.Event
-	ImageID       string
-	FailureReason string
+type ImageProcessingResultPayload struct {
+	ImageID       string  `json:"image_id"`
+	Success       bool    `json:"success"`
+	ProcessedPath *string `json:"processed_path,omitempty"`
+	Width         *int    `json:"width,omitempty"`
+	Height        *int    `json:"height,omitempty"`
+	Size          *int64  `json:"size,omitempty"`
+	FailureReason *string `json:"failure_reason,omitempty"`
+	Retryable     *bool   `json:"retryable,omitempty"`
 }
 
 func NewImageProcessingSuccessEvent(
@@ -109,11 +105,8 @@ func NewImageProcessingSuccessEvent(
 	processedPath string,
 	width, height *int,
 	size *int64,
-) *ImageProcessingResultEvent {
-	return &ImageProcessingResultEvent{
-		Event: vobj.Event{
-			Type: vobj.EventTypeImageProcessingCompleted,
-		},
+) (*vobj.Event, error) {
+	payload := ImageProcessingResultPayload{
 		ImageID:       imageID,
 		Success:       true,
 		ProcessedPath: &processedPath,
@@ -121,19 +114,18 @@ func NewImageProcessingSuccessEvent(
 		Height:        height,
 		Size:          size,
 	}
+	return vobj.NewEvent(vobj.EventTypeImageProcessingCompleted, payload)
 }
 
 func NewImageProcessingFailureEvent(
 	imageID, failureReason string,
 	retryable bool,
-) *ImageProcessingResultEvent {
-	return &ImageProcessingResultEvent{
-		Event: vobj.Event{
-			Type: vobj.EventTypeImageProcessingCompleted,
-		},
+) (*vobj.Event, error) {
+	payload := ImageProcessingResultPayload{
 		ImageID:       imageID,
 		Success:       false,
 		FailureReason: &failureReason,
 		Retryable:     &retryable,
 	}
+	return vobj.NewEvent(vobj.EventTypeImageProcessingCompleted, payload)
 }
