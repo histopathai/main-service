@@ -18,11 +18,10 @@ var (
 type SignedURLMethod string
 
 const (
-	MethodGet    SignedURLMethod = "GET"
-	MethodPut    SignedURLMethod = "PUT"
-	MethodPost   SignedURLMethod = "POST"
-	MethodDelete SignedURLMethod = "DELETE"
-	MethodHead   SignedURLMethod = "HEAD"
+	MethodGet  SignedURLMethod = "GET"
+	MethodPut  SignedURLMethod = "PUT"
+	MethodPost SignedURLMethod = "POST"
+	MethodHead SignedURLMethod = "HEAD"
 )
 
 type SignedURLOptions struct {
@@ -49,6 +48,11 @@ func DefaultSignedURLOptions() SignedURLOptions {
 }
 
 type Storage interface {
-	GenerateSignedURL(ctx context.Context, key string, opts SignedURLOptions) (string, error)
-	Exists(ctx context.Context, key string) (bool, error)
+	GenerateSignedURL(ctx context.Context, bucket, key string, opts SignedURLOptions) (string, error)
+
+	Exists(ctx context.Context, bucket, key string) (bool, error)
+
+	Delete(ctx context.Context, bucket, key string) error
+
+	DeleteByPrefix(ctx context.Context, bucket, prefix string) error
 }
