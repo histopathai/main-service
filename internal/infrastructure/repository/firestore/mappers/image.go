@@ -6,90 +6,130 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/constants"
+	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
-type ImageMapper struct{}
+type ImageMapper struct {
+	entityMapper *EntityMapper
+}
+
+func NewImageMapper() *ImageMapper {
+	return &ImageMapper{
+		entityMapper: &EntityMapper{},
+	}
+}
 
 func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Image, error) {
-	ir := &model.Image{}
-
 	data := doc.Data()
 
 	if data == nil {
 		return nil, fmt.Errorf("firestore document data is nil")
 	}
 
-	beMapper := &BaseEntityMapper{}
-	baseEntity, _ := beMapper.FromFirestoreDoc(doc)
-
-	if baseEntity == nil {
-		return nil, fmt.Errorf("failed to map base entity from firestore document")
+	entity, err := im.entityMapper.FromFirestoreDoc(doc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to map entity from firestore document: %w", err)
 	}
 
-	ir.BaseEntity = *baseEntity
-	ir.Format = data["format"].(string)
-	ir.OriginPath = data["origin_path"].(string)
+	image := &model.Image{
+		Entity:     entity,
+		Format:     data["format"].(string),
+		OriginPath: data["origin_path"].(string),
+	}
 
 	if v, ok := data["width"].(int64); ok {
 		width := int(v)
-		ir.Width = &width
+		image.Width = &width
 	}
+
 	if v, ok := data["height"].(int64); ok {
 		height := int(v)
-		ir.Height = &height
+		image.Height = &height
 	}
+
 	if v, ok := data["size"].(int64); ok {
 		size := int64(v)
-		ir.Size = &size
+		image.Size = &size
 	}
 
-	if v, ok := data["processed_path"].(string); ok {
-		ir.ProcessedPath = &v
+	if v, ok := data["processed_path"].(string); ok && v != "" {
+		image.ProcessedPath = &v
 	}
 
-	if v, ok := data["failure_reason"].(string); ok {
-		ir.FailureReason = &v
+	processReport, err := im.parseProcessReport(data)
+	if err != nil {
+		return nil, err
 	}
-	if v, ok := data["retry_count"].(int64); ok {
-		ir.RetryCount = int(v)
-	}
-	if v, ok := data["last_processed_at"].(time.Time); ok {
-		ir.LastProcessedAt = &v
-	}
+	image.ProcessReport = *processReport
 
-	ir.Status = model.ImageStatus(data["status"].(string))
-
-	return ir, nil
+	return image, nil
 }
 
-func (im *ImageMapper) ToFirestoreMap(i *model.Image) map[string]interface{} {
-	beMapper := &BaseEntityMapper{}
-	m := beMapper.ToFirestoreMap(&i.BaseEntity)
+func (im *ImageMapper) parseProcessReport(data map[string]interface{}) (*vobj.ImageProcessReport, error) {
+	statusStr, ok := data["status"].(string)
+	if !ok {
+		return nil, errors.NewValidationError("status is required", nil)
+	}
 
-	m["format"] = i.Format
-	m["origin_path"] = i.OriginPath
-	m["status"] = i.Status
-	m["retry_count"] = i.RetryCount
+	status, err := vobj.NewImageStatusFromString(statusStr)
+	if err != nil {
+		return nil, err
+	}
 
-	if i.Width != nil {
-		m["width"] = *i.Width
+	report := &vobj.ImageProcessReport{
+		Status:     status,
+		RetryCount: 0,
 	}
-	if i.Height != nil {
-		m["height"] = *i.Height
+
+	if v, ok := data["failure_reason"].(string); ok && v != "" {
+		report.FailureReason = &v
 	}
-	if i.Size != nil {
-		m["size"] = *i.Size
+
+	if v, ok := data["retry_count"].(int64); ok {
+		report.RetryCount = int(v)
 	}
-	if i.ProcessedPath != nil {
-		m["processed_path"] = *i.ProcessedPath
+
+	if v, ok := data["last_processed_at"].(time.Time); ok {
+		report.LastProcessedAt = &v
 	}
-	if i.FailureReason != nil {
-		m["failure_reason"] = *i.FailureReason
+
+	return report, nil
+}
+
+func (im *ImageMapper) ToFirestoreMap(image *model.Image) map[string]interface{} {
+	m := im.entityMapper.ToFirestoreMap(image.Entity)
+
+	m["format"] = image.Format
+	m["origin_path"] = image.OriginPath
+
+	if image.Width != nil {
+		m["width"] = *image.Width
 	}
-	if i.LastProcessedAt != nil {
-		m["last_processed_at"] = *i.LastProcessedAt
+
+	if image.Height != nil {
+		m["height"] = *image.Height
+	}
+
+	if image.Size != nil {
+		m["size"] = *image.Size
+	}
+
+	if image.ProcessedPath != nil {
+		m["processed_path"] = *image.ProcessedPath
+	}
+
+	m["status"] = image.ProcessReport.Status.String()
+	m["retry_count"] = image.ProcessReport.RetryCount
+
+	if image.ProcessReport.FailureReason != nil {
+		m["failure_reason"] = *image.ProcessReport.FailureReason
+	}
+
+	if image.ProcessReport.LastProcessedAt != nil {
+		m["last_processed_at"] = *image.ProcessReport.LastProcessedAt
 	}
 
 	return m
@@ -100,31 +140,52 @@ func (im *ImageMapper) MapUpdates(updates map[string]interface{}) (map[string]in
 		return nil, nil
 	}
 
-	beMapper := &BaseEntityMapper{}
-	firestoreUpdates, _ := beMapper.MapUpdates(updates)
+	firestoreUpdates, err := im.entityMapper.MapUpdates(updates)
+	if err != nil {
+		return nil, err
+	}
 
 	for key, value := range updates {
 		switch key {
-		case constants.ImageFormatField:
+		case constants.FormatField:
 			firestoreUpdates["format"] = value
-		case constants.ImageWidthField:
+			delete(updates, constants.FormatField)
+
+		case constants.WidthField:
 			firestoreUpdates["width"] = value
-		case constants.ImageHeightField:
+			delete(updates, constants.WidthField)
+
+		case constants.HeightField:
 			firestoreUpdates["height"] = value
-		case constants.ImageSizeField:
+			delete(updates, constants.HeightField)
+
+		case constants.SizeField:
 			firestoreUpdates["size"] = value
-		case constants.ImageProcessedPathField:
+			delete(updates, constants.SizeField)
+
+		case constants.OriginPathField:
+			firestoreUpdates["origin_path"] = value
+			delete(updates, constants.OriginPathField)
+
+		case constants.ProcessedPathField:
 			firestoreUpdates["processed_path"] = value
-		case constants.ImageStatusField:
+			delete(updates, constants.ProcessedPathField)
+
+		case constants.StatusField:
 			firestoreUpdates["status"] = value
-		case constants.ImageFailureReasonField:
+			delete(updates, constants.StatusField)
+
+		case constants.FailureReasonField:
 			firestoreUpdates["failure_reason"] = value
-		case constants.ImageRetryCountField:
+			delete(updates, constants.FailureReasonField)
+
+		case constants.RetryCountField:
 			firestoreUpdates["retry_count"] = value
-		case constants.ImageLastProcessedAtField:
+			delete(updates, constants.RetryCountField)
+
+		case constants.LastProcessedAtField:
 			firestoreUpdates["last_processed_at"] = value
-		default:
-			return nil, fmt.Errorf("unknown field in image updates: %s", key)
+			delete(updates, constants.LastProcessedAtField)
 		}
 	}
 
@@ -136,26 +197,81 @@ func (im *ImageMapper) MapFilters(filters []query.Filter) ([]query.Filter, error
 		return nil, nil
 	}
 
-	beMapper := &BaseEntityMapper{}
-	mappedFilters, _ := beMapper.MapFilters(filters)
+	mappedFilters, err := im.entityMapper.MapFilters(filters)
+	if err != nil {
+		return nil, err
+	}
 
-	for _, filter := range filters {
+	unprocessedIdx := 0
+	for i, filter := range filters {
+		processed := false
+
 		switch filter.Field {
-		case constants.ImageStatusField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "status",
-				Operator: filter.Operator,
-				Value:    filter.Value,
-			})
-		case constants.ImageFormatField:
+		case constants.FormatField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "format",
 				Operator: filter.Operator,
 				Value:    filter.Value,
 			})
-		default:
-			return nil, fmt.Errorf("unknown filter field for image: %s", filter.Field)
+			processed = true
+
+		case constants.WidthField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "width",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+			processed = true
+
+		case constants.HeightField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "height",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+			processed = true
+
+		case constants.SizeField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "size",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+			processed = true
+
+		case constants.StatusField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "status",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+			processed = true
+
+		case constants.RetryCountField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "retry_count",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+			processed = true
+
+		case constants.LastProcessedAtField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "last_processed_at",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+			processed = true
 		}
+
+		if !processed {
+			filters[unprocessedIdx] = filters[i]
+			unprocessedIdx++
+		}
+	}
+
+	for i := unprocessedIdx; i < len(filters); i++ {
+		filters[i] = query.Filter{}
 	}
 
 	return mappedFilters, nil

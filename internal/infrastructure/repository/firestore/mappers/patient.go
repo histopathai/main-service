@@ -9,82 +9,100 @@ import (
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
-type PatientMapper struct{}
+type PatientMapper struct {
+	entityMapper *EntityMapper
+}
+
+func NewPatientMapper() *PatientMapper {
+	return &PatientMapper{
+		entityMapper: &EntityMapper{},
+	}
+}
 
 func (pm *PatientMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Patient, error) {
-	fp := &model.Patient{}
-
 	data := doc.Data()
 
 	if data == nil {
 		return nil, fmt.Errorf("firestore document data is nil")
 	}
 
-	beMapper := &BaseEntityMapper{}
-	baseEntity, _ := beMapper.FromFirestoreDoc(doc)
-
-	if baseEntity == nil {
-		return nil, fmt.Errorf("failed to map base entity from firestore document")
+	entity, err := pm.entityMapper.FromFirestoreDoc(doc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to map entity from firestore document: %w", err)
 	}
 
-	fp.BaseEntity = *baseEntity
+	patient := &model.Patient{
+		Entity: entity,
+	}
 
 	if v, ok := data["age"]; ok && v != nil {
 		age := int(v.(int64))
-		fp.Age = &age
+		patient.Age = &age
 	}
+
 	if v, ok := data["gender"]; ok && v != nil {
 		gender := v.(string)
-		fp.Gender = &gender
+		patient.Gender = &gender
 	}
+
 	if v, ok := data["race"]; ok && v != nil {
 		race := v.(string)
-		fp.Race = &race
+		patient.Race = &race
 	}
+
 	if v, ok := data["disease"]; ok && v != nil {
 		disease := v.(string)
-		fp.Disease = &disease
+		patient.Disease = &disease
 	}
+
 	if v, ok := data["subtype"]; ok && v != nil {
 		subtype := v.(string)
-		fp.Subtype = &subtype
+		patient.Subtype = &subtype
 	}
+
 	if v, ok := data["grade"]; ok && v != nil {
 		grade := int(v.(int64))
-		fp.Grade = &grade
+		patient.Grade = &grade
 	}
+
 	if v, ok := data["history"]; ok && v != nil {
 		history := v.(string)
-		fp.History = &history
+		patient.History = &history
 	}
 
-	return fp, nil
+	return patient, nil
 }
 
-func (pm *PatientMapper) ToFirestoreMap(p *model.Patient) map[string]interface{} {
-	beMapper := &BaseEntityMapper{}
-	m := beMapper.ToFirestoreMap(&p.BaseEntity)
+func (pm *PatientMapper) ToFirestoreMap(patient *model.Patient) map[string]interface{} {
 
-	if p.Age != nil {
-		m["age"] = *p.Age
+	m := pm.entityMapper.ToFirestoreMap(patient.Entity)
+
+	if patient.Age != nil {
+		m["age"] = *patient.Age
 	}
-	if p.Gender != nil {
-		m["gender"] = *p.Gender
+
+	if patient.Gender != nil {
+		m["gender"] = *patient.Gender
 	}
-	if p.Race != nil {
-		m["race"] = *p.Race
+
+	if patient.Race != nil {
+		m["race"] = *patient.Race
 	}
-	if p.Disease != nil {
-		m["disease"] = *p.Disease
+
+	if patient.Disease != nil {
+		m["disease"] = *patient.Disease
 	}
-	if p.Subtype != nil {
-		m["subtype"] = *p.Subtype
+
+	if patient.Subtype != nil {
+		m["subtype"] = *patient.Subtype
 	}
-	if p.Grade != nil {
-		m["grade"] = *p.Grade
+
+	if patient.Grade != nil {
+		m["grade"] = *patient.Grade
 	}
-	if p.History != nil {
-		m["history"] = *p.History
+
+	if patient.History != nil {
+		m["history"] = *patient.History
 	}
 
 	return m
@@ -94,27 +112,41 @@ func (pm *PatientMapper) MapUpdates(updates map[string]interface{}) (map[string]
 	if len(updates) == 0 {
 		return nil, nil
 	}
-	firestoreUpdates := make(map[string]interface{})
+
+	firestoreUpdates, err := pm.entityMapper.MapUpdates(updates)
+	if err != nil {
+		return nil, err
+	}
 
 	for k, v := range updates {
 		switch k {
-		case constants.PatientAgeField:
+		case constants.AgeField:
 			firestoreUpdates["age"] = v
-		case constants.PatientGenderField:
-			firestoreUpdates["gender"] = v
-		case constants.PatientRaceField:
-			firestoreUpdates["race"] = v
-		case constants.PatientDiseaseField:
-			firestoreUpdates["disease"] = v
-		case constants.PatientSubtypeField:
-			firestoreUpdates["subtype"] = v
-		case constants.PatientGradeField:
-			firestoreUpdates["grade"] = v
-		case constants.PatientHistoryField:
-			firestoreUpdates["history"] = v
+			delete(updates, constants.AgeField)
 
-		default:
-			return nil, fmt.Errorf("unknown field in patient updates: %s", k)
+		case constants.GenderField:
+			firestoreUpdates["gender"] = v
+			delete(updates, constants.GenderField)
+
+		case constants.RaceField:
+			firestoreUpdates["race"] = v
+			delete(updates, constants.RaceField)
+
+		case constants.DiseaseField:
+			firestoreUpdates["disease"] = v
+			delete(updates, constants.DiseaseField)
+
+		case constants.SubtypeField:
+			firestoreUpdates["subtype"] = v
+			delete(updates, constants.SubtypeField)
+
+		case constants.GradeField:
+			firestoreUpdates["grade"] = v
+			delete(updates, constants.GradeField)
+
+		case constants.HistoryField:
+			firestoreUpdates["history"] = v
+			delete(updates, constants.HistoryField)
 		}
 	}
 
@@ -126,54 +158,81 @@ func (pm *PatientMapper) MapFilters(filters []query.Filter) ([]query.Filter, err
 		return nil, nil
 	}
 
-	beMapper := &BaseEntityMapper{}
-	mappedFilters, _ := beMapper.MapFilters(filters)
+	mappedFilters, err := pm.entityMapper.MapFilters(filters)
+	if err != nil {
+		return nil, err
+	}
 
-	for _, filter := range filters {
+	unprocessedIdx := 0
+	for i, filter := range filters {
+		processed := false
+
 		switch filter.Field {
-		case constants.PatientAgeField:
+		case constants.AgeField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "age",
 				Operator: filter.Operator,
 				Value:    filter.Value,
 			})
-		case constants.PatientGenderField:
+			processed = true
+
+		case constants.GenderField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "gender",
 				Operator: filter.Operator,
 				Value:    filter.Value,
 			})
-		case constants.PatientRaceField:
+			processed = true
+
+		case constants.RaceField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "race",
 				Operator: filter.Operator,
 				Value:    filter.Value,
 			})
-		case constants.PatientDiseaseField:
+			processed = true
+
+		case constants.DiseaseField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "disease",
 				Operator: filter.Operator,
 				Value:    filter.Value,
 			})
-		case constants.PatientSubtypeField:
+			processed = true
+
+		case constants.SubtypeField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "subtype",
 				Operator: filter.Operator,
 				Value:    filter.Value,
 			})
-		case constants.PatientGradeField:
+			processed = true
+
+		case constants.GradeField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "grade",
 				Operator: filter.Operator,
 				Value:    filter.Value,
 			})
-		case constants.PatientHistoryField:
+			processed = true
+
+		case constants.HistoryField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "history",
 				Operator: filter.Operator,
 				Value:    filter.Value,
 			})
+			processed = true
 		}
+
+		if !processed {
+			filters[unprocessedIdx] = filters[i]
+			unprocessedIdx++
+		}
+	}
+
+	for i := unprocessedIdx; i < len(filters); i++ {
+		filters[i] = query.Filter{}
 	}
 
 	return mappedFilters, nil

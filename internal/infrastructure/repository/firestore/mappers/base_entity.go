@@ -4,57 +4,92 @@ import (
 	"time"
 
 	"cloud.google.com/go/firestore"
-	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
-type BaseEntityMapper struct{}
+type EntityMapper struct{}
 
-func (bem *BaseEntityMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.BaseEntity, error) {
-	be := &model.BaseEntity{}
-
+func (em *EntityMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*vobj.Entity, error) {
 	data := doc.Data()
 
-	be.SetID(doc.Ref.ID)
-	be.SetCreatorID(data["creator_id"].(string))
-	be.SetDeleted(data["deleted"].(bool))
-	be.SetCreatedAt(data["created_at"].(time.Time))
-	be.SetUpdatedAt(data["updated_at"].(time.Time))
+	entityTypeStr := data["entity_type"].(string)
+	entityType, err := vobj.NewEntityTypeFromString(entityTypeStr)
+	if err != nil {
+		return nil, err
+	}
 
+	var name *string
+	if data["name"] != nil {
+		nameVal := data["name"].(string)
+		name = &nameVal
+	}
+
+	var parent *vobj.ParentRef
 	parentRefType := data["parent_type"]
 	parentRefID := data["parent_id"]
 	if parentRefType != nil && parentRefID != nil {
-		be.SetParent(parentRefID.(string), model.ParentType(parentRefType.(string)))
+		parentType, err := vobj.NewEntityTypeFromString(parentRefType.(string))
+		if err != nil {
+			return nil, err
+		}
+		parent = &vobj.ParentRef{
+			ID:   parentRefID.(string),
+			Type: vobj.ParentType(parentType),
+		}
 	}
 
-	if data["name"] != nil {
-		be.SetName(data["name"].(string))
+	entity := &vobj.Entity{
+		ID:         doc.Ref.ID,
+		EntityType: entityType,
+		Name:       name,
+		CreatorID:  data["creator_id"].(string),
+		Parent:     parent,
+		CreatedAt:  data["created_at"].(time.Time),
+		UpdatedAt:  data["updated_at"].(time.Time),
+		Deleted:    data["deleted"].(bool),
 	}
-	return be, nil
+
+	if hasChildren, ok := data["has_children"].(bool); ok {
+		entity.HasChildren = hasChildren
+	}
+	if childCount, ok := data["child_count"].(int64); ok {
+		entity.ChildCount = &childCount
+	}
+
+	return entity, nil
 }
 
-func (bem *BaseEntityMapper) ToFirestoreMap(be *model.BaseEntity) map[string]interface{} {
+func (em *EntityMapper) ToFirestoreMap(entity *vobj.Entity) map[string]interface{} {
 	m := map[string]interface{}{
-		"creator_id": be.GetCreatorID(),
-		"deleted":    be.IsDeleted(),
-		"created_at": be.GetCreatedAt(),
-		"updated_at": be.GetUpdatedAt(),
+		"entity_type": entity.EntityType.String(),
+		"creator_id":  entity.CreatorID,
+		"deleted":     entity.Deleted,
+		"created_at":  entity.CreatedAt,
+		"updated_at":  entity.UpdatedAt,
 	}
 
-	if be.HasParent() {
-		m["parent_id"] = be.GetParentID()
-		m["parent_type"] = be.GetParentType()
+	if entity.Name != nil {
+		m["name"] = *entity.Name
 	}
 
-	if be.GetName() != "" {
-		m["name"] = be.GetName()
+	if entity.Parent != nil && !entity.Parent.IsEmpty() {
+		m["parent_id"] = entity.Parent.ID
+		m["parent_type"] = entity.Parent.Type.String()
+	}
+
+	if entity.HasChildren {
+		m["has_children"] = entity.HasChildren
+	}
+	if entity.ChildCount != nil {
+		m["child_count"] = *entity.ChildCount
 	}
 
 	return m
 }
 
-func (bem *BaseEntityMapper) MapUpdates(updates map[string]interface{}) (map[string]interface{}, error) {
+func (em *EntityMapper) MapUpdates(updates map[string]interface{}) (map[string]interface{}, error) {
 	if len(updates) == 0 {
 		return nil, nil
 	}
@@ -71,6 +106,8 @@ func (bem *BaseEntityMapper) MapUpdates(updates map[string]interface{}) (map[str
 			firestoreUpdates["deleted"] = v
 		case constants.UpdatedAtField:
 			firestoreUpdates["updated_at"] = v
+		case constants.EntityTypeField:
+			firestoreUpdates["entity_type"] = v
 		case constants.ParentIDField:
 			parentType, ok := updates[constants.ParentTypeField]
 			if !ok {
@@ -84,28 +121,35 @@ func (bem *BaseEntityMapper) MapUpdates(updates map[string]interface{}) (map[str
 				firestoreUpdates["parent_type"] = parentType
 			}
 		case constants.ParentTypeField:
-
+			// ParentType Field processed in ParentID case
+		case constants.HasChildrenField:
+			firestoreUpdates["has_children"] = v
+		case constants.ChildCountField:
+			firestoreUpdates["child_count"] = v
 		}
-
 	}
 
 	delete(updates, constants.NameField)
 	delete(updates, constants.CreatorIDField)
 	delete(updates, constants.DeletedField)
 	delete(updates, constants.UpdatedAtField)
+	delete(updates, constants.EntityTypeField)
 	delete(updates, constants.ParentIDField)
 	delete(updates, constants.ParentTypeField)
+	delete(updates, constants.HasChildrenField)
+	delete(updates, constants.ChildCountField)
+
 	return firestoreUpdates, nil
 }
 
-func (bem *BaseEntityMapper) MapFilters(filters []query.Filter) ([]query.Filter, error) {
+func (em *EntityMapper) MapFilters(filters []query.Filter) ([]query.Filter, error) {
 	if len(filters) == 0 {
 		return nil, nil
 	}
 
 	mappedFilters := make([]query.Filter, 0)
-
 	unprocessedIdx := 0
+
 	for i, filter := range filters {
 		processed := false
 
@@ -145,6 +189,13 @@ func (bem *BaseEntityMapper) MapFilters(filters []query.Filter) ([]query.Filter,
 				Value:    filter.Value,
 			})
 			processed = true
+		case constants.EntityTypeField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "entity_type",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+			processed = true
 		case constants.ParentIDField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "parent_id",
@@ -159,7 +210,20 @@ func (bem *BaseEntityMapper) MapFilters(filters []query.Filter) ([]query.Filter,
 				Value:    filter.Value,
 			})
 			processed = true
-
+		case constants.HasChildrenField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "has_children",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+			processed = true
+		case constants.ChildCountField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "child_count",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+			processed = true
 		}
 
 		if !processed {

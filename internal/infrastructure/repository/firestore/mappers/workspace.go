@@ -9,61 +9,70 @@ import (
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
-type WorkspaceMapper struct{}
+type WorkspaceMapper struct {
+	entityMapper *EntityMapper
+}
+
+func NewWorkspaceMapper() *WorkspaceMapper {
+	return &WorkspaceMapper{
+		entityMapper: &EntityMapper{},
+	}
+}
 
 func (wm *WorkspaceMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Workspace, error) {
-	fw := &model.Workspace{}
-
 	data := doc.Data()
 
 	if data == nil {
 		return nil, fmt.Errorf("firestore document data is nil")
 	}
 
-	beMapper := &BaseEntityMapper{}
-	baseEntity, _ := beMapper.FromFirestoreDoc(doc)
-
-	if baseEntity == nil {
-		return nil, fmt.Errorf("failed to map base entity from firestore document")
+	entity, err := wm.entityMapper.FromFirestoreDoc(doc)
+	if err != nil {
+		return nil, fmt.Errorf("failed to map entity from firestore document: %w", err)
 	}
 
-	fw.BaseEntity = *baseEntity
-	fw.OrganType = data["organ_type"].(string)
-	fw.Organization = data["organization"].(string)
-	fw.License = data["license"].(string)
+	workspace := &model.Workspace{
+		Entity:       entity,
+		OrganType:    data["organ_type"].(string),
+		Organization: data["organization"].(string),
+		License:      data["license"].(string),
+	}
 
 	if data["resource_url"] != nil {
 		resourceURL := data["resource_url"].(string)
-		fw.ResourceURL = &resourceURL
+		workspace.ResourceURL = &resourceURL
 	}
+
 	if data["release_year"] != nil {
 		releaseYear := int(data["release_year"].(int64))
-		fw.ReleaseYear = &releaseYear
+		workspace.ReleaseYear = &releaseYear
 	}
 
 	if data["description"] != nil {
-		fw.Description = data["description"].(string)
+		workspace.Description = data["description"].(string)
 	}
 
-	return fw, nil
+	return workspace, nil
 }
 
-func (wm *WorkspaceMapper) ToFirestoreMap(w *model.Workspace) map[string]interface{} {
-	beMapper := &BaseEntityMapper{}
-	m := beMapper.ToFirestoreMap(&w.BaseEntity)
+func (wm *WorkspaceMapper) ToFirestoreMap(workspace *model.Workspace) map[string]interface{} {
 
-	m["organ_type"] = w.OrganType
-	m["organization"] = w.Organization
-	m["license"] = w.License
+	m := wm.entityMapper.ToFirestoreMap(workspace.Entity)
 
-	if w.ResourceURL != nil {
-		m["resource_url"] = *w.ResourceURL
+	m["organ_type"] = workspace.OrganType
+	m["organization"] = workspace.Organization
+	m["license"] = workspace.License
+
+	if workspace.ResourceURL != nil {
+		m["resource_url"] = *workspace.ResourceURL
 	}
-	if w.ReleaseYear != nil {
-		m["release_year"] = *w.ReleaseYear
+
+	if workspace.ReleaseYear != nil {
+		m["release_year"] = *workspace.ReleaseYear
 	}
-	if w.Description != "" {
-		m["description"] = w.Description
+
+	if workspace.Description != "" {
+		m["description"] = workspace.Description
 	}
 
 	return m
@@ -74,25 +83,36 @@ func (wm *WorkspaceMapper) MapUpdates(updates map[string]interface{}) (map[strin
 		return nil, nil
 	}
 
-	beMapper := &BaseEntityMapper{}
-	firestoreUpdates, _ := beMapper.MapUpdates(updates)
+	firestoreUpdates, err := wm.entityMapper.MapUpdates(updates)
+	if err != nil {
+		return nil, err
+	}
 
 	for key, value := range updates {
 		switch key {
-		case constants.WorkspaceOrganTypeField:
+		case constants.OrganTypeField:
 			firestoreUpdates["organ_type"] = value
-		case constants.WorkspaceOrganizationField:
+			delete(updates, constants.OrganTypeField)
+
+		case constants.OrganizationField:
 			firestoreUpdates["organization"] = value
-		case constants.WorkspaceLicenseField:
+			delete(updates, constants.OrganizationField)
+
+		case constants.LicenseField:
 			firestoreUpdates["license"] = value
-		case constants.WorkspaceResourceURLField:
+			delete(updates, constants.LicenseField)
+
+		case constants.ResourceURLField:
 			firestoreUpdates["resource_url"] = value
-		case constants.WorkspaceReleaseYearField:
+			delete(updates, constants.ResourceURLField)
+
+		case constants.ReleaseYearField:
 			firestoreUpdates["release_year"] = value
-		case constants.WorkspaceDescField:
+			delete(updates, constants.ReleaseYearField)
+
+		case constants.DescField:
 			firestoreUpdates["description"] = value
-		default:
-			return nil, fmt.Errorf("unknown field in workspace updates: %s", key)
+			delete(updates, constants.DescField)
 		}
 	}
 
@@ -104,44 +124,73 @@ func (wm *WorkspaceMapper) MapFilters(filters []query.Filter) ([]query.Filter, e
 		return nil, nil
 	}
 
-	beMapper := &BaseEntityMapper{}
-	mappedFilters, _ := beMapper.MapFilters(filters)
+	mappedFilters, err := wm.entityMapper.MapFilters(filters)
+	if err != nil {
+		return nil, err
+	}
 
-	for _, f := range filters {
-		switch f.Field {
-		case constants.WorkspaceOrganTypeField:
+	unprocessedIdx := 0
+	for i, filter := range filters {
+		processed := false
+
+		switch filter.Field {
+		case constants.OrganTypeField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "organ_type",
-				Operator: f.Operator,
-				Value:    f.Value,
+				Operator: filter.Operator,
+				Value:    filter.Value,
 			})
-		case constants.WorkspaceOrganizationField:
+			processed = true
+
+		case constants.OrganizationField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "organization",
-				Operator: f.Operator,
-				Value:    f.Value,
+				Operator: filter.Operator,
+				Value:    filter.Value,
 			})
-		case constants.WorkspaceLicenseField:
+			processed = true
+
+		case constants.LicenseField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "license",
-				Operator: f.Operator,
-				Value:    f.Value,
+				Operator: filter.Operator,
+				Value:    filter.Value,
 			})
-		case constants.WorkspaceResourceURLField:
+			processed = true
+
+		case constants.ResourceURLField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "resource_url",
-				Operator: f.Operator,
-				Value:    f.Value,
+				Operator: filter.Operator,
+				Value:    filter.Value,
 			})
-		case constants.WorkspaceReleaseYearField:
+			processed = true
+
+		case constants.ReleaseYearField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "release_year",
-				Operator: f.Operator,
-				Value:    f.Value,
+				Operator: filter.Operator,
+				Value:    filter.Value,
 			})
-		default:
-			return nil, fmt.Errorf("unknown filter field for workspace: %s", f.Field)
+			processed = true
+
+		case constants.DescField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "description",
+				Operator: filter.Operator,
+				Value:    filter.Value,
+			})
+			processed = true
 		}
+
+		if !processed {
+			filters[unprocessedIdx] = filters[i]
+			unprocessedIdx++
+		}
+	}
+
+	for i := unprocessedIdx; i < len(filters); i++ {
+		filters[i] = query.Filter{}
 	}
 
 	return mappedFilters, nil
