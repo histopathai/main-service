@@ -5,7 +5,7 @@ import (
 )
 
 type Workspace struct {
-	vobj.Entity
+	*vobj.Entity
 	OrganType    string
 	Organization string
 	Description  string

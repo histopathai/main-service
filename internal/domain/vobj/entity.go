@@ -150,3 +150,50 @@ func (e *Entity) GetUpdatedAt() time.Time {
 func (e *Entity) GetParent() *ParentRef {
 	return e.Parent
 }
+
+func (e *Entity) SetID(id string) {
+	e.ID = id
+}
+
+func (e *Entity) GetCreatorID() string {
+	return e.CreatorID
+}
+
+func (e *Entity) SetCreatedAt(t time.Time) {
+	e.CreatedAt = t
+}
+
+func (e *Entity) SetParent(parent *ParentRef) {
+	e.Parent = parent
+}
+
+func (e *Entity) HasParent() bool {
+	return e.Parent != nil && !e.Parent.IsEmpty()
+}
+
+func (e *Entity) SetHasChildren(hasChildren bool) {
+	e.HasChildren = hasChildren
+}
+
+func (e *Entity) SetChildCount(count int64) {
+	e.ChildCount = &count
+}
+
+func (e *Entity) IncrementChildCount() {
+	if e.ChildCount == nil {
+		count := int64(1)
+		e.ChildCount = &count
+	} else {
+		*e.ChildCount++
+	}
+	e.HasChildren = true
+}
+
+func (e *Entity) DecrementChildCount() {
+	if e.ChildCount != nil && *e.ChildCount > 0 {
+		*e.ChildCount--
+		if *e.ChildCount == 0 {
+			e.HasChildren = false
+		}
+	}
+}

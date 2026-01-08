@@ -5,7 +5,7 @@ import (
 )
 
 type Patient struct {
-	vobj.Entity
+	*vobj.Entity
 	Age     *int
 	Gender  *string
 	Race    *string
