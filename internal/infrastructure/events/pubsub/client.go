@@ -6,8 +6,8 @@ import (
 	"sync"
 
 	"cloud.google.com/go/pubsub"
+	"github.com/histopathai/main-service/internal/domain/events"
 	"github.com/histopathai/main-service/internal/domain/vobj"
-	"github.com/histopathai/main-service/internal/events"
 	"github.com/histopathai/main-service/internal/port"
 )
 
@@ -149,7 +149,6 @@ func (s *GooglePubSubSubscriber) Unsubscribe(ctx context.Context, eventType vobj
 	delete(s.handlers, eventType)
 	if sub, ok := s.subscriptions[eventType]; ok {
 		delete(s.subscriptions, eventType)
-		// PubSub subscription'ı otomatik olarak kapanacak
 		_ = sub
 	}
 	return nil
