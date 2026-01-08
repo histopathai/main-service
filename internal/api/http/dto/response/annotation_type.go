@@ -18,18 +18,13 @@ type TagResponse struct {
 	Color    *string  `json:"color,omitempty" example:"#FF0000"`
 }
 
-type ParentRefResponse struct {
-	ID   string `json:"id" example:"workspace-123"`
-	Type string `json:"type" example:"workspace"`
-}
-
 type AnnotationTypeResponse struct {
 	ID          string             `json:"id"`
 	EntityType  string             `json:"entity_type" example:"annotation_type"`
 	Name        *string            `json:"name,omitempty"`
 	CreatorID   string             `json:"creator_id"`
 	Parent      *ParentRefResponse `json:"parent,omitempty"`
-	Tags        []TagResponse      `json:"tags"`
+	Tag         TagResponse        `json:"tag"`
 	HasChildren bool               `json:"has_children"`
 	ChildCount  *int64             `json:"child_count,omitempty"`
 	CreatedAt   time.Time          `json:"created_at"`
@@ -46,27 +41,24 @@ func NewAnnotationTypeResponse(at *model.AnnotationType) *AnnotationTypeResponse
 		}
 	}
 
-	tags := make([]TagResponse, len(at.Tags))
-	for i, tag := range at.Tags {
-		tags[i] = TagResponse{
-			Name:     tag.Name,
-			Type:     tag.Type.String(),
-			Options:  tag.Options,
-			Global:   tag.Global,
-			Required: tag.Required,
-			Min:      tag.Min,
-			Max:      tag.Max,
-			Color:    tag.Color,
-		}
+	tag := TagResponse{
+		Name:     at.Tag.Name,
+		Type:     at.Tag.Type.String(),
+		Options:  at.Tag.Options,
+		Global:   at.Tag.Global,
+		Required: at.Tag.Required,
+		Min:      at.Tag.Min,
+		Max:      at.Tag.Max,
+		Color:    at.Tag.Color,
 	}
 
 	return &AnnotationTypeResponse{
 		ID:          at.ID,
-		EntityType:  at.EntityType.String(),
+		EntityType:  "annotation_type",
 		Name:        at.Name,
 		CreatorID:   at.CreatorID,
 		Parent:      parent,
-		Tags:        tags,
+		Tag:         tag,
 		HasChildren: at.HasChildren,
 		ChildCount:  at.ChildCount,
 		CreatedAt:   at.CreatedAt,

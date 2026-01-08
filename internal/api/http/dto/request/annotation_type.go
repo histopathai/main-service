@@ -1,6 +1,5 @@
 package request
 
-// Annotation Type DTOs
 type TagRequest struct {
 	Name     string   `json:"name" binding:"required" example:"Grade"`
 	Type     string   `json:"type" binding:"required,oneof=NUMBER TEXT BOOLEAN SELECT MULTI_SELECT" example:"NUMBER"`
@@ -13,14 +12,13 @@ type TagRequest struct {
 }
 
 type CreateAnnotationTypeRequest struct {
-	Name     string       `json:"name" binding:"required" example:"Tumor"`
-	ParentID *string      `json:"parent_id,omitempty" example:"workspace-123"`
-	Tags     []TagRequest `json:"tags" binding:"required,min=1,dive"`
+	Name string     `json:"name" binding:"required" example:"Tumor"`
+	Tag  TagRequest `json:"tag" binding:"required"`
 }
 
 type UpdateAnnotationTypeRequest struct {
-	Name *string      `json:"name,omitempty" example:"Tumor"`
-	Tags []TagRequest `json:"tags,omitempty" binding:"omitempty,dive"`
+	Name *string     `json:"name,omitempty" example:"Tumor"`
+	Tag  *TagRequest `json:"tag,omitempty" binding:"omitempty"`
 }
 
 type ListAnnotationTypeRequest struct {

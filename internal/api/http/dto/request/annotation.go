@@ -1,6 +1,5 @@
 package request
 
-// Annotation DTOs
 type PointRequest struct {
 	X float64 `json:"x" binding:"required" example:"100.5"`
 	Y float64 `json:"y" binding:"required" example:"200.3"`
@@ -15,12 +14,15 @@ type TagValueRequest struct {
 }
 
 type CreateAnnotationRequest struct {
-	ParentID string          `json:"parent_id" binding:"required" example:"image-123"`
-	Polygon  []PointRequest  `json:"polygon" binding:"required,min=3,dive"`
-	Tag      TagValueRequest `json:"tag" binding:"required"`
+	Parent ParentRefRequest `json:"parent" binding:"required"`
+
+	Polygon []PointRequest  `json:"polygon" binding:"required,min=3,dive"`
+	Tag     TagValueRequest `json:"tag" binding:"required"`
 }
 
 type UpdateAnnotationRequest struct {
+	Parent *ParentRefRequest `json:"parent,omitempty" binding:"omitempty"`
+
 	Polygon *[]PointRequest  `json:"polygon,omitempty" binding:"omitempty,min=3,dive"`
 	Tag     *TagValueRequest `json:"tag,omitempty"`
 }
@@ -33,5 +35,4 @@ type ListAnnotationRequest struct {
 var ValidAnnotationSortFields = map[string]bool{
 	"created_at": true,
 	"updated_at": true,
-	"name":       true,
 }

@@ -1,5 +1,7 @@
 package response
 
+import "github.com/histopathai/main-service/internal/domain/vobj"
+
 type ErrorResponse struct {
 	ErrorType string                 `json:"error_type,omitempty" example:"VALIDATION_ERROR"`
 	Message   string                 `json:"message" example:"İlgili hasta bulunamadı."`
@@ -23,4 +25,19 @@ type DataResponse[T any] struct {
 
 type CountResponse struct {
 	Count int64 `json:"count" example:"100"`
+}
+
+type ParentRefResponse struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
+}
+
+func NewParentRefResponse(ref *vobj.ParentRef) *ParentRefResponse {
+	if ref == nil || ref.IsEmpty() {
+		return nil
+	}
+	return &ParentRefResponse{
+		ID:   ref.ID,
+		Type: ref.Type.String(),
+	}
 }
