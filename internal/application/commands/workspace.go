@@ -89,7 +89,7 @@ func (c *CreateWorkspaceCommand) ToEntity() (*model.Workspace, error) {
 	}
 
 	return &model.Workspace{
-		Entity:       entity,
+		Entity:       *entity,
 		OrganType:    c.OrganType,
 		Organization: c.Organization,
 		Description:  c.Description,

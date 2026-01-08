@@ -54,7 +54,7 @@ func (c *CreateAnnotationTypeCommand) ToEntity() (model.AnnotationType, error) {
 	}
 
 	return model.AnnotationType{
-		Entity: entity,
+		Entity: *entity,
 		Tag:    &c.Tag,
 	}, nil
 }

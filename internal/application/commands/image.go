@@ -73,10 +73,10 @@ func NewCreateImageCommand(
 	}, nil
 }
 
-func (c *CreateImageCommand) ToEntity() (model.Image, error) {
+func (c *CreateImageCommand) ToEntity() (*model.Image, error) {
 	parentRef, err := vobj.NewParentRef(c.Parent.ID, vobj.ParentTypePatient)
 	if err != nil {
-		return model.Image{}, err
+		return nil, err
 	}
 
 	entity, err := vobj.NewEntity(
@@ -86,11 +86,11 @@ func (c *CreateImageCommand) ToEntity() (model.Image, error) {
 		parentRef,
 	)
 	if err != nil {
-		return model.Image{}, err
+		return nil, err
 	}
 
-	return model.Image{
-		Entity:        entity,
+	return &model.Image{
+		Entity:        *entity,
 		Format:        c.Format,
 		OriginPath:    c.OriginPath,
 		ProcessedPath: c.ProcessedPath,
@@ -118,10 +118,10 @@ func (c *UpdateImageCommand) GetID() string {
 	return c.ID
 }
 
-func (c *UpdateImageCommand) ApplyTo(entity model.Image) (model.Image, error) {
+func (c *UpdateImageCommand) ApplyTo(entity model.Image) (*model.Image, error) {
 	validation_details := validateNumericImageFields(c.Width, c.Height, c.Size)
 	if len(validation_details) > 0 {
-		return model.Image{}, errors.NewValidationError("invalid update image command", validation_details)
+		return nil, errors.NewValidationError("invalid update image command", validation_details)
 	}
 
 	if c.Name != nil {
@@ -155,7 +155,7 @@ func (c *UpdateImageCommand) ApplyTo(entity model.Image) (model.Image, error) {
 		entity.ProcessReport.RetryCount = *c.RetryCount
 	}
 
-	return entity, nil
+	return &entity, nil
 }
 
 func (c *UpdateImageCommand) GetUpdates() (map[string]any, error) {

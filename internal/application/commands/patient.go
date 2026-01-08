@@ -83,7 +83,7 @@ func (c *CreatePatientCommand) ToEntity() (*model.Patient, error) {
 	}
 
 	return &model.Patient{
-		Entity:  entity,
+		Entity:  *entity,
 		Age:     c.Age,
 		Gender:  c.Gender,
 		Race:    c.Race,

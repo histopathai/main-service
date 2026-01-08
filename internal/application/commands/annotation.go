@@ -71,7 +71,7 @@ func (c *CreateAnnotationCommand) ToEntity() (model.Annotation, error) {
 	}
 
 	return model.Annotation{
-		Entity:  entity,
+		Entity:  *entity,
 		Polygon: *c.Polygon,
 		Tag:     c.TagValue,
 	}, nil
