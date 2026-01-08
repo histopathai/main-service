@@ -2,33 +2,33 @@ package gcs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"time"
 
 	"cloud.google.com/go/storage"
 	"github.com/histopathai/main-service/internal/port"
+	"google.golang.org/api/iterator"
 )
 
 type GCSStorage struct {
-	client     *storage.Client
-	bucketName string
+	client *storage.Client
 }
 
-func NewGCSStorage(ctx context.Context, bucketName string) (port.Storage, error) {
+func NewGCSStorage(ctx context.Context) (port.Storage, error) {
 	client, err := storage.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GCS client: %w", err)
 	}
 
 	return &GCSStorage{
-		client:     client,
-		bucketName: bucketName,
+		client: client,
 	}, nil
 }
 
 func (g *GCSStorage) GenerateSignedURL(
 	ctx context.Context,
-	key string,
+	bucketName, key string,
 	opts port.SignedURLOptions,
 ) (string, error) {
 	if key == "" {
@@ -56,7 +56,7 @@ func (g *GCSStorage) GenerateSignedURL(
 		signedOpts.Headers = headers
 	}
 
-	bucket := g.client.Bucket(g.bucketName)
+	bucket := g.client.Bucket(bucketName)
 	url, err := bucket.SignedURL(key, signedOpts)
 	if err != nil {
 		return "", fmt.Errorf("%w: %v", port.ErrSignedURLFailed, err)
@@ -65,12 +65,12 @@ func (g *GCSStorage) GenerateSignedURL(
 	return url, nil
 }
 
-func (g *GCSStorage) Exists(ctx context.Context, key string) (bool, error) {
+func (g *GCSStorage) Exists(ctx context.Context, bucketName, key string) (bool, error) {
 	if key == "" {
 		return false, port.ErrEmptyKey
 	}
 
-	bucket := g.client.Bucket(g.bucketName)
+	bucket := g.client.Bucket(bucketName)
 	obj := bucket.Object(key)
 
 	_, err := obj.Attrs(ctx)
@@ -82,6 +82,39 @@ func (g *GCSStorage) Exists(ctx context.Context, key string) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func (g *GCSStorage) Delete(ctx context.Context, bucketName, key string) error {
+	if key == "" {
+		return port.ErrEmptyKey
+	}
+
+	bucket := g.client.Bucket(bucketName)
+	if err := bucket.Object(key).Delete(ctx); err != nil {
+		if errors.Is(err, storage.ErrObjectNotExist) {
+			return nil
+		}
+		return fmt.Errorf("failed to delete object %s: %w", key, err)
+	}
+
+	return nil
+}
+
+func (g *GCSStorage) DeleteByPrefix(ctx context.Context, bucketName, prefix string) error {
+	bucket := g.client.Bucket(bucketName)
+	it := bucket.Objects(ctx, &storage.Query{Prefix: prefix})
+
+	for {
+		attrs, err := it.Next()
+		if err == iterator.Done {
+			break
+		}
+		if err != nil {
+			return err
+		}
+		_ = bucket.Object(attrs.Name).Delete(ctx)
+	}
+	return nil
 }
 
 func (g *GCSStorage) Close() error {
