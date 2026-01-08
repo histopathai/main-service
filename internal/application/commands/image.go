@@ -10,7 +10,7 @@ import (
 type CreateImageCommand struct {
 	Name          string
 	CreatorID     string
-	ParentID      string
+	Parent        vobj.ParentRef
 	Format        string
 	OriginPath    string
 	ProcessedPath *string
@@ -22,7 +22,7 @@ type CreateImageCommand struct {
 func NewCreateImageCommand(
 	name string,
 	creatorID string,
-	parentID string,
+	parent vobj.ParentRef,
 	format string,
 	originPath string,
 	processedPath *string,
@@ -39,8 +39,8 @@ func NewCreateImageCommand(
 		detail["creator_id required"] = creatorID
 	}
 
-	if parentID == "" {
-		detail["parent_id required"] = parentID
+	if parent == (vobj.ParentRef{}) {
+		detail["parent required"] = parent
 	}
 
 	if format == "" {
@@ -63,7 +63,7 @@ func NewCreateImageCommand(
 	return &CreateImageCommand{
 		Name:          name,
 		CreatorID:     creatorID,
-		ParentID:      parentID,
+		Parent:        parent,
 		Format:        format,
 		OriginPath:    originPath,
 		ProcessedPath: processedPath,
@@ -74,7 +74,7 @@ func NewCreateImageCommand(
 }
 
 func (c *CreateImageCommand) ToEntity() (model.Image, error) {
-	parentRef, err := vobj.NewParentRef(c.ParentID, vobj.ParentTypePatient)
+	parentRef, err := vobj.NewParentRef(c.Parent.ID, vobj.ParentTypePatient)
 	if err != nil {
 		return model.Image{}, err
 	}
