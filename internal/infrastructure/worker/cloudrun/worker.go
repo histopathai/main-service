@@ -1,4 +1,4 @@
-package worker
+package cloudrun
 
 import (
 	"context"
@@ -7,7 +7,7 @@ import (
 
 	run "cloud.google.com/go/run/apiv2"
 	runpb "cloud.google.com/go/run/apiv2/runpb"
-	"github.com/histopathai/main-service/internal/domain/port"
+	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/pkg/config"
 )
 
@@ -22,7 +22,7 @@ type CloudRunWorker struct {
 	logger *slog.Logger
 }
 
-func NewCloudRunWorker(ctx context.Context, cfg config.WorkerConfig, logger *slog.Logger) (*CloudRunWorker, error) {
+func NewCloudRunWorker(ctx context.Context, cfg config.WorkerConfig, logger *slog.Logger) (port.ImageProcessingWorker, error) {
 	client, err := run.NewJobsClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Cloud Run Jobs client: %w", err)
@@ -96,7 +96,6 @@ func (w *CloudRunWorker) determineJobName(size int64) string {
 	case size < Size1GB:
 		return w.config.JobMedium
 	default:
-
 		return w.config.JobLarge
 	}
 }
@@ -109,4 +108,11 @@ func (w *CloudRunWorker) getWorkerTypeLabel(size int64) string {
 		return "medium"
 	}
 	return "large"
+}
+
+func (w *CloudRunWorker) Close() error {
+	if w.client != nil {
+		return w.client.Close()
+	}
+	return nil
 }

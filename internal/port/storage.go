@@ -2,10 +2,9 @@ package port
 
 import (
 	"context"
+	"time"
 
 	"errors"
-
-	"github.com/histopathai/main-service/internal/domain/vobj"
 )
 
 var (
@@ -16,7 +15,40 @@ var (
 	ErrObjectNotFound     = errors.New("object not found")
 )
 
+type SignedURLMethod string
+
+const (
+	MethodGet    SignedURLMethod = "GET"
+	MethodPut    SignedURLMethod = "PUT"
+	MethodPost   SignedURLMethod = "POST"
+	MethodDelete SignedURLMethod = "DELETE"
+	MethodHead   SignedURLMethod = "HEAD"
+)
+
+type SignedURLOptions struct {
+	Method      SignedURLMethod
+	ExpiresIn   time.Duration
+	ContentType string
+	Metadata    map[string]string
+}
+
+func NewSignedURLOptions(method SignedURLMethod, expiresIn time.Duration, contentType string, metadata map[string]string) SignedURLOptions {
+	return SignedURLOptions{
+		Method:      method,
+		ExpiresIn:   expiresIn,
+		ContentType: contentType,
+		Metadata:    metadata,
+	}
+}
+
+func DefaultSignedURLOptions() SignedURLOptions {
+	return SignedURLOptions{
+		Method:    MethodGet,
+		ExpiresIn: 15 * time.Minute,
+	}
+}
+
 type Storage interface {
-	GenerateSignedURL(ctx context.Context, key string, opts vobj.SignedURLOptions) (string, error)
+	GenerateSignedURL(ctx context.Context, key string, opts SignedURLOptions) (string, error)
 	Exists(ctx context.Context, key string) (bool, error)
 }
