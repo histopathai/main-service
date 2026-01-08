@@ -1,73 +1,65 @@
 package constants
 
 const (
-	WorkspaceDescField         = "Desc"
-	WorkspaceOrganTypeField    = "OrganType"
-	WorkspaceOrganizationField = "Organization"
-	WorkspaceLicenseField      = "License"
-	WorkspaceResourceURLField  = "ResourceURL"
-	WorkspaceReleaseYearField  = "ReleaseYear"
+	DescField         = "Desc"
+	OrganTypeField    = "OrganType"
+	OrganizationField = "Organization"
+	LicenseField      = "License"
+	ResourceURLField  = "ResourceURL"
+	ReleaseYearField  = "ReleaseYear"
 )
 
 const (
-	PatientAgeField     = "Age"
-	PatientGenderField  = "Gender"
-	PatientRaceField    = "Race"
-	PatientDiseaseField = "Disease"
-	PatientSubtypeField = "Subtype"
-	PatientGradeField   = "Grade"
-	PatientHistoryField = "History"
+	AgeField     = "Age"
+	GenderField  = "Gender"
+	RaceField    = "Race"
+	DiseaseField = "Disease"
+	SubtypeField = "Subtype"
+	GradeField   = "Grade"
+	HistoryField = "History"
 )
 
 const (
-	ImageFormatField          = "Format"
-	ImageWidthField           = "Width"
-	ImageHeightField          = "Height"
-	ImageSizeField            = "Size"
-	ImageOriginPathField      = "OriginPath"
-	ImageProcessedPathField   = "ProcessedPath"
-	ImageStatusField          = "Status"
-	ImageFailureReasonField   = "FailureReason"
-	ImageRetryCountField      = "RetryCount"
-	ImageLastProcessedAtField = "LastProcessedAt"
+	FormatField          = "Format"
+	WidthField           = "Width"
+	HeightField          = "Height"
+	SizeField            = "Size"
+	OriginPathField      = "OriginPath"
+	ProcessedPathField   = "ProcessedPath"
+	StatusField          = "Status"
+	FailureReasonField   = "FailureReason"
+	RetryCountField      = "RetryCount"
+	LastProcessedAtField = "LastProcessedAt"
 )
 
 const (
-	TagTypeField     = "Type"
-	TagColorField    = "Color"
-	TagOptionsField  = "Options"
-	TagGlobalField   = "Global"
-	TagRequiredField = "Required"
-	TagMinField      = "Min"
-	TagMaxField      = "Max"
+	TagsField = "Tags"
+
+	TagTypeField    = "TagType"
+	TagColorField   = "TagColor"
+	TagOptionsField = "TagOptions"
+	TagGlobalField  = "TagGlobal"
+	RequiredField   = "Required"
+	MinField        = "Min"
+	MaxField        = "Max"
 )
 
 const (
-	TagValueTypeField   = "Type"
-	TagValueNameField   = "Name"
-	TagValueField       = "Value"
-	TagValueColorField  = "Color"
-	TagValueGlobalField = "Global"
-)
-
-const (
-	AnnotationTypeTagsField = "Tags"
+	TagNameField  = "TagName"
+	TagValueField = "TagValue"
+	PolygonField  = "Polygon"
+	TagField      = "Tag"
 )
 const (
-	AnnotationAnnotationTypeIDField = "AnnotationTypeID"
-	AnnotationPolygonField          = "Polygon"
-	AnnotationTagValueField         = "TagValue"
-)
-
-const (
-	IDField         = "ID"
-	NameField       = "Name"
-	CreatorIDField  = "CreatorID"
-	DeletedField    = "Deleted"
-	CreatedAtField  = "CreatedAt"
-	UpdatedAtField  = "UpdatedAt"
-	ParentIDField   = "ParentID"
-	ParentTypeField = "ParentType"
-	ChildCountField = "ChildCount"
-	EntityTypeField = "EntityType"
+	IDField          = "ID"
+	NameField        = "Name"
+	CreatorIDField   = "CreatorID"
+	DeletedField     = "Deleted"
+	CreatedAtField   = "CreatedAt"
+	UpdatedAtField   = "UpdatedAt"
+	ParentIDField    = "ParentID"
+	ParentTypeField  = "ParentType"
+	ChildCountField  = "ChildCount"
+	HasChildrenField = "HasChildren"
+	EntityTypeField  = "EntityType"
 )
