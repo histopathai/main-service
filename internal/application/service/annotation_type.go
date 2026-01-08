@@ -3,23 +3,23 @@ package service
 import (
 	"github.com/histopathai/main-service/internal/application/usecases/common"
 	"github.com/histopathai/main-service/internal/application/usecases/composite"
-	entityspecific "github.com/histopathai/main-service/internal/application/usecases/entity-specific"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
 )
 
 type AnnotationTypeService struct {
-	*BaseService[model.AnnotationType]
+	*BaseService[*model.AnnotationType]
 }
 
 func NewAnnotationTypeService(
-	annotationTypeRepo port.Repository[model.AnnotationType],
-	deleteUc *composite.DeleteUseCase,
+	annotationTypeRepo port.Repository[*model.AnnotationType],
+	uowFactory port.UnitOfWorkFactory,
 ) *AnnotationTypeService {
 
-	createUc := entityspecific.NewCreateAnnotationTypeUseCase(annotationTypeRepo)
-	updateUc := entityspecific.NewUpdateAnnotationTypeUseCase(annotationTypeRepo)
+	createUc := composite.NewCreateUseCase[*model.AnnotationType](uowFactory)
+	deleteUc := composite.NewDeleteUseCase(uowFactory)
+	// updateUc := composite.NewUpdateUseCase[model.AnnotationType](uowFactory)
 
 	baseSvc := NewBaseService(
 		common.NewReadUseCase(annotationTypeRepo),
@@ -32,7 +32,7 @@ func NewAnnotationTypeService(
 		common.NewFilterByNameUseCase(annotationTypeRepo),
 		deleteUc,
 		createUc,
-		updateUc,
+		// updateUc,
 		vobj.EntityTypeAnnotationType,
 	)
 

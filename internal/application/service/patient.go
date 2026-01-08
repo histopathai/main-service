@@ -6,26 +6,25 @@ import (
 	"github.com/histopathai/main-service/internal/application/commands"
 	"github.com/histopathai/main-service/internal/application/usecases/common"
 	"github.com/histopathai/main-service/internal/application/usecases/composite"
-	entityspecific "github.com/histopathai/main-service/internal/application/usecases/entity-specific"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
 )
 
 type PatientService struct {
-	*BaseService[model.Patient]
+	*BaseService[*model.Patient]
 	transferUc *composite.TransferUseCase
 }
 
 func NewPatientService(
-	uow port.UnitOfWorkFactory,
-	patientRepo port.Repository[model.Patient],
-	deleteUc *composite.DeleteUseCase,
-	transferUc *composite.TransferUseCase,
+	patientRepo port.Repository[*model.Patient],
+	uowFactory port.UnitOfWorkFactory,
 ) *PatientService {
 
-	createUc := entityspecific.NewCreatePatientUseCase(uow)
-	updateUc := entityspecific.NewUpdatePatientUseCase(uow)
+	createUc := composite.NewCreateUseCase[*model.Patient](uowFactory)
+	deleteUc := composite.NewDeleteUseCase(uowFactory)
+	transferUc := composite.NewTransferUseCase(uowFactory)
+	// updateUc := composite.NewUpdateUseCase[*model.Patient](uowFactory)
 
 	baseSvc := NewBaseService(
 		common.NewReadUseCase(patientRepo),
@@ -38,7 +37,7 @@ func NewPatientService(
 		common.NewFilterByNameUseCase(patientRepo),
 		deleteUc,
 		createUc,
-		updateUc,
+		// updateUc,
 		vobj.EntityTypePatient,
 	)
 

@@ -6,26 +6,25 @@ import (
 	"github.com/histopathai/main-service/internal/application/commands"
 	"github.com/histopathai/main-service/internal/application/usecases/common"
 	"github.com/histopathai/main-service/internal/application/usecases/composite"
-	entityspecific "github.com/histopathai/main-service/internal/application/usecases/entity-specific"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
 )
 
 type ImageService struct {
-	*BaseService[model.Image]
+	*BaseService[*model.Image]
 	transferUc *composite.TransferUseCase
 }
 
 func NewImageService(
-	uow port.UnitOfWorkFactory,
-	imageRepo port.Repository[model.Image],
-	deleteUc *composite.DeleteUseCase,
-	transferUc *composite.TransferUseCase,
+	imageRepo port.Repository[*model.Image],
+	uowFactory port.UnitOfWorkFactory,
 ) *ImageService {
 
-	createUc := entityspecific.NewCreateImageUseCase(uow)
-	updateUc := entityspecific.NewUpdateImageUseCase(uow)
+	createUc := composite.NewCreateUseCase[*model.Image](uowFactory)
+	deleteUc := composite.NewDeleteUseCase(uowFactory)
+	transferUc := composite.NewTransferUseCase(uowFactory)
+	// updateUc := composite.NewUpdateUseCase[*model.Image](uowFactory)
 
 	baseSvc := NewBaseService(
 		common.NewReadUseCase(imageRepo),
@@ -38,7 +37,7 @@ func NewImageService(
 		common.NewFilterByNameUseCase(imageRepo),
 		deleteUc,
 		createUc,
-		updateUc,
+		// updateUc,
 		vobj.EntityTypeImage,
 	)
 
