@@ -71,7 +71,7 @@ func (c *CreateAnnotationCommand) ToEntity() (model.Annotation, error) {
 	}
 
 	return model.Annotation{
-		Entity:  *entity,
+		Entity:  entity,
 		Polygon: *c.Polygon,
 		Tag:     c.TagValue,
 	}, nil
@@ -124,10 +124,10 @@ func (c *UpdateAnnotationCommand) GetUpdates() (map[string]any, error) {
 			details := map[string]any{"polygon_length": len(*c.Polygon)}
 			return nil, errors.NewValidationError("polygon must have at least 3 points", details)
 		}
-		updates[constants.AnnotationPolygonField] = *c.Polygon
+		updates[constants.PolygonField] = *c.Polygon
 	}
 	if c.TagValue != nil {
-		updates[constants.AnnotationTagValueField] = *c.TagValue
+		updates[constants.TagValueField] = *c.TagValue
 	}
 
 	return updates, nil

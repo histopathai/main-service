@@ -90,7 +90,7 @@ func (c *CreateImageCommand) ToEntity() (model.Image, error) {
 	}
 
 	return model.Image{
-		Entity:        *entity,
+		Entity:        entity,
 		Format:        c.Format,
 		OriginPath:    c.OriginPath,
 		ProcessedPath: c.ProcessedPath,
@@ -173,28 +173,28 @@ func (c *UpdateImageCommand) GetUpdates() (map[string]any, error) {
 		updates[constants.CreatorIDField] = *c.CreatorID
 	}
 	if c.Format != nil {
-		updates[constants.ImageFormatField] = *c.Format
+		updates[constants.FormatField] = *c.Format
 	}
 	if c.OriginPath != nil {
-		updates[constants.ImageOriginPathField] = *c.OriginPath
+		updates[constants.OriginPathField] = *c.OriginPath
 	}
 	if c.ProcessedPath != nil {
-		updates[constants.ImageProcessedPathField] = *c.ProcessedPath
+		updates[constants.ProcessedPathField] = *c.ProcessedPath
 	}
 	if c.Width != nil {
-		updates[constants.ImageWidthField] = *c.Width
+		updates[constants.WidthField] = *c.Width
 	}
 	if c.Height != nil {
-		updates[constants.ImageHeightField] = *c.Height
+		updates[constants.HeightField] = *c.Height
 	}
 	if c.Size != nil {
-		updates[constants.ImageSizeField] = *c.Size
+		updates[constants.SizeField] = *c.Size
 	}
 	if c.FailureReason != nil {
-		updates[constants.ImageFailureReasonField] = *c.FailureReason
+		updates[constants.FailureReasonField] = *c.FailureReason
 	}
 	if c.RetryCount != nil {
-		updates[constants.ImageRetryCountField] = *c.RetryCount
+		updates[constants.RetryCountField] = *c.RetryCount
 	}
 
 	return updates, nil

@@ -54,7 +54,7 @@ func (c *CreateAnnotationTypeCommand) ToEntity() (model.AnnotationType, error) {
 	}
 
 	return model.AnnotationType{
-		Entity: *entity,
+		Entity: entity,
 		Tags:   c.Tags,
 	}, nil
 }
@@ -94,7 +94,7 @@ func (c *UpdateAnnotationTypeCommand) GetUpdates() (map[string]any, error) {
 		updates[constants.CreatorIDField] = *c.CreatorID
 	}
 	if c.Tags != nil {
-		updates[constants.AnnotationTypeTagsField] = *c.Tags
+		updates[constants.TagsField] = *c.Tags
 	}
 
 	return updates, nil

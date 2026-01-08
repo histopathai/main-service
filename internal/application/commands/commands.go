@@ -2,38 +2,39 @@ package commands
 
 import (
 	"github.com/histopathai/main-service/internal/domain/vobj"
+	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
-type CreateCommand[T any] interface {
+// Generic command interfaces artık port.Entity kullanıyor
+type CreateCommand[T port.Entity] interface {
 	ToEntity() (T, error)
 }
 
-type UpdateCommand[T any] interface {
+type UpdateCommand[T port.Entity] interface {
 	GetID() string
 	ApplyTo(entity T) (T, error)
 	GetUpdates() (map[string]any, error)
 }
 
-type ReadCommand[T any] struct {
+type ReadCommand[T port.Entity] struct {
 	ID string
 }
 
-type ListCommand[T any] struct {
+type ListCommand[T port.Entity] struct {
 	Pagination *query.Pagination
 	Filters    []query.Filter
 }
 
-type CountCommand[T any] struct {
+type CountCommand[T port.Entity] struct {
 	Filters []query.Filter
 }
 
-func NewCountCommand[T any](filters []query.Filter) *CountCommand[T] {
+func NewCountCommand[T port.Entity](filters []query.Filter) *CountCommand[T] {
 	return &CountCommand[T]{Filters: filters}
 }
 
-func NewListCommand[T any](Limit, Offset int, SortBy, SortDir string) *ListCommand[T] {
-
+func NewListCommand[T port.Entity](Limit, Offset int, SortBy, SortDir string) *ListCommand[T] {
 	pg := query.Pagination{
 		Limit:   Limit,
 		Offset:  Offset,
@@ -48,29 +49,29 @@ func NewListCommand[T any](Limit, Offset int, SortBy, SortDir string) *ListComma
 	}
 }
 
-type ReadManyCommand[T any] struct {
+type ReadManyCommand[T port.Entity] struct {
 	IDs []string
 }
 
-type DeleteCommand[T any] struct {
+type DeleteCommand[T port.Entity] struct {
 	ID   string
 	Role string
 }
 
-type DeleteManyCommand[T any] struct {
+type DeleteManyCommand[T port.Entity] struct {
 	IDs  []string
 	Role string
 }
 
-type SoftDeleteCommand[T any] struct {
+type SoftDeleteCommand[T port.Entity] struct {
 	ID string
 }
 
-type SoftDeleteManyCommand[T any] struct {
+type SoftDeleteManyCommand[T port.Entity] struct {
 	IDs []string
 }
 
-type TransfarableCommand interface {
+type TransferableCommand interface {
 	GetParentID() string
 	GetParentType() string
 	SetParentID(newParentID string)
@@ -79,7 +80,6 @@ type TransfarableCommand interface {
 type TransferCommand struct {
 	ID          string
 	OldParentID string
-
 	NewParentID string
 }
 
@@ -89,17 +89,17 @@ type TransferManyCommand struct {
 	NewParentID string
 }
 
-type FindByParentCommand[T any] struct {
+type FindByParentCommand[T port.Entity] struct {
 	ParentRef  vobj.ParentRef
 	Pagination *query.Pagination
 }
 
-type FindByCreatorCommand[T any] struct {
+type FindByCreatorCommand[T port.Entity] struct {
 	CreatorID  string
 	Pagination *query.Pagination
 }
 
-type FindByNameCommand[T any] struct {
+type FindByNameCommand[T port.Entity] struct {
 	Name       string
 	Pagination *query.Pagination
 }

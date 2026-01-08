@@ -32,7 +32,6 @@ func NewCreatePatientCommand(
 	grade *int,
 	history *string,
 ) (*CreatePatientCommand, error) {
-
 	details := make(map[string]any)
 	if name == "" {
 		details["name required"] = name
@@ -67,10 +66,10 @@ func NewCreatePatientCommand(
 	}, nil
 }
 
-func (c *CreatePatientCommand) ToEntity() (model.Patient, error) {
+func (c *CreatePatientCommand) ToEntity() (*model.Patient, error) {
 	parentRef, err := vobj.NewParentRef(c.ParentID, vobj.ParentTypeWorkspace)
 	if err != nil {
-		return model.Patient{}, err
+		return nil, err
 	}
 
 	entity, err := vobj.NewEntity(
@@ -80,11 +79,11 @@ func (c *CreatePatientCommand) ToEntity() (model.Patient, error) {
 		parentRef,
 	)
 	if err != nil {
-		return model.Patient{}, err
+		return nil, err
 	}
 
-	return model.Patient{
-		Entity:  *entity,
+	return &model.Patient{
+		Entity:  entity,
 		Age:     c.Age,
 		Gender:  c.Gender,
 		Race:    c.Race,
@@ -113,7 +112,7 @@ func (c *UpdatePatientCommand) GetID() string {
 	return c.ID
 }
 
-func (c *UpdatePatientCommand) ApplyTo(entity model.Patient) (model.Patient, error) {
+func (c *UpdatePatientCommand) ApplyTo(entity *model.Patient) (*model.Patient, error) {
 	if c.Name != nil {
 		entity.SetName(*c.Name)
 	}
@@ -123,15 +122,15 @@ func (c *UpdatePatientCommand) ApplyTo(entity model.Patient) (model.Patient, err
 	if c.ParentID != nil {
 		parentRef, err := vobj.NewParentRef(*c.ParentID, vobj.ParentTypeWorkspace)
 		if err != nil {
-			return model.Patient{}, err
+			return nil, err
 		}
-		entity.Parent = parentRef
+		entity.SetParent(parentRef)
 	}
 
 	if c.Age != nil {
 		if *c.Age < 0 {
 			details := map[string]any{"age": *c.Age}
-			return model.Patient{}, errors.NewValidationError("age cannot be negative", details)
+			return nil, errors.NewValidationError("age cannot be negative", details)
 		}
 		entity.Age = c.Age
 	}
@@ -168,31 +167,32 @@ func (c *UpdatePatientCommand) GetUpdates() (map[string]any, error) {
 	}
 	if c.ParentID != nil {
 		updates[constants.ParentIDField] = *c.ParentID
+		updates[constants.ParentTypeField] = vobj.ParentTypeWorkspace
 	}
 	if c.Age != nil {
 		if *c.Age < 0 {
 			details := map[string]any{"age cannot be negative": *c.Age}
 			return nil, errors.NewValidationError("age cannot be negative", details)
 		}
-		updates[constants.PatientAgeField] = *c.Age
+		updates[constants.AgeField] = *c.Age
 	}
 	if c.Gender != nil {
-		updates[constants.PatientGenderField] = *c.Gender
+		updates[constants.GenderField] = *c.Gender
 	}
 	if c.Race != nil {
-		updates[constants.PatientRaceField] = *c.Race
+		updates[constants.RaceField] = *c.Race
 	}
 	if c.Disease != nil {
-		updates[constants.PatientDiseaseField] = *c.Disease
+		updates[constants.DiseaseField] = *c.Disease
 	}
 	if c.Subtype != nil {
-		updates[constants.PatientSubtypeField] = *c.Subtype
+		updates[constants.SubtypeField] = *c.Subtype
 	}
 	if c.Grade != nil {
-		updates[constants.PatientGradeField] = *c.Grade
+		updates[constants.GradeField] = *c.Grade
 	}
 	if c.History != nil {
-		updates[constants.PatientHistoryField] = *c.History
+		updates[constants.HistoryField] = *c.History
 	}
 
 	return updates, nil

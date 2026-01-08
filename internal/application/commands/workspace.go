@@ -67,14 +67,14 @@ func NewCreateWorkspaceCommand(
 	}, nil
 }
 
-func (c *CreateWorkspaceCommand) ToEntity() (model.Workspace, error) {
+func (c *CreateWorkspaceCommand) ToEntity() (*model.Workspace, error) {
 	var parentRef *vobj.ParentRef
 	var err error
 
 	if c.ParentID != nil {
 		parentRef, err = vobj.NewParentRef(*c.ParentID, vobj.ParentTypeWorkspace)
 		if err != nil {
-			return model.Workspace{}, err
+			return nil, err
 		}
 	}
 
@@ -85,11 +85,11 @@ func (c *CreateWorkspaceCommand) ToEntity() (model.Workspace, error) {
 		parentRef,
 	)
 	if err != nil {
-		return model.Workspace{}, err
+		return nil, err
 	}
 
-	return model.Workspace{
-		Entity:       *entity,
+	return &model.Workspace{
+		Entity:       entity,
 		OrganType:    c.OrganType,
 		Organization: c.Organization,
 		Description:  c.Description,
@@ -115,17 +115,17 @@ func (c *UpdateWorkspaceCommand) GetID() string {
 	return c.ID
 }
 
-func (c *UpdateWorkspaceCommand) ApplyTo(entity model.Workspace) (model.Workspace, error) {
+func (c *UpdateWorkspaceCommand) ApplyTo(entity *model.Workspace) (*model.Workspace, error) {
 	if c.Name != nil {
-		entity.Name = c.Name
+		entity.SetName(*c.Name)
 	}
 	if c.CreatorID != nil {
-		entity.CreatorID = *c.CreatorID
+		entity.SetCreatorID(*c.CreatorID)
 	}
 	if c.OrganType != nil {
 		ot, err := vobj.NewOrganTypeFromString(*c.OrganType)
 		if err != nil {
-			return model.Workspace{}, err
+			return nil, err
 		}
 		entity.OrganType = string(ot)
 	}
@@ -161,22 +161,22 @@ func (c *UpdateWorkspaceCommand) GetUpdates() (map[string]any, error) {
 		if err != nil {
 			return nil, err
 		}
-		updates[constants.WorkspaceOrganTypeField] = string(ot)
+		updates[constants.OrganTypeField] = string(ot)
 	}
 	if c.Organization != nil {
-		updates[constants.WorkspaceOrganizationField] = *c.Organization
+		updates[constants.OrganizationField] = *c.Organization
 	}
 	if c.Description != nil {
-		updates[constants.WorkspaceDescField] = *c.Description
+		updates[constants.DescField] = *c.Description
 	}
 	if c.License != nil {
-		updates[constants.WorkspaceLicenseField] = *c.License
+		updates[constants.LicenseField] = *c.License
 	}
 	if c.ResourceURL != nil {
-		updates[constants.WorkspaceResourceURLField] = *c.ResourceURL
+		updates[constants.ResourceURLField] = *c.ResourceURL
 	}
 	if c.ReleaseYear != nil {
-		updates[constants.WorkspaceReleaseYearField] = *c.ReleaseYear
+		updates[constants.ReleaseYearField] = *c.ReleaseYear
 	}
 
 	return updates, nil
