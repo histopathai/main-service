@@ -5,7 +5,7 @@ import (
 )
 
 type Image struct {
-	*vobj.Entity
+	vobj.Entity
 	Format        string
 	Width         *int
 	Height        *int
