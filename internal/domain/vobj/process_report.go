@@ -1,8 +1,32 @@
 package vobj
 
-import "time"
+import (
+	"fmt"
+	"time"
+)
 
 type ImageStatus string
+
+func (s ImageStatus) String() string {
+	return string(s)
+}
+
+func NewImageStatusFromString(statusStr string) (ImageStatus, error) {
+	switch statusStr {
+	case string(StatusUploaded):
+		return StatusUploaded, nil
+	case string(StatusProcessing):
+		return StatusProcessing, nil
+	case string(StatusProcessed):
+		return StatusProcessed, nil
+	case string(StatusFailed):
+		return StatusFailed, nil
+	case string(StatusDeleting):
+		return StatusDeleting, nil
+	default:
+		return "", fmt.Errorf("invalid image status: %s", statusStr)
+	}
+}
 
 const (
 	StatusUploaded   ImageStatus = "UPLOADED"
