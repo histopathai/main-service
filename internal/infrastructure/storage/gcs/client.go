@@ -6,7 +6,6 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
-	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
 )
 
@@ -30,7 +29,7 @@ func NewGCSStorage(ctx context.Context, bucketName string) (port.Storage, error)
 func (g *GCSStorage) GenerateSignedURL(
 	ctx context.Context,
 	key string,
-	opts vobj.SignedURLOptions,
+	opts port.SignedURLOptions,
 ) (string, error) {
 	if key == "" {
 		return "", port.ErrEmptyKey
