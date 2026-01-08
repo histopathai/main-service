@@ -22,8 +22,8 @@ type BaseService[T port.Entity] struct {
 	findByNameUc    *common.FilterByNameUseCase[T]
 	hdeleteUc       *composite.DeleteUseCase
 	createUC        *composite.CreateUseCase[T]
-	// updateUC        *composite.UpdateUseCase[T]
-	entityType vobj.EntityType
+	updateUC        *composite.UpdateUseCase[T]
+	entityType      vobj.EntityType
 }
 
 func NewBaseService[T port.Entity](
@@ -37,7 +37,7 @@ func NewBaseService[T port.Entity](
 	findByNameUc *common.FilterByNameUseCase[T],
 	hdeleteUc *composite.DeleteUseCase,
 	createUC *composite.CreateUseCase[T],
-	// updateUC *composite.UpdateUseCase[T],
+	updateUC *composite.UpdateUseCase[T],
 	entityType vobj.EntityType,
 ) *BaseService[T] {
 	return &BaseService[T]{
@@ -51,8 +51,8 @@ func NewBaseService[T port.Entity](
 		findByNameUc:    findByNameUc,
 		hdeleteUc:       hdeleteUc,
 		createUC:        createUC,
-		// updateUC:        updateUC,
-		entityType: entityType,
+		updateUC:        updateUC,
+		entityType:      entityType,
 	}
 }
 
@@ -70,15 +70,14 @@ func (bs *BaseService[T]) GetByID(ctx context.Context, cmd commands.ReadCommand[
 	return bs.readUc.Execute(ctx, cmd.ID)
 }
 
-// func (bs *BaseService[T]) Update(ctx context.Context, cmd commands.UpdateCommand[T]) (T, error) {
-// 	updates, err := cmd.GetUpdates()
-// 	if err != nil {
-// 		var zero T
-// 		return zero, err
-// 	}
-//
-// 	return bs.updateUC.Execute(ctx, cmd.GetID(), updates)
-// }
+func (bs *BaseService[T]) Update(ctx context.Context, cmd commands.UpdateCommand[T]) (T, error) {
+	updates, err := cmd.GetUpdates()
+	if err != nil {
+		var zero T
+		return zero, err
+	}
+	return bs.updateUC.Execute(ctx, cmd.GetID(), updates)
+}
 
 func (bs *BaseService[T]) HardDelete(ctx context.Context, cmd commands.DeleteCommand[T]) error {
 	return bs.hdeleteUc.Execute(ctx, cmd.ID, bs.entityType)

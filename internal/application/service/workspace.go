@@ -19,7 +19,7 @@ func NewWorkspaceService(
 
 	createUc := composite.NewCreateUseCase[*model.Workspace](uowFactory)
 	deleteUc := composite.NewDeleteUseCase(uowFactory)
-	// updateUc := composite.NewUpdateUseCase[*model.Workspace](uowFactory)
+	updateUc := composite.NewUpdateUseCase[*model.Workspace](uowFactory)
 
 	baseSvc := NewBaseService(
 		common.NewReadUseCase(workspaceRepo),
@@ -32,7 +32,7 @@ func NewWorkspaceService(
 		common.NewFilterByNameUseCase(workspaceRepo),
 		deleteUc,
 		createUc,
-		// updateUc,
+		updateUc,
 		vobj.EntityTypeWorkspace,
 	)
 

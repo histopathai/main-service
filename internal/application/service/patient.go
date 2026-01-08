@@ -24,7 +24,7 @@ func NewPatientService(
 	createUc := composite.NewCreateUseCase[*model.Patient](uowFactory)
 	deleteUc := composite.NewDeleteUseCase(uowFactory)
 	transferUc := composite.NewTransferUseCase(uowFactory)
-	// updateUc := composite.NewUpdateUseCase[*model.Patient](uowFactory)
+	updateUc := composite.NewUpdateUseCase[*model.Patient](uowFactory)
 
 	baseSvc := NewBaseService(
 		common.NewReadUseCase(patientRepo),
@@ -37,7 +37,7 @@ func NewPatientService(
 		common.NewFilterByNameUseCase(patientRepo),
 		deleteUc,
 		createUc,
-		// updateUc,
+		updateUc,
 		vobj.EntityTypePatient,
 	)
 

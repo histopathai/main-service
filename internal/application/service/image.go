@@ -24,7 +24,7 @@ func NewImageService(
 	createUc := composite.NewCreateUseCase[*model.Image](uowFactory)
 	deleteUc := composite.NewDeleteUseCase(uowFactory)
 	transferUc := composite.NewTransferUseCase(uowFactory)
-	// updateUc := composite.NewUpdateUseCase[*model.Image](uowFactory)
+	updateUc := composite.NewUpdateUseCase[*model.Image](uowFactory)
 
 	baseSvc := NewBaseService(
 		common.NewReadUseCase(imageRepo),
@@ -37,7 +37,7 @@ func NewImageService(
 		common.NewFilterByNameUseCase(imageRepo),
 		deleteUc,
 		createUc,
-		// updateUc,
+		updateUc,
 		vobj.EntityTypeImage,
 	)
 

@@ -19,7 +19,7 @@ func NewAnnotationTypeService(
 
 	createUc := composite.NewCreateUseCase[*model.AnnotationType](uowFactory)
 	deleteUc := composite.NewDeleteUseCase(uowFactory)
-	// updateUc := composite.NewUpdateUseCase[model.AnnotationType](uowFactory)
+	updateUc := composite.NewUpdateUseCase[*model.AnnotationType](uowFactory)
 
 	baseSvc := NewBaseService(
 		common.NewReadUseCase(annotationTypeRepo),
@@ -32,7 +32,7 @@ func NewAnnotationTypeService(
 		common.NewFilterByNameUseCase(annotationTypeRepo),
 		deleteUc,
 		createUc,
-		// updateUc,
+		updateUc,
 		vobj.EntityTypeAnnotationType,
 	)
 
