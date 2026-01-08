@@ -12,5 +12,5 @@ type Image struct {
 	Size          *int64
 	OriginPath    string
 	ProcessedPath *string
-	ProcessReport vobj.ImageProcessReport
+	ProcessReport *vobj.ImageProcessReport
 }
