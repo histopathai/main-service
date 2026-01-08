@@ -6,7 +6,8 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
-	domainstorage "github.com/histopathai/main-service/internal/domain/storage"
+	"github.com/histopathai/main-service/internal/domain/vobj"
+	"github.com/histopathai/main-service/internal/port"
 )
 
 type GCSStorage struct {
@@ -14,7 +15,7 @@ type GCSStorage struct {
 	bucketName string
 }
 
-func NewGCSStorage(ctx context.Context, bucketName string) (domainstorage.Storage, error) {
+func NewGCSStorage(ctx context.Context, bucketName string) (port.Storage, error) {
 	client, err := storage.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create GCS client: %w", err)
@@ -29,14 +30,14 @@ func NewGCSStorage(ctx context.Context, bucketName string) (domainstorage.Storag
 func (g *GCSStorage) GenerateSignedURL(
 	ctx context.Context,
 	key string,
-	opts domainstorage.SignedURLOptions,
+	opts vobj.SignedURLOptions,
 ) (string, error) {
 	if key == "" {
-		return "", domainstorage.ErrEmptyKey
+		return "", port.ErrEmptyKey
 	}
 
 	if opts.ExpiresIn <= 0 {
-		return "", domainstorage.ErrInvalidExpiration
+		return "", port.ErrInvalidExpiration
 	}
 
 	signedOpts := &storage.SignedURLOptions{
@@ -59,7 +60,7 @@ func (g *GCSStorage) GenerateSignedURL(
 	bucket := g.client.Bucket(g.bucketName)
 	url, err := bucket.SignedURL(key, signedOpts)
 	if err != nil {
-		return "", domainstorage.ErrSignedURLFailed
+		return "", fmt.Errorf("%w: %v", port.ErrSignedURLFailed, err)
 	}
 
 	return url, nil
@@ -67,7 +68,7 @@ func (g *GCSStorage) GenerateSignedURL(
 
 func (g *GCSStorage) Exists(ctx context.Context, key string) (bool, error) {
 	if key == "" {
-		return false, domainstorage.ErrEmptyKey
+		return false, port.ErrEmptyKey
 	}
 
 	bucket := g.client.Bucket(g.bucketName)
@@ -78,7 +79,7 @@ func (g *GCSStorage) Exists(ctx context.Context, key string) (bool, error) {
 		return false, nil
 	}
 	if err != nil {
-		return false, domainstorage.ErrStorageUnavailable
+		return false, fmt.Errorf("%w: %v", port.ErrStorageUnavailable, err)
 	}
 
 	return true, nil
