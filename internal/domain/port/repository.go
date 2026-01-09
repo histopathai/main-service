@@ -2,12 +2,27 @@ package port
 
 import (
 	"context"
+	"time"
 
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
-type Repository[T any] interface {
+// Entity interface - tüm entity'lerin uyması gereken kontrat
+type Entity interface {
+	GetID() string
+	SetID(string)
+	GetCreatorID() string
+	SetCreatorID(string)
+	GetCreatedAt() time.Time
+	SetCreatedAt(time.Time)
+	GetUpdatedAt() time.Time
+	SetUpdatedAt(time.Time)
+}
+
+// Repository - generic repository interface
+// T constraint olarak Entity kullanıyoruz ki metodlara erişebilelim
+type Repository[T Entity] interface {
 	Create(ctx context.Context, entity T) (T, error)
 	Read(ctx context.Context, id string) (T, error)
 	Update(ctx context.Context, id string, updates map[string]interface{}) error
@@ -21,18 +36,23 @@ type Repository[T any] interface {
 	Count(ctx context.Context, filters []query.Filter) (int64, error)
 }
 
+// Concrete repository interfaces - pointer tiplerini kullan
 type WorkspaceRepository interface {
 	Repository[*model.Workspace]
 }
+
 type PatientRepository interface {
 	Repository[*model.Patient]
 }
+
 type ImageRepository interface {
 	Repository[*model.Image]
 }
+
 type AnnotationRepository interface {
 	Repository[*model.Annotation]
 }
+
 type AnnotationTypeRepository interface {
 	Repository[*model.AnnotationType]
 }
