@@ -9,6 +9,7 @@ import (
 	"github.com/histopathai/main-service/internal/domain/events"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/port"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	sharedQuery "github.com/histopathai/main-service/internal/shared/query"
@@ -42,8 +43,7 @@ func NewImageService(
 }
 
 func (is *ImageService) validateImageInput(ctx context.Context, input *port.UploadImageInput) error {
-	patientID := input.PatientID
-	_, err := is.patientRepo.Read(ctx, patientID)
+	_, err := is.patientRepo.Read(ctx, input.Parent.ID)
 	if err != nil {
 		return err
 	}
@@ -59,11 +59,10 @@ func (is *ImageService) UploadImage(ctx context.Context, input *port.UploadImage
 	uuid := uuid.New().String()
 	originpath := fmt.Sprintf("%s-%s", uuid, input.Name)
 
+	entity, err := vobj.NewEntity(vobj.EntityTypeImage, &input.Name, input.CreatorID, input.Parent)
+
 	image := &model.Image{
-		ID:         uuid,
-		PatientID:  input.PatientID,
-		CreatorID:  input.CreatorID,
-		Name:       input.Name,
+		Entity:     *entity,
 		Format:     input.Format,
 		Width:      input.Width,
 		Height:     input.Height,
@@ -83,19 +82,25 @@ func (is *ImageService) UploadImage(ctx context.Context, input *port.UploadImage
 }
 
 func (is *ImageService) ConfirmUpload(ctx context.Context, input *port.ConfirmUploadInput) error {
-	image := &model.Image{
-		ID:         input.ImageID,
-		PatientID:  input.PatientID,
+
+	entity := &vobj.Entity{
+		ID:         *input.ID,
+		EntityType: vobj.EntityTypeImage,
+		Name:       &input.Name,
 		CreatorID:  input.CreatorID,
-		Name:       input.Name,
+		Parent:     input.Parent,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+
+	image := &model.Image{
+		Entity:     *entity,
 		Format:     input.Format,
 		Width:      input.Width,
 		Height:     input.Height,
 		Size:       input.Size,
 		Status:     input.Status,
 		OriginPath: input.OriginPath,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
 	}
 
 	createdImage, err := is.imgRepo.Create(ctx, image)
@@ -126,7 +131,7 @@ func (is *ImageService) ListImageByPatientID(ctx context.Context, patientID stri
 
 	filters := []sharedQuery.Filter{
 		{
-			Field:    constants.ImagePatientIDField,
+			Field:    constants.ParentIDField,
 			Operator: sharedQuery.OpEqual,
 			Value:    patientID,
 		},

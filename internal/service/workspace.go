@@ -7,6 +7,7 @@ import (
 
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/port"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	errors "github.com/histopathai/main-service/internal/shared/errors"
 	sharedQuery "github.com/histopathai/main-service/internal/shared/query"
@@ -67,16 +68,22 @@ func (ws *WorkspaceService) CreateNewWorkspace(ctx context.Context, input *port.
 		return nil, err
 	}
 
+	entity := vobj.Entity{
+		Name:       &input.Name,
+		EntityType: vobj.EntityTypeWorkspace,
+		CreatorID:  input.CreatorID,
+		Parent:     nil,
+	}
+
 	newWorkspace := &model.Workspace{
-		CreatorID:        input.CreatorID,
-		Name:             input.Name,
-		OrganType:        input.OrganType,
-		AnnotationTypeID: input.AnnotationTypeID,
-		Organization:     input.Organization,
-		Description:      input.Description,
-		License:          input.License,
-		ResourceURL:      input.ResourceURL,
-		ReleaseYear:      input.ReleaseYear,
+		Entity:          entity,
+		OrganType:       input.OrganType,
+		Organization:    input.Organization,
+		Description:     input.Description,
+		License:         input.License,
+		ResourceURL:     input.ResourceURL,
+		ReleaseYear:     input.ReleaseYear,
+		AnnotationTypes: input.AnnotationTypes,
 	}
 
 	created, err := ws.workspaceRepo.Create(ctx, newWorkspace)
@@ -120,8 +127,9 @@ func (ws *WorkspaceService) UpdateWorkspace(ctx context.Context, id string, inpu
 		}
 		updates[constants.WorkspaceReleaseYearField] = *input.ReleaseYear
 	}
-	if input.AnnotationTypeID != nil {
-		updates[constants.WorkspaceAnnotationTypeIDField] = *input.AnnotationTypeID
+	if len(input.AnnotationTypes) != 0 {
+		updates[constants.WorkspaceAnnotationTypes] = input.AnnotationTypes
+
 	}
 
 	if len(updates) == 0 {
@@ -175,9 +183,14 @@ func (ws *WorkspaceService) DeleteWorkspace(ctx context.Context, id string) erro
 
 		patientFilter := []sharedQuery.Filter{
 			{
-				Field:    constants.PatientWorkspaceIDField,
+				Field:    constants.ParentIDField,
 				Operator: sharedQuery.OpEqual,
 				Value:    id,
+			},
+			{
+				Field:    constants.EntityTypeField,
+				Operator: sharedQuery.OpEqual,
+				Value:    vobj.EntityTypeWorkspace,
 			},
 		}
 		patientResult, err := patientRepo.FindByFilters(txCtx, patientFilter, pagination)
@@ -190,31 +203,6 @@ func (ws *WorkspaceService) DeleteWorkspace(ctx context.Context, id string) erro
 		}
 		if err := repos.WorkspaceRepo.Delete(txCtx, id); err != nil {
 			return err
-		}
-
-		// Checkout annotationtype non used anymore delete
-		annotationTypeID := wsEntity.AnnotationTypeID
-		if annotationTypeID != nil {
-			annotationTypeFilter := []sharedQuery.Filter{
-				{
-					Field:    constants.WorkspaceAnnotationTypeIDField,
-					Operator: sharedQuery.OpEqual,
-					Value:    *annotationTypeID,
-				},
-			}
-			annotationTypeWorkspaces, err := repos.WorkspaceRepo.FindByFilters(txCtx, annotationTypeFilter, &sharedQuery.Pagination{Limit: 1, Offset: 0})
-			if err != nil {
-				slog.Warn("failed to check annotation type usage after workspace deletion",
-					slog.String("annotation_type_id", *annotationTypeID),
-					slog.String("error", err.Error()))
-			}
-			if len(annotationTypeWorkspaces.Data) == 0 {
-				if err := repos.AnnotationTypeRepo.Delete(txCtx, *annotationTypeID); err != nil {
-					slog.Warn("failed to delete unused annotation type after workspace deletion",
-						slog.String("annotation_type_id", *annotationTypeID),
-						slog.String("error", err.Error()))
-				}
-			}
 		}
 		return nil
 	})
@@ -253,8 +241,8 @@ func (ws *WorkspaceService) CountWorkspaces(ctx context.Context, filters []share
 	return ws.workspaceRepo.Count(ctx, filters)
 }
 
-func (ws *WorkspaceService) CascadeDeleteWorkspace(ctx context.Context, workspaceID string) error {
-	wsEntity, err := ws.workspaceRepo.Read(ctx, workspaceID)
+func (ws *WorkspaceService) CascadeDeleteWorkspace(ctx context.Context, id string) error {
+	_, err := ws.workspaceRepo.Read(ctx, id)
 	if err != nil {
 		return err
 	}
@@ -268,9 +256,14 @@ func (ws *WorkspaceService) CascadeDeleteWorkspace(ctx context.Context, workspac
 
 		patientsFilter := []sharedQuery.Filter{
 			{
-				Field:    constants.PatientWorkspaceIDField,
+				Field:    constants.ParentIDField,
 				Operator: sharedQuery.OpEqual,
-				Value:    workspaceID,
+				Value:    id,
+			},
+			{
+				Field:    constants.EntityTypeField,
+				Operator: sharedQuery.OpEqual,
+				Value:    vobj.EntityTypeWorkspace,
 			},
 		}
 		pagination := &sharedQuery.Pagination{
@@ -313,32 +306,8 @@ func (ws *WorkspaceService) CascadeDeleteWorkspace(ctx context.Context, workspac
 		offset += scanBatchSize
 	}
 
-	if err := ws.workspaceRepo.Delete(ctx, workspaceID); err != nil {
+	if err := ws.workspaceRepo.Delete(ctx, id); err != nil {
 		return errors.NewInternalError("failed to delete workspace", err)
-	}
-
-	annotationTypeId := wsEntity.AnnotationTypeID
-	if annotationTypeId != nil {
-		annotationTypeFilter := []sharedQuery.Filter{
-			{
-				Field:    constants.WorkspaceAnnotationTypeIDField,
-				Operator: sharedQuery.OpEqual,
-				Value:    *annotationTypeId,
-			},
-		}
-		annotationTypeWorkspaces, err := ws.workspaceRepo.FindByFilters(ctx, annotationTypeFilter, &sharedQuery.Pagination{Limit: 1, Offset: 0})
-		if err != nil {
-			ws.logger.Warn("failed to check annotation type usage after workspace deletion",
-				slog.String("annotation_type_id", *annotationTypeId),
-				slog.String("error", err.Error()))
-		}
-		if len(annotationTypeWorkspaces.Data) == 0 {
-			if err := ws.annotationTypeRepo.Delete(ctx, *annotationTypeId); err != nil {
-				ws.logger.Warn("failed to delete unused annotation type after workspace deletion",
-					slog.String("annotation_type_id", *annotationTypeId),
-					slog.String("error", err.Error()))
-			}
-		}
 	}
 
 	return nil
