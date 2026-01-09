@@ -12,13 +12,14 @@ type ImageUploadedEvent struct {
 }
 
 type ImageUploadedMetadata struct {
-	ImageID   string `json:"image-id"`
-	PatientID string `json:"patient-id"`
-	CreatorID string `json:"creator-id"`
-	Name      string `json:"name"`
-	Format    string `json:"format"`
+	ImageID    string `json:"image-id"`
+	EntityType string `json:"entity-type"`
+	Name       string `json:"name"`
+	ParentID   string `json:"parent-id"`
+	CreatorID  string `json:"creator-id"`
 
-	// Add ",string" to these tags to handle GCS string values
+	// Image specific metadata
+	Format string `json:"format"`
 	Width  *int   `json:"width,omitempty,string"`
 	Height *int   `json:"height,omitempty,string"`
 	Size   *int64 `json:"size,omitempty,string"`
@@ -33,13 +34,15 @@ func NewImageUploadedEvent(
 	height *int,
 	size *int64,
 ) ImageUploadedEvent {
+
 	return ImageUploadedEvent{
+
 		BaseEvent: NewBaseEvent(EventTypeImageUploaded),
 		Name:      originPath,
 		Bucket:    bucket,
 		Metadata: ImageUploadedMetadata{
 			ImageID:    imageID,
-			PatientID:  patientID,
+			ParentID:   patientID,
 			CreatorID:  creatorID,
 			Name:       name,
 			Format:     format,
