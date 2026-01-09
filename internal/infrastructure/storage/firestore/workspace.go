@@ -60,15 +60,26 @@ func workspaceFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Workspac
 	}
 	w.Entity = *entity
 
-	w.OrganType = data["organ_type"].(string)
-	w.Organization = data["organization"].(string)
-	w.Description = data["description"].(string)
-	w.License = data["license"].(string)
+	// Use safe type assertions to avoid panics on missing fields
+	if v, ok := data["organ_type"].(string); ok {
+		w.OrganType = v
+	}
+	if v, ok := data["organization"].(string); ok {
+		w.Organization = v
+	}
+	if v, ok := data["description"].(string); ok {
+		w.Description = v
+	}
+	if v, ok := data["license"].(string); ok {
+		w.License = v
+	}
 
 	if at, ok := data["annotation_types"].([]interface{}); ok {
 		w.AnnotationTypes = make([]string, len(at))
 		for i, v := range at {
-			w.AnnotationTypes[i] = v.(string)
+			if strVal, ok := v.(string); ok {
+				w.AnnotationTypes[i] = strVal
+			}
 		}
 	}
 	if v, ok := data["resource_url"].(string); ok {
@@ -125,9 +136,7 @@ func workspaceMapFilters(filters []query.Filter) ([]query.Filter, error) {
 		return nil, err
 	}
 
-	processedIndices := make(map[int]bool)
-
-	for i, f := range filters {
+	for _, f := range filters {
 		switch f.Field {
 		case constants.WorkspaceOrganTypeField:
 			mappedFilters = append(mappedFilters, query.Filter{
@@ -135,49 +144,49 @@ func workspaceMapFilters(filters []query.Filter) ([]query.Filter, error) {
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-			processedIndices[i] = true
 		case constants.WorkspaceOrganizationField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "organization",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-			processedIndices[i] = true
 		case constants.WorkspaceDescField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "description",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-			processedIndices[i] = true
 		case constants.WorkspaceLicenseField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "license",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-			processedIndices[i] = true
 		case constants.WorkspaceResourceURLField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "resource_url",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-			processedIndices[i] = true
 		case constants.WorkspaceReleaseYearField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "release_year",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-			processedIndices[i] = true
 		case constants.WorkspaceAnnotationTypes:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "annotation_types",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-			processedIndices[i] = true
+
+		// Explicitly ignore Entity fields as they are handled by EntityMapFilter
+		case constants.NameField, constants.CreatorIDField, constants.ParentIDField,
+			constants.ParentTypeField, constants.EntityTypeField,
+			constants.CreatedAtField, constants.UpdatedAtField:
+			continue
+
 		default:
 			return nil, fmt.Errorf("unknown filter field: %s", f.Field)
 		}
