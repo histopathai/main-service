@@ -8,6 +8,7 @@ import (
 	"github.com/histopathai/main-service/internal/domain/events"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/port"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 )
 
 // UploadStatusHandler handles image upload status events.
@@ -56,17 +57,24 @@ func (h *UploadStatusHandler) processEvent(ctx context.Context, data []byte, att
 
 	status := model.ImageStatus(event.Metadata.Status)
 
+	parent, _ := vobj.NewParentRef(event.Metadata.ParentID, vobj.ParentTypePatient)
+
+	createEntityInput := port.CreateEntityInput{
+		ID:        &event.Metadata.ImageID,
+		Type:      vobj.EntityTypeImage,
+		Name:      event.Metadata.Name,
+		CreatorID: event.Metadata.CreatorID,
+		Parent:    parent,
+	}
+
 	confirm := port.ConfirmUploadInput{
-		ImageID:    event.Metadata.ImageID,
-		PatientID:  event.Metadata.PatientID,
-		CreatorID:  event.Metadata.CreatorID,
-		Name:       event.Metadata.Name,
-		Format:     event.Metadata.Format,
-		Width:      width,
-		Height:     height,
-		Size:       size,
-		Status:     status,
-		OriginPath: event.Metadata.OriginPath,
+		CreateEntityInput: createEntityInput,
+		Format:            event.Metadata.Format,
+		Width:             width,
+		Height:            height,
+		Size:              size,
+		Status:            status,
+		OriginPath:        event.Metadata.OriginPath,
 	}
 
 	if err := h.imageService.ConfirmUpload(ctx, &confirm); err != nil {
