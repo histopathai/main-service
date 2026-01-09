@@ -2,8 +2,6 @@ package firestore
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/port"
@@ -35,135 +33,76 @@ func NewAnnotationTypeRepositoryImpl(client *firestore.Client, hasUniqueName boo
 
 func annotationTypeToFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.AnnotationType, error) {
 	atModel := &model.AnnotationType{}
-	data := doc.Data()
 
-	atModel.ID = doc.Ref.ID
-	atModel.CreatorID = data["creator_id"].(string)
-	atModel.Name = data["name"].(string)
-	atModel.ScoreEnabled = data["score_enabled"].(bool)
-	atModel.ClassificationEnabled = data["classification_enabled"].(bool)
+	entity, err := EntityFromFirestore(doc)
+	if err != nil {
+		return nil, err
+	}
+	atModel.Entity = *entity
 
-	if val, ok := data["score_range"]; ok {
-		scoreRange := val.([]interface{})
-		if len(scoreRange) == 2 {
-			var arr [2]float64
-			for i, v := range scoreRange {
-				arr[i] = v.(float64)
-			}
-			atModel.ScoreRange = &arr
-		}
+	tag, err := TagFromFirestoreDoc(doc)
+	if err != nil {
+		return nil, err
 	}
 
-	if val, ok := data["score_name"]; ok {
-		scoreName := val.(string)
-		atModel.ScoreName = &scoreName
-	}
-	if val, ok := data["class_list"]; ok {
-		classListInterface := val.([]interface{})
-		classList := make([]string, len(classListInterface))
-		for i, v := range classListInterface {
-			classList[i] = v.(string)
-		}
-		atModel.ClassList = classList
-	}
-
-	atModel.CreatedAt = data["created_at"].(time.Time)
-	atModel.UpdatedAt = data["updated_at"].(time.Time)
+	atModel.Tag = *tag
+	atModel.Entity = *entity
 
 	return atModel, nil
 }
 
 func annotatationTypeFirestoreToMap(at *model.AnnotationType) map[string]interface{} {
-	m := map[string]interface{}{
-		"name":                   at.Name,
-		"creator_id":             at.CreatorID,
-		"score_enabled":          at.ScoreEnabled,
-		"classification_enabled": at.ClassificationEnabled,
-		"created_at":             at.CreatedAt,
-		"updated_at":             at.UpdatedAt,
+	m_entity := EntityToFirestoreMap(&at.Entity)
+	m_tag := TagToFirestoreMap(&at.Tag)
+
+	m := make(map[string]interface{})
+	for k, v := range m_entity {
+		m[k] = v
 	}
-	if at.ScoreRange != nil {
-		m["score_range"] = *at.ScoreRange
-	}
-	if at.ScoreName != nil {
-		m["score_name"] = *at.ScoreName
-	}
-	if len(at.ClassList) > 0 {
-		m["class_list"] = at.ClassList
+	for k, v := range m_tag {
+		m[k] = v
 	}
 	return m
 }
 
 func annotationTypeMapUpdates(updates map[string]interface{}) (map[string]interface{}, error) {
-	firestoreUpdates := make(map[string]interface{})
-	for key, value := range updates {
-		switch key {
-		case constants.AnnotationTypeNameField:
-			firestoreUpdates["name"] = value
-		case constants.AnnotationTypeCreatorIDField:
-			firestoreUpdates["creator_id"] = value
-		case constants.AnnotationTypeScoreEnabledField:
-			firestoreUpdates["score_enabled"] = value
-		case constants.AnnotationTypeClassificationEnabledField:
-			firestoreUpdates["classification_enabled"] = value
-		case constants.AnnotationTypeScoreRangeField:
-			firestoreUpdates["score_range"] = value
-		case constants.AnnotationTypeScoreNameField:
-			firestoreUpdates["score_name"] = value
-		case constants.AnnotationTypeClassListField:
-			firestoreUpdates["class_list"] = value
-		default:
-			return nil, fmt.Errorf("unknown update field: %s", key)
-		}
 
+	entityUpdates, err := EntityMapUpdates(updates)
+	if err != nil {
+		return nil, err
 	}
+
+	tagUpdates, err := TagMapUpdates(updates)
+	if err != nil {
+		return nil, err
+	}
+
+	firestoreUpdates := make(map[string]interface{})
+	for k, v := range entityUpdates {
+		firestoreUpdates[k] = v
+	}
+	for k, v := range tagUpdates {
+		firestoreUpdates[k] = v
+	}
+
 	return firestoreUpdates, nil
 }
 
 func annotationTypeMapFilters(filters []query.Filter) ([]query.Filter, error) {
-	mappedFilters := make([]query.Filter, 0, len(filters))
-	for _, f := range filters {
-		switch f.Field {
-		case constants.AnnotationTypeNameField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "name",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.AnnotationTypeCreatorIDField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "creator_id",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.AnnotationTypeScoreEnabledField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "score_enabled",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.AnnotationTypeClassificationEnabledField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "classification_enabled",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.CreatedAtField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "created_at",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.UpdatedAtField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "updated_at",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		default:
-			return nil, fmt.Errorf("unknown filter field: %s", f.Field)
-		}
+	entityMappedFilters, err := EntityMapFilter(filters)
+	if err != nil {
+		return nil, err
 	}
+
+	tagMappedFilters, err := TagMapFilters(filters)
+	if err != nil {
+		return nil, err
+	}
+
+	mappedFilters := make([]query.Filter, 0, len(entityMappedFilters)+len(tagMappedFilters))
+	mappedFilters = append(mappedFilters, entityMappedFilters...)
+	mappedFilters = append(mappedFilters, tagMappedFilters...)
+
 	return mappedFilters, nil
 }
 

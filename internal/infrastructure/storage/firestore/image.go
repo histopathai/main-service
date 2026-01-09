@@ -33,13 +33,12 @@ func NewImageRepositoryImpl(client *firestore.Client, hasUniqueName bool) *Image
 }
 
 func imageMapUpdates(updates map[string]interface{}) (map[string]interface{}, error) {
-	firestoreUpdates := make(map[string]interface{})
+	firestoreUpdates, err := EntityMapUpdates(updates)
+	if err != nil {
+		return nil, err
+	}
 	for key, value := range updates {
 		switch key {
-		case constants.ImageFormatField:
-			firestoreUpdates["format"] = value
-		case constants.ImageCreatorIDField:
-			firestoreUpdates["creator_id"] = value
 		case constants.ImageWidthField:
 			firestoreUpdates["width"] = value
 		case constants.ImageHeightField:
@@ -50,15 +49,12 @@ func imageMapUpdates(updates map[string]interface{}) (map[string]interface{}, er
 			firestoreUpdates["processed_path"] = value
 		case constants.ImageStatusField:
 			firestoreUpdates["status"] = value
-		// --- Fix: Added missing fields ---
 		case constants.ImageFailureReasonField:
 			firestoreUpdates["failure_reason"] = value
 		case constants.ImageRetryCountField:
 			firestoreUpdates["retry_count"] = value
 		case constants.ImageLastProcessedAtField:
 			firestoreUpdates["last_processed_at"] = value
-		case constants.UpdatedAtField:
-			firestoreUpdates["updated_at"] = value
 		default:
 			return nil, fmt.Errorf("unknown update field: %s", key)
 		}
@@ -67,25 +63,19 @@ func imageMapUpdates(updates map[string]interface{}) (map[string]interface{}, er
 }
 
 func imageToFirestoreMap(i *model.Image) map[string]interface{} {
-	m := map[string]interface{}{
-		"patient_id":  i.PatientID,
-		"creator_id":  i.CreatorID,
-		"name":        i.Name,
-		"format":      i.Format,
-		"width":       i.Width,
-		"height":      i.Height,
-		"size":        i.Size,
-		"origin_path": i.OriginPath,
-		"status":      i.Status,
-		"retry_count": i.RetryCount, // Added
-		"created_at":  i.CreatedAt,
-		"updated_at":  i.UpdatedAt,
-	}
+	m := EntityToFirestoreMap(&i.Entity)
+
+	m["format"] = i.Format
+	m["width"] = i.Width
+	m["height"] = i.Height
+	m["size"] = i.Size
+	m["origin_path"] = i.OriginPath
+	m["status"] = i.Status
+	m["retry_count"] = i.RetryCount
 
 	if i.ProcessedPath != nil {
 		m["processed_path"] = *i.ProcessedPath
 	}
-	// Added optional fields
 	if i.FailureReason != nil {
 		m["failure_reason"] = *i.FailureReason
 	}
@@ -100,10 +90,13 @@ func imageFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Image, error
 	ir := &model.Image{}
 	data := doc.Data()
 
-	ir.ID = doc.Ref.ID
-	ir.PatientID = data["patient_id"].(string)
-	ir.CreatorID = data["creator_id"].(string)
-	ir.Name = data["name"].(string)
+	entity, err := EntityFromFirestore(doc)
+	if err != nil {
+		return nil, err
+	}
+
+	ir.Entity = *entity
+
 	ir.Format = data["format"].(string)
 	ir.OriginPath = data["origin_path"].(string)
 
@@ -124,7 +117,6 @@ func imageFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Image, error
 		ir.ProcessedPath = &v
 	}
 
-	// Added optional fields reading
 	if v, ok := data["failure_reason"].(string); ok {
 		ir.FailureReason = &v
 	}
@@ -136,34 +128,17 @@ func imageFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Image, error
 	}
 
 	ir.Status = model.ImageStatus(data["status"].(string))
-	ir.CreatedAt = data["created_at"].(time.Time)
-	ir.UpdatedAt = data["updated_at"].(time.Time)
 
 	return ir, nil
 }
 
 func imageMapFilters(filters []query.Filter) ([]query.Filter, error) {
-	var firestoreFilters []query.Filter
+	firestoreFilters, err := EntityMapFilter(filters)
+	if err != nil {
+		return nil, err
+	}
 	for _, filter := range filters {
 		switch filter.Field {
-		case constants.ImagePatientIDField:
-			firestoreFilters = append(firestoreFilters, query.Filter{
-				Field:    "patient_id",
-				Operator: filter.Operator,
-				Value:    filter.Value,
-			})
-		case constants.ImageCreatorIDField:
-			firestoreFilters = append(firestoreFilters, query.Filter{
-				Field:    "creator_id",
-				Operator: filter.Operator,
-				Value:    filter.Value,
-			})
-		case constants.ImageNameField:
-			firestoreFilters = append(firestoreFilters, query.Filter{
-				Field:    "name",
-				Operator: filter.Operator,
-				Value:    filter.Value,
-			})
 		case constants.ImageStatusField:
 			firestoreFilters = append(firestoreFilters, query.Filter{
 				Field:    "status",
@@ -211,7 +186,7 @@ func (ir *ImageRepositoryImpl) Create(ctx context.Context, entity *model.Image) 
 
 func (ir *ImageRepositoryImpl) Transfer(ctx context.Context, imageID string, newPatientID string) error {
 	updates := map[string]interface{}{
-		constants.ImagePatientIDField: newPatientID,
+		constants.ParentIDField: newPatientID,
 	}
 	return ir.GenericRepositoryImpl.Update(ctx, imageID, updates)
 }

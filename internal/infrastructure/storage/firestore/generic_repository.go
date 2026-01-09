@@ -5,14 +5,14 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/shared/query"
 	"google.golang.org/api/iterator"
 
 	"cloud.google.com/go/firestore"
 )
 
-type GenericRepositoryImpl[T model.Entity] struct {
+type GenericRepositoryImpl[T port.Entity] struct {
 	client        *firestore.Client
 	collection    string
 	hasUniqueName bool
@@ -23,7 +23,7 @@ type GenericRepositoryImpl[T model.Entity] struct {
 	fnMapFilters       func(filters []query.Filter) ([]query.Filter, error)
 }
 
-func NewGenericRepositoryImpl[T model.Entity](
+func NewGenericRepositoryImpl[T port.Entity](
 	client *firestore.Client,
 	collection string,
 	hasUniqueName bool,
