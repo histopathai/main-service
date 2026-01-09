@@ -179,8 +179,6 @@ func (r *Router) setupAnnotationTypeRoutes(rg *gin.RouterGroup) {
 		annotationTypes.GET("/:annotation_type_id", r.annotationTypeHandler.GetAnnotationType)
 		annotationTypes.PUT("/:annotation_type_id", r.annotationTypeHandler.UpdateAnnotationType)
 		annotationTypes.DELETE("/:annotation_type_id", r.annotationTypeHandler.DeleteAnnotationType)
-		annotationTypes.GET("/classification-enabled", r.annotationTypeHandler.GetClassificationOptionedAnnotationTypes)
-		annotationTypes.GET("/score-enabled", r.annotationTypeHandler.GetScoreOptionedAnnotationTypes)
 		annotationTypes.GET("/count-v1", r.annotationTypeHandler.CountV1AnnotationTypes)
 		annotationTypes.DELETE("/batch-delete", r.annotationTypeHandler.BatchDeleteAnnotationTypes)
 	}
