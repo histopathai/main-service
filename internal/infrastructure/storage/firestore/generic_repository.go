@@ -167,6 +167,18 @@ func (gr *GenericRepositoryImpl[T]) FindByFilters(ctx context.Context, filters [
 	if paginationOpts == nil {
 		paginationOpts = &query.Pagination{Limit: 10, Offset: 0}
 	}
+
+	// Apply sorting
+	if paginationOpts.SortBy != "" {
+		dir := firestore.Asc
+		if paginationOpts.SortDir == "desc" {
+			dir = firestore.Desc
+		}
+		// Map SortBy field if necessary. Assuming SortBy is already mapped or is a common field like created_at.
+		// NOTE: You might need a mapper for SortBy field similar to filters if field names differ.
+		fQuery = fQuery.OrderBy(paginationOpts.SortBy, dir)
+	}
+
 	isLimited := paginationOpts.Limit >= 0
 
 	if isLimited {
