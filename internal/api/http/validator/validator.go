@@ -6,7 +6,6 @@ import (
 	"strings"
 
 	"github.com/go-playground/validator/v10"
-	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
@@ -71,10 +70,4 @@ func (rv *RequestValidator) formatFieldError(e validator.FieldError) string {
 	default:
 		return fmt.Sprintf("%s is invalid", field)
 	}
-}
-
-func (rv *RequestValidator) ValidateOrganType(fl string) bool {
-	organType := fl
-
-	return constants.IsValidOrganType(organType)
 }
