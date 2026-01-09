@@ -1,12 +1,13 @@
 package constants
 
 const (
-	DescField         = "Desc"
-	OrganTypeField    = "OrganType"
-	OrganizationField = "Organization"
-	LicenseField      = "License"
-	ResourceURLField  = "ResourceURL"
-	ReleaseYearField  = "ReleaseYear"
+	DescField            = "Desc"
+	OrganTypeField       = "OrganType"
+	OrganizationField    = "Organization"
+	LicenseField         = "License"
+	ResourceURLField     = "ResourceURL"
+	ReleaseYearField     = "ReleaseYear"
+	AnnotationTypesField = "AnnotationTypes"
 )
 
 const (
