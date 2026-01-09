@@ -148,7 +148,18 @@ jobs:
           fi
 
       - name: Terraform Init
-        run: terraform init -backend-config="bucket=${{ env.STATE_BUCKET }}"
+        run: |
+          if [[ "${{ steps.env-select.outputs.env }}" == "prod" ]]; then
+            PREFIX="services/main-service"
+          else
+            PREFIX="services/main-service-dev"
+          fi
+          
+          echo "Selected Backend Prefix: $PREFIX"
+
+          terraform init \
+            -backend-config="bucket=${{ env.STATE_BUCKET }}" \
+            -backend-config="prefix=$PREFIX"
 
       - name: Terraform Plan
         run: |

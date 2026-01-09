@@ -51,14 +51,20 @@ func (g *GCSClient) GenerateSignedURL(
 	}
 
 	headers := []string{
+		// Entity specific metadata
 		"x-goog-meta-image-id:" + image.ID,
-		"x-goog-meta-patient-id:" + image.PatientID,
+		"x-goog-meta-entity-type:" + image.Entity.EntityType.String(),
+		"x-goog-meta-name:" + *image.Name,
+		"x-goog-meta-parent-id:" + image.Parent.ID,
+		"x-goog-meta-parent-type:" + image.Parent.Type.String(),
 		"x-goog-meta-creator-id:" + image.CreatorID,
+
+		// Image specific metadata
 		"x-goog-meta-format:" + image.Format,
-		"x-goog-meta-name:" + image.Name,
 		"x-goog-meta-origin-path:" + image.OriginPath,
 		"x-goog-meta-status:" + string(image.Status),
 	}
+
 	if image.Width != nil {
 		headers = append(headers, fmt.Sprintf("x-goog-meta-width:%d", *image.Width))
 	}

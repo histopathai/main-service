@@ -7,6 +7,7 @@ import (
 	"github.com/histopathai/main-service/internal/domain/events"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/port"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	errors "github.com/histopathai/main-service/internal/shared/errors"
 	sharedQuery "github.com/histopathai/main-service/internal/shared/query"
@@ -41,7 +42,12 @@ func NewPatientService(
 
 func (ps *PatientService) CreateNewPatient(ctx context.Context, input port.CreatePatientInput) (*model.Patient, error) {
 
-	patient, err := ps.patientRepo.FindByName(ctx, input.Name)
+	entity, err := vobj.NewEntity(vobj.EntityTypePatient, &input.Name, input.CreatorID, input.Parent)
+	if err != nil {
+		return nil, errors.NewValidationError("invalid patient entity", nil)
+	}
+
+	patient, err := ps.patientRepo.FindByName(ctx, *entity.Name)
 	if err != nil {
 		return nil, errors.NewInternalError("failed to check existing patient name", err)
 	}
@@ -49,27 +55,26 @@ func (ps *PatientService) CreateNewPatient(ctx context.Context, input port.Creat
 		return nil, errors.NewConflictError("patient with the same name already exists", map[string]interface{}{"name": "Patient name must be unique"})
 	}
 
-	ws, err := ps.workspaceRepo.Read(ctx, input.WorkspaceID)
+	ws, err := ps.workspaceRepo.Read(ctx, input.Parent.ID)
 	if err != nil {
 		return nil, errors.NewValidationError("invalid workspace_id",
 			map[string]interface{}{"workspace_id": "Workspace does not exist"})
 	}
 
-	if ws.AnnotationTypeID == nil || *ws.AnnotationTypeID == "" {
+	if len(ws.AnnotationTypes) == 0 {
 		return nil, errors.NewValidationError("workspace is not ready for patients",
-			map[string]interface{}{"workspace_id": "Workspace must have an Annotation Type assigned before adding patients."})
+			map[string]interface{}{"workspace_id": "Workspace must have at least one Annotation Type assigned before adding patients."})
 	}
+
 	createdPatient, err := ps.patientRepo.Create(ctx, &model.Patient{
-		WorkspaceID: input.WorkspaceID,
-		CreatorID:   input.CreatorID,
-		Name:        input.Name,
-		Age:         input.Age,
-		Gender:      input.Gender,
-		Race:        input.Race,
-		Disease:     input.Disease,
-		Subtype:     input.Subtype,
-		Grade:       input.Grade,
-		History:     input.History,
+		Entity:  *entity,
+		Age:     input.Age,
+		Gender:  input.Gender,
+		Race:    input.Race,
+		Disease: input.Disease,
+		Subtype: input.Subtype,
+		Grade:   input.Grade,
+		History: input.History,
 	})
 
 	if err != nil {
@@ -79,8 +84,8 @@ func (ps *PatientService) CreateNewPatient(ctx context.Context, input port.Creat
 	return createdPatient, nil
 }
 
-func (ps *PatientService) GetPatientByID(ctx context.Context, patientID string) (*model.Patient, error) {
-	patient, err := ps.patientRepo.Read(ctx, patientID)
+func (ps *PatientService) GetPatientByID(ctx context.Context, id string) (*model.Patient, error) {
+	patient, err := ps.patientRepo.Read(ctx, id)
 	if err != nil {
 		return nil, err
 	}
@@ -90,12 +95,16 @@ func (ps *PatientService) GetPatientByID(ctx context.Context, patientID string) 
 func (ps *PatientService) GetPatientsByWorkspaceID(ctx context.Context, workspaceID string, paginationOpts *sharedQuery.Pagination) (*sharedQuery.Result[*model.Patient], error) {
 	filters := []sharedQuery.Filter{
 		{
-			Field:    constants.PatientWorkspaceIDField,
+			Field:    constants.ParentIDField,
 			Operator: sharedQuery.OpEqual,
 			Value:    workspaceID,
 		},
+		{
+			Field:    constants.ParentTypeField,
+			Operator: sharedQuery.OpEqual,
+			Value:    vobj.ParentTypeWorkspace,
+		},
 	}
-
 	return ps.patientRepo.FindByFilters(ctx, filters, paginationOpts)
 }
 
@@ -103,13 +112,13 @@ func (ps *PatientService) ListPatients(ctx context.Context, paginationOpts *shar
 	return ps.patientRepo.FindByFilters(ctx, []sharedQuery.Filter{}, paginationOpts)
 }
 
-func (ps *PatientService) DeletePatientByID(ctx context.Context, patientId string) error {
+func (ps *PatientService) DeletePatientByID(ctx context.Context, id string) error {
 	uowerr := ps.uow.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
 		filter := []sharedQuery.Filter{
 			{
-				Field:    constants.ImagePatientIDField,
+				Field:    constants.ParentIDField,
 				Operator: sharedQuery.OpEqual,
-				Value:    patientId,
+				Value:    id,
 			},
 		}
 		pagination := &sharedQuery.Pagination{
@@ -130,7 +139,7 @@ func (ps *PatientService) DeletePatientByID(ctx context.Context, patientId strin
 			return errors.NewConflictError("cannot delete patient with associated images", nil)
 		}
 
-		return repos.PatientRepo.Delete(txCtx, patientId)
+		return repos.PatientRepo.Delete(txCtx, id)
 	})
 
 	if uowerr != nil {
@@ -140,11 +149,11 @@ func (ps *PatientService) DeletePatientByID(ctx context.Context, patientId strin
 	return nil
 }
 
-func (ps *PatientService) UpdatePatient(ctx context.Context, patientID string, input port.UpdatePatientInput) error {
+func (ps *PatientService) UpdatePatient(ctx context.Context, id string, input port.UpdatePatientInput) error {
 	updates := make(map[string]interface{})
 
 	if input.Name != nil {
-		updates[constants.PatientNameField] = *input.Name
+		updates[constants.NameField] = *input.Name
 	}
 	if input.Age != nil {
 		updates[constants.PatientAgeField] = *input.Age
@@ -172,22 +181,22 @@ func (ps *PatientService) UpdatePatient(ctx context.Context, patientID string, i
 		return nil
 	}
 
-	if err := ps.patientRepo.Update(ctx, patientID, updates); err != nil {
+	if err := ps.patientRepo.Update(ctx, id, updates); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (ps *PatientService) TransferPatientWorkspace(ctx context.Context, patientID string, newWorkspaceID string) error {
+func (ps *PatientService) TransferPatientWorkspace(ctx context.Context, id string, newParentID string) error {
 
 	uowerr := ps.uow.WithTx(ctx, func(txCtx context.Context, repos *port.Repositories) error {
-		_, err := repos.WorkspaceRepo.Read(txCtx, newWorkspaceID)
+		_, err := repos.WorkspaceRepo.Read(txCtx, newParentID)
 		if err != nil {
 			return errors.NewConflictError("new workspace does not exist", nil)
 		}
 
-		return repos.PatientRepo.Transfer(txCtx, patientID, newWorkspaceID)
+		return repos.PatientRepo.Transfer(txCtx, id, newParentID)
 	})
 
 	if uowerr != nil {
@@ -197,26 +206,26 @@ func (ps *PatientService) TransferPatientWorkspace(ctx context.Context, patientI
 	return nil
 }
 
-func (ps *PatientService) CascadeDelete(ctx context.Context, patientID string) error {
+func (ps *PatientService) CascadeDelete(ctx context.Context, id string) error {
 	// Step 1: Delete annotations in batches
-	if err := ps.deleteAnnotationsForPatient(ctx, patientID); err != nil {
+	if err := ps.deleteAnnotationsForPatient(ctx, id); err != nil {
 		return errors.NewInternalError("failed to delete annotations", err)
 	}
 
 	// Step 2: Publish image deletion events asynchronously
-	if err := ps.publishImageDeletionEvents(ctx, patientID); err != nil {
+	if err := ps.publishImageDeletionEvents(ctx, id); err != nil {
 		return errors.NewInternalError("failed to publish image deletion events", err)
 	}
 
 	// Step 3: Delete patient record
-	if err := ps.patientRepo.Delete(ctx, patientID); err != nil {
+	if err := ps.patientRepo.Delete(ctx, id); err != nil {
 		return errors.NewInternalError("failed to delete patient", err)
 	}
 
 	return nil
 }
 
-func (ps *PatientService) deleteAnnotationsForPatient(ctx context.Context, patientID string) error {
+func (ps *PatientService) deleteAnnotationsForPatient(ctx context.Context, id string) error {
 	const batchSize = 500
 	offset := 0
 
@@ -224,9 +233,9 @@ func (ps *PatientService) deleteAnnotationsForPatient(ctx context.Context, patie
 		// Get images for this patient
 		imageFilters := []sharedQuery.Filter{
 			{
-				Field:    constants.ImagePatientIDField,
+				Field:    constants.ParentIDField,
 				Operator: sharedQuery.OpEqual,
-				Value:    patientID,
+				Value:    id,
 			},
 		}
 
@@ -249,7 +258,7 @@ func (ps *PatientService) deleteAnnotationsForPatient(ctx context.Context, patie
 			for {
 				annoFilters := []sharedQuery.Filter{
 					{
-						Field:    constants.AnnotationImageIDField,
+						Field:    constants.ParentIDField,
 						Operator: sharedQuery.OpEqual,
 						Value:    image.ID,
 					},
@@ -298,16 +307,16 @@ func (ps *PatientService) deleteAnnotationsForPatient(ctx context.Context, patie
 	return nil
 }
 
-func (ps *PatientService) publishImageDeletionEvents(ctx context.Context, patientID string) error {
+func (ps *PatientService) publishImageDeletionEvents(ctx context.Context, id string) error {
 	offset := 0
 	const batchSize = 50 // Publish in smaller batches to avoid overwhelming the system
 
 	for {
 		imageFilters := []sharedQuery.Filter{
 			{
-				Field:    constants.ImagePatientIDField,
+				Field:    constants.ParentIDField,
 				Operator: sharedQuery.OpEqual,
-				Value:    patientID,
+				Value:    id,
 			},
 		}
 

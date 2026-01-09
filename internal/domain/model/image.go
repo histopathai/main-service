@@ -1,6 +1,10 @@
 package model
 
-import "time"
+import (
+	"time"
+
+	"github.com/histopathai/main-service/internal/domain/vobj"
+)
 
 type ImageStatus string
 
@@ -13,10 +17,7 @@ const (
 )
 
 type Image struct {
-	ID            string
-	PatientID     string
-	CreatorID     string
-	Name          string
+	vobj.Entity
 	Format        string
 	Width         *int
 	Height        *int
@@ -28,9 +29,6 @@ type Image struct {
 	FailureReason   *string
 	RetryCount      int
 	LastProcessedAt *time.Time
-
-	CreatedAt time.Time
-	UpdatedAt time.Time
 }
 
 func (i *Image) IsRetryable(maxRetries int) bool {
@@ -49,20 +47,4 @@ func (i *Image) MarkForRetry() {
 	i.RetryCount++
 	now := time.Now()
 	i.LastProcessedAt = &now
-}
-
-func (i Image) GetID() string {
-	return i.ID
-}
-
-func (i *Image) SetID(id string) {
-	i.ID = id
-}
-
-func (i *Image) SetCreatedAt(t time.Time) {
-	i.CreatedAt = t
-}
-
-func (i *Image) SetUpdatedAt(t time.Time) {
-	i.UpdatedAt = t
 }

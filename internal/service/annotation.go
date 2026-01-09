@@ -5,8 +5,8 @@ import (
 
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/port"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/constants"
-	"github.com/histopathai/main-service/internal/shared/errors"
 	sharedQuery "github.com/histopathai/main-service/internal/shared/query"
 )
 
@@ -23,26 +23,17 @@ func NewAnnotationService(
 	}
 }
 
-func (as *AnnotationService) validateAnnotationInput(input *port.CreateAnnotationInput) error {
-	if input.Score == nil && input.Class == nil {
-		details := map[string]interface{}{"annotation": "At least one of score or class must be provided."}
-		return errors.NewValidationError("invalid annotation input", details)
-	}
-	return nil
-}
-
 func (as *AnnotationService) CreateNewAnnotation(ctx context.Context, input *port.CreateAnnotationInput) (*model.Annotation, error) {
-	if err := as.validateAnnotationInput(input); err != nil {
+
+	entity, err := vobj.NewEntity(vobj.EntityTypeAnnotation, &input.Name, input.CreatorID, input.Parent)
+	if err != nil {
 		return nil, err
 	}
 
 	annotation := &model.Annotation{
-		ImageID:     input.ImageID,
-		AnnotatorID: input.AnnotatorID,
-		Polygon:     input.Polygon,
-		Score:       input.Score,
-		Class:       input.Class,
-		Description: input.Description,
+		Entity:   *entity,
+		Polygon:  input.Polygon,
+		TagValue: input.TagValue,
 	}
 
 	created, err := as.annotationRepo.Create(ctx, annotation)
@@ -60,7 +51,7 @@ func (as *AnnotationService) GetAnnotationByID(ctx context.Context, id string) (
 func (as *AnnotationService) GetAnnotationsByImageID(ctx context.Context, imageID string, pagination *sharedQuery.Pagination) (*sharedQuery.Result[*model.Annotation], error) {
 	filters := []sharedQuery.Filter{
 		{
-			Field:    constants.AnnotationImageIDField,
+			Field:    constants.ParentIDField,
 			Operator: sharedQuery.OpEqual,
 			Value:    imageID,
 		},
@@ -83,17 +74,24 @@ func (as *AnnotationService) UpdateAnnotation(ctx context.Context, id string, in
 	updates := make(map[string]interface{})
 
 	if input.Polygon != nil {
-		updates[constants.AnnotationPolygonField] = *input.Polygon
+		updates[constants.PolygonField] = *input.Polygon
 	}
-	if input.Score != nil {
-		updates[constants.AnnotationScoreField] = *input.Score
+	if input.TagType != nil {
+		updates[constants.TagTypeField] = *input.TagType
 	}
-	if input.Class != nil {
-		updates[constants.AnnotationClassField] = *input.Class
+	if input.TagName != nil {
+		updates[constants.TagNameField] = *input.TagName
 	}
-	if input.Description != nil {
-		updates[constants.AnnotationDescriptionField] = *input.Description
+	if input.Value != nil {
+		updates[constants.TagValueField] = *input.Value
 	}
+	if input.Color != nil {
+		updates[constants.TagColorField] = *input.Color
+	}
+	if input.Global != nil {
+		updates[constants.TagGlobalField] = *input.Global
+	}
+
 	if len(updates) == 0 {
 		return nil // Nothing to update
 	}

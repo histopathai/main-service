@@ -10,6 +10,7 @@ import (
 	"github.com/histopathai/main-service/internal/api/http/middleware"
 	"github.com/histopathai/main-service/internal/api/http/validator"
 	"github.com/histopathai/main-service/internal/domain/port"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -62,13 +63,37 @@ func (ah *AnnotationHandler) CreateNewAnnotation(c *gin.Context) {
 	}
 
 	// DTO -> Service Input
+	entityInput := port.CreateEntityInput{
+		Name: "",
+		Type: vobj.EntityTypeAnnotation,
+		Parent: &vobj.ParentRef{
+			ID:   req.Parent.ID,
+			Type: vobj.ParentTypeImage,
+		},
+		CreatorID: annotator_id,
+	}
+
+	tagInput := vobj.TagValue{
+		TagType: vobj.TagType(req.Tag.TagType),
+		TagName: req.Tag.TagName,
+		Value:   req.Tag.Value,
+		Color:   req.Tag.Color,
+		Global:  req.Tag.Global,
+	}
+
+	var polygon *[]vobj.Point
+	if req.Polygon != nil && len(*req.Polygon) > 0 {
+		points := make([]vobj.Point, len(*req.Polygon))
+		for i, pr := range *req.Polygon {
+			points[i] = vobj.NewPoint(pr.X, pr.Y)
+		}
+		polygon = &points
+	}
+
 	input := port.CreateAnnotationInput{
-		ImageID:     req.ImageID,
-		AnnotatorID: annotator_id,
-		Polygon:     req.Polygon,
-		Score:       req.Score,
-		Class:       req.Class,
-		Description: req.Description,
+		CreateEntityInput: entityInput,
+		TagValue:          tagInput,
+		Polygon:           polygon,
 	}
 
 	createdAnnotation, err := ah.annotationService.CreateNewAnnotation(c.Request.Context(), &input)
@@ -249,12 +274,52 @@ func (ah *AnnotationHandler) UpdateAnnotation(c *gin.Context) {
 		return
 	}
 
-	// DTO -> Service Input
+	// Entity input oluştur
+	updateEntityInput := port.UpdateEntityInput{}
+
+	// Parent varsa ekle
+	if req.Parent != nil {
+		parentRef, err := vobj.NewParentRef(req.Parent.ID, vobj.ParentType(req.Parent.Type))
+		if err != nil {
+			ah.handleError(c, errors.NewValidationError("invalid parent reference", map[string]interface{}{
+				"error": err.Error(),
+			}))
+			return
+		}
+		updateEntityInput.Parent = parentRef
+	}
+
+	updateTagValue := port.UpdateTagValue{}
+	if req.Tag != nil {
+		if req.Tag.TagType != "" {
+			tagType := vobj.TagType(req.Tag.TagType)
+			updateTagValue.TagType = &tagType
+		}
+		if req.Tag.TagName != "" {
+			updateTagValue.TagName = &req.Tag.TagName
+		}
+		if req.Tag.Value != nil {
+			updateTagValue.Value = &req.Tag.Value
+		}
+		updateTagValue.Color = req.Tag.Color
+		if req.Tag.Global {
+			updateTagValue.Global = &req.Tag.Global
+		}
+	}
+
+	var polygon *[]vobj.Point
+	if req.Polygon != nil && len(*req.Polygon) > 0 {
+		points := make([]vobj.Point, len(*req.Polygon))
+		for i, pr := range *req.Polygon {
+			points[i] = vobj.NewPoint(pr.X, pr.Y)
+		}
+		polygon = &points
+	}
+
 	input := port.UpdateAnnotationInput{
-		Polygon:     req.Polygon,
-		Score:       req.Score,
-		Class:       req.Class,
-		Description: req.Description,
+		UpdateEntityInput: updateEntityInput,
+		Polygon:           polygon,
+		UpdateTagValue:    updateTagValue,
 	}
 
 	err := ah.annotationService.UpdateAnnotation(c.Request.Context(), annotationID, &input)

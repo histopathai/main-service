@@ -5,30 +5,43 @@ import (
 
 	"github.com/histopathai/main-service/internal/domain/events"
 	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
+type CreateEntityInput struct {
+	ID        *string
+	Name      string
+	Type      vobj.EntityType
+	CreatorID string
+	Parent    *vobj.ParentRef
+}
+
+type UpdateEntityInput struct {
+	Name   *string
+	Parent *vobj.ParentRef
+}
+
 type CreateWorkspaceInput struct {
-	CreatorID        string
-	Name             string
-	OrganType        string
-	AnnotationTypeID *string
-	Organization     string
-	Description      string
-	License          string
-	ResourceURL      *string
-	ReleaseYear      *int
+	CreateEntityInput
+	OrganType       string
+	Organization    string
+	Description     string
+	License         string
+	ResourceURL     *string
+	ReleaseYear     *int
+	AnnotationTypes []string
 }
 
 type UpdateWorkspaceInput struct {
-	Name             *string
-	OrganType        *string
-	Organization     *string
-	Description      *string
-	License          *string
-	ResourceURL      *string
-	ReleaseYear      *int
-	AnnotationTypeID *string
+	UpdateEntityInput
+	OrganType       *string
+	Organization    *string
+	Description     *string
+	License         *string
+	ResourceURL     *string
+	ReleaseYear     *int
+	AnnotationTypes []string
 }
 
 type IWorkspaceService interface {
@@ -43,20 +56,18 @@ type IWorkspaceService interface {
 }
 
 type CreatePatientInput struct {
-	WorkspaceID string
-	CreatorID   string
-	Name        string
-	Age         *int
-	Gender      *string
-	Race        *string
-	Disease     *string
-	Subtype     *string
-	Grade       *int
-	History     *string
+	CreateEntityInput
+	Age     *int
+	Gender  *string
+	Race    *string
+	Disease *string
+	Subtype *string
+	Grade   *int
+	History *string
 }
 
 type UpdatePatientInput struct {
-	Name    *string
+	UpdateEntityInput
 	Age     *int
 	Gender  *string
 	Race    *string
@@ -81,10 +92,8 @@ type IPatientService interface {
 }
 
 type UploadImageInput struct {
-	PatientID   string
-	CreatorID   string
+	CreateEntityInput
 	ContentType string
-	Name        string
 	Format      string
 	Width       *int
 	Height      *int
@@ -92,10 +101,7 @@ type UploadImageInput struct {
 }
 
 type ConfirmUploadInput struct {
-	ImageID    string
-	PatientID  string
-	CreatorID  string
-	Name       string
+	CreateEntityInput
 	Format     string
 	Width      *int
 	Height     *int
@@ -117,18 +123,22 @@ type IImageService interface {
 }
 
 type CreateAnnotationInput struct {
-	ImageID     string
-	AnnotatorID string
-	Polygon     []model.Point
-	Score       *float64
-	Class       *string
-	Description *string
+	CreateEntityInput
+	vobj.TagValue
+	Polygon *[]vobj.Point
+}
+
+type UpdateTagValue struct {
+	TagType *vobj.TagType
+	TagName *string
+	Value   *any
+	Color   *string
+	Global  *bool
 }
 type UpdateAnnotationInput struct {
-	Polygon     *[]model.Point
-	Score       *float64
-	Class       *string
-	Description *string
+	UpdateEntityInput
+	Polygon *[]vobj.Point
+	UpdateTagValue
 }
 
 type IAnnotationService interface {
@@ -142,33 +152,19 @@ type IAnnotationService interface {
 }
 
 type CreateAnnotationTypeInput struct {
-	CreatorID             string
-	Name                  string
-	Description           *string
-	ScoreEnabled          bool
-	ScoreName             *string
-	ScoreMin              *float64
-	ScoreMax              *float64
-	ClassificationEnabled bool
-	ClassList             []string
+	CreateEntityInput
+	Tag vobj.Tag
 }
 
 type UpdateAnnotationTypeInput struct {
-	Name        *string
-	Description *string
-	ScoreName   *string
-	ScoreMin    *float64
-	ScoreMax    *float64
-	ClassList   *[]string
+	UpdateEntityInput
+	Tag *vobj.Tag
 }
 
 type IAnnotationTypeService interface {
-	ValidateAnnotationTypeCreation(ctx context.Context, input *CreateAnnotationTypeInput) error
 	CreateNewAnnotationType(ctx context.Context, input *CreateAnnotationTypeInput) (*model.AnnotationType, error)
 	GetAnnotationTypeByID(ctx context.Context, id string) (*model.AnnotationType, error)
 	ListAnnotationTypes(ctx context.Context, paginationOpts *query.Pagination) (*query.Result[*model.AnnotationType], error)
-	GetClassificationAnnotationTypes(ctx context.Context, paginationOpts *query.Pagination) (*query.Result[*model.AnnotationType], error)
-	GetScoreAnnotationTypes(ctx context.Context, paginationOpts *query.Pagination) (*query.Result[*model.AnnotationType], error)
 	UpdateAnnotationType(ctx context.Context, id string, input *UpdateAnnotationTypeInput) error
 	DeleteAnnotationType(ctx context.Context, id string) error
 	CountAnnotationTypes(ctx context.Context, filters []query.Filter) (int64, error)

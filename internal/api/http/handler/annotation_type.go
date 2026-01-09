@@ -9,6 +9,7 @@ import (
 	"github.com/histopathai/main-service/internal/api/http/middleware"
 	"github.com/histopathai/main-service/internal/api/http/validator"
 	"github.com/histopathai/main-service/internal/domain/port"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 
 	"github.com/histopathai/main-service/internal/api/http/dto/request"
 	"github.com/histopathai/main-service/internal/shared/errors"
@@ -71,20 +72,27 @@ func (ath *AnnotationTypeHandler) CreateNewAnnotationType(c *gin.Context) {
 	}
 
 	// DTO -> Service Input
-	var classList []string
-	if req.ClassList != nil {
-		classList = *req.ClassList
+	entityInput := port.CreateEntityInput{
+		Name:      req.Name,
+		Type:      vobj.EntityTypeAnnotationType,
+		CreatorID: creator_id,
+		Parent:    nil,
 	}
+
+	tagInput := vobj.Tag{
+		Name:     req.Tag.Name,
+		Type:     vobj.TagType(req.Tag.Type),
+		Options:  req.Tag.Options,
+		Global:   req.Tag.Global,
+		Required: req.Tag.Required,
+		Min:      req.Tag.Min,
+		Max:      req.Tag.Max,
+		Color:    req.Tag.Color,
+	}
+
 	input := port.CreateAnnotationTypeInput{
-		CreatorID:             creator_id,
-		Name:                  req.Name,
-		Description:           req.Description,
-		ScoreEnabled:          req.ScoreEnabled,
-		ScoreName:             req.ScoreName,
-		ScoreMin:              req.ScoreMin,
-		ScoreMax:              req.ScoreMax,
-		ClassificationEnabled: req.ClassificationEnabled,
-		ClassList:             classList,
+		CreateEntityInput: entityInput,
+		Tag:               tagInput,
 	}
 
 	result, err := ath.annotationTypeService.CreateNewAnnotationType(c.Request.Context(), &input)
@@ -193,122 +201,6 @@ func (ath *AnnotationTypeHandler) ListAnnotationTypes(c *gin.Context) {
 
 }
 
-// Get Classification Optionied Annotation Types [get] godoc
-// @Summary Get annotation types with classification enabled
-// @Description Retrieve a list of annotation types that have classification enabled
-// @Tags Annotation Types
-// @Accept json
-// @Produce json
-// @Param        limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
-// @Param        offset query int false "Number of items to skip" default(0) minimum(0)
-// @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
-// @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
-// @Success 200 {object} response.AnnotationTypeListResponse "List of classification optioned annotation types retrieved successfully"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
-// @Security BearerAuth
-// @Router /annotation-types/classification-enabled [get]
-func (ath *AnnotationTypeHandler) GetClassificationOptionedAnnotationTypes(c *gin.Context) {
-
-	var queryReq request.QueryPaginationRequest
-	if err := c.ShouldBindQuery(&queryReq); err != nil {
-		ath.handleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
-			"error": err.Error(),
-		}))
-		return
-	}
-
-	pagination := queryReq.ToPagination()
-
-	pagination.ApplyDefaults()
-
-	if err := pagination.ValidateSortFields(request.ValidAnnotationTypeSortFields); err != nil {
-		ath.handleError(c, err)
-		return
-	}
-
-	result, err := ath.annotationTypeService.GetClassificationAnnotationTypes(c.Request.Context(), pagination)
-	if err != nil {
-		ath.handleError(c, err)
-		return
-	}
-
-	ath.logger.Info("Classification optioned annotation types listed successfully")
-
-	// Service Output -> DTO
-	paginationResp := &response.PaginationResponse{
-		Limit:   pagination.Limit,
-		Offset:  pagination.Offset,
-		HasMore: result.HasMore,
-	}
-
-	annotationResponses := make([]response.AnnotationTypeResponse, len(result.Data))
-	for i, at := range result.Data {
-		annotationResponses[i] = *response.NewAnnotationTypeResponse(at)
-	}
-
-	ath.response.SuccessList(c, annotationResponses, paginationResp)
-
-}
-
-// Get Score Optionied Annotation Types [get] godoc
-// @Summary Get annotation types with score enabled
-// @Description Retrieve a list of annotation types that have score enabled
-// @Tags Annotation Types
-// @Accept json
-// @Produce json
-// @Param        limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
-// @Param        offset query int false "Number of items to skip" default(0) minimum(0)
-// @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
-// @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
-// @Success 200 {object} response.AnnotationTypeListResponse "List of score optioned annotation types retrieved successfully"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
-// @Security BearerAuth
-// @Router /annotation-types/score-enabled [get]
-func (ath *AnnotationTypeHandler) GetScoreOptionedAnnotationTypes(c *gin.Context) {
-
-	var queryReq request.QueryPaginationRequest
-	if err := c.ShouldBindQuery(&queryReq); err != nil {
-		ath.handleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
-			"error": err.Error(),
-		}))
-		return
-	}
-
-	pagination := queryReq.ToPagination()
-
-	pagination.ApplyDefaults()
-
-	if err := pagination.ValidateSortFields(request.ValidAnnotationTypeSortFields); err != nil {
-		ath.handleError(c, err)
-		return
-	}
-
-	result, err := ath.annotationTypeService.GetScoreAnnotationTypes(c.Request.Context(), pagination)
-	if err != nil {
-		ath.handleError(c, err)
-		return
-	}
-
-	ath.logger.Info("Score optioned annotation types listed successfully")
-
-	// Service Output -> DTO
-	paginationResp := &response.PaginationResponse{
-		Limit:   pagination.Limit,
-		Offset:  pagination.Offset,
-		HasMore: result.HasMore,
-	}
-
-	annotationResponses := make([]response.AnnotationTypeResponse, len(result.Data))
-	for i, at := range result.Data {
-		annotationResponses[i] = *response.NewAnnotationTypeResponse(at)
-	}
-
-	ath.response.SuccessList(c, annotationResponses, paginationResp)
-
-}
-
 // CountAnnotationTypes V1 godoc
 // @Summary Count annotation types
 // @Description Retrieve the total count of annotation types
@@ -366,9 +258,28 @@ func (ath *AnnotationTypeHandler) UpdateAnnotationType(c *gin.Context) {
 	}
 
 	// DTO -> Service Input
+	updateEntityInput := port.UpdateEntityInput{
+		Name:   req.Name,
+		Parent: nil,
+	}
+
+	tagInput := &vobj.Tag{}
+	if req.Tag != nil {
+		tagInput.Name = req.Tag.Name
+		tagInput.Type = vobj.TagType(req.Tag.Type)
+		tagInput.Options = req.Tag.Options
+		tagInput.Global = req.Tag.Global
+		tagInput.Required = req.Tag.Required
+		tagInput.Min = req.Tag.Min
+		tagInput.Max = req.Tag.Max
+		tagInput.Color = req.Tag.Color
+	} else {
+		tagInput = nil
+	}
+
 	input := port.UpdateAnnotationTypeInput{
-		Name:        req.Name,
-		Description: req.Description,
+		UpdateEntityInput: updateEntityInput,
+		Tag:               tagInput,
 	}
 
 	err := ath.annotationTypeService.UpdateAnnotationType(c.Request.Context(), id, &input)

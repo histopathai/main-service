@@ -6,6 +6,11 @@ import (
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
+type ParentRefRequest struct {
+	ID   string `json:"id" binding:"required" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Type string `json:"type" binding:"required" example:"workspace"` // Valid types: workspace, patient, image, annotation_type
+}
+
 // QueryPaginationRequest - Query parameter binding with validation
 type QueryPaginationRequest struct {
 	Limit   int    `form:"limit" binding:"omitempty,gt=0,lte=100" example:"20"`

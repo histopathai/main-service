@@ -10,6 +10,7 @@ import (
 	"github.com/histopathai/main-service/internal/api/http/middleware"
 	"github.com/histopathai/main-service/internal/api/http/validator"
 	"github.com/histopathai/main-service/internal/domain/port"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -80,16 +81,22 @@ func (wh *WorkspaceHandler) CreateNewWorkspace(c *gin.Context) {
 	}
 
 	// DTO -> Service Input
+	entity_input := port.CreateEntityInput{
+		Name:      req.Name,
+		Type:      vobj.EntityTypeWorkspace,
+		CreatorID: creator_id,
+		Parent:    nil,
+	}
+
 	input := port.CreateWorkspaceInput{
-		CreatorID:        creator_id,
-		Name:             req.Name,
-		OrganType:        req.OrganType,
-		AnnotationTypeID: req.AnnotationTypeID,
-		Organization:     req.Organization,
-		Description:      req.Description,
-		License:          req.License,
-		ResourceURL:      req.ResourceURL,
-		ReleaseYear:      req.ReleaseYear,
+		CreateEntityInput: entity_input,
+		OrganType:         req.OrganType,
+		AnnotationTypes:   req.AnnotationTypes,
+		Organization:      req.Organization,
+		Description:       req.Description,
+		License:           req.License,
+		ResourceURL:       req.ResourceURL,
+		ReleaseYear:       req.ReleaseYear,
 	}
 
 	workspace, err := wh.workspaceService.CreateNewWorkspace(c.Request.Context(), &input)
@@ -239,15 +246,20 @@ func (wh *WorkspaceHandler) UpdateWorkspace(c *gin.Context) {
 	}
 
 	// DTO -> Service Input
+	updateEntityInput := port.UpdateEntityInput{
+		Name:   req.Name,
+		Parent: nil,
+	}
+
 	input := port.UpdateWorkspaceInput{
-		Name:             req.Name,
-		OrganType:        req.OrganType,
-		Organization:     req.Organization,
-		Description:      req.Description,
-		License:          req.License,
-		ResourceURL:      req.ResourceURL,
-		ReleaseYear:      req.ReleaseYear,
-		AnnotationTypeID: req.AnnotationTypeID,
+		UpdateEntityInput: updateEntityInput,
+		OrganType:         req.OrganType,
+		Organization:      req.Organization,
+		Description:       req.Description,
+		License:           req.License,
+		ResourceURL:       req.ResourceURL,
+		ReleaseYear:       req.ReleaseYear,
+		AnnotationTypes:   req.AnnotationTypes,
 	}
 
 	err := wh.workspaceService.UpdateWorkspace(c.Request.Context(), workspaceID, input)

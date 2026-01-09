@@ -10,6 +10,7 @@ import (
 	"github.com/histopathai/main-service/internal/api/http/middleware"
 	"github.com/histopathai/main-service/internal/api/http/validator"
 	"github.com/histopathai/main-service/internal/domain/port"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -75,17 +76,25 @@ func (ph *PatientHandler) CreateNewPatient(c *gin.Context) {
 	}
 
 	// DTO -> Service Input
+	entityInput := port.CreateEntityInput{
+		Name:      req.Name,
+		Type:      vobj.EntityTypePatient,
+		CreatorID: creator_id,
+		Parent: &vobj.ParentRef{
+			ID:   req.Parent.ID,
+			Type: vobj.ParentTypeWorkspace,
+		},
+	}
+
 	input := port.CreatePatientInput{
-		WorkspaceID: req.WorkspaceID,
-		CreatorID:   creator_id,
-		Name:        req.Name,
-		Age:         req.Age,
-		Gender:      req.Gender,
-		Race:        req.Race,
-		Disease:     req.Disease,
-		Subtype:     req.Subtype,
-		Grade:       req.Grade,
-		History:     req.History,
+		CreateEntityInput: entityInput,
+		Age:               req.Age,
+		Gender:            req.Gender,
+		Race:              req.Race,
+		Disease:           req.Disease,
+		Subtype:           req.Subtype,
+		Grade:             req.Grade,
+		History:           req.History,
 	}
 
 	patient, err := ph.patientService.CreateNewPatient(c.Request.Context(), input)
@@ -300,15 +309,28 @@ func (ph *PatientHandler) UpdatePatientByID(c *gin.Context) {
 	}
 
 	// DTO -> Service Input
+
+	parent := &vobj.ParentRef{}
+	if req.Parent != nil {
+		parent.ID = req.Parent.ID
+		parent.Type = vobj.ParentTypeWorkspace
+	} else {
+		parent = nil
+	}
+	updateEntityInput := port.UpdateEntityInput{
+		Name:   req.Name,
+		Parent: parent,
+	}
+
 	input := port.UpdatePatientInput{
-		Name:    req.Name,
-		Age:     req.Age,
-		Race:    req.Race,
-		Gender:  req.Gender,
-		Disease: req.Disease,
-		Subtype: req.Subtype,
-		Grade:   req.Grade,
-		History: req.History,
+		UpdateEntityInput: updateEntityInput,
+		Age:               req.Age,
+		Race:              req.Race,
+		Gender:            req.Gender,
+		Disease:           req.Disease,
+		Subtype:           req.Subtype,
+		Grade:             req.Grade,
+		History:           req.History,
 	}
 
 	err := ph.patientService.UpdatePatient(c.Request.Context(), patientID, input)

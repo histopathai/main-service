@@ -1,8 +1,8 @@
 package request
 
-// Image DTOs
 type UploadImageRequest struct {
-	PatientID   string `json:"patient_id" binding:"required" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Parent ParentRefRequest `json:"parent" binding:"required"`
+
 	CreatorID   string `json:"creator_id" binding:"omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
 	ContentType string `json:"content_type" binding:"required" example:"image/tiff"`
 	Name        string `json:"name" binding:"required" example:"slide1.tiff"`
@@ -12,9 +12,9 @@ type UploadImageRequest struct {
 	Size        *int64 `json:"size,omitempty" binding:"omitempty,gte=0" example:"2048000"`
 }
 
-type ListImageByPatientIDRequest struct {
-	PatientID string `form:"patient_id" binding:"required" example:"550e8400-e29b-41d4-a716-446655440000"`
-	JSONPaginationRequest
+type ListImagesRequest struct {
+	Filters    []JSONFilterRequest   `json:"filters,omitempty" binding:"omitempty,dive"`
+	Pagination JSONPaginationRequest `json:"pagination"`
 }
 
 var ValidImageSortFields = map[string]bool{

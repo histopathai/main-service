@@ -1,34 +1,26 @@
 package constants
 
 const (
-	WorkspaceCreatorIDField        = "CreatorID"
-	WorkspaceNameField             = "Name"
-	WorkspaceDescField             = "Desc"
-	WorkspaceOrganTypeField        = "OrganType"
-	WorkspaceOrganizationField     = "Organization"
-	WorkspaceLicenseField          = "License"
-	WorkspaceResourceURLField      = "ResourceURL"
-	WorkspaceReleaseYearField      = "ReleaseYear"
-	WorkspaceAnnotationTypeIDField = "AnnotationTypeID"
+	WorkspaceDescField         = "Desc"
+	WorkspaceOrganTypeField    = "OrganType"
+	WorkspaceOrganizationField = "Organization"
+	WorkspaceLicenseField      = "License"
+	WorkspaceResourceURLField  = "ResourceURL"
+	WorkspaceReleaseYearField  = "ReleaseYear"
+	WorkspaceAnnotationTypes   = "AnnotationTypes"
 )
 
 const (
-	PatientWorkspaceIDField = "WorkspaceID"
-	PatientCreatorIDField   = "CreatorID"
-	PatientNameField        = "Name"
-	PatientAgeField         = "Age"
-	PatientGenderField      = "Gender"
-	PatientRaceField        = "Race"
-	PatientDiseaseField     = "Disease"
-	PatientSubtypeField     = "Subtype"
-	PatientGradeField       = "Grade"
-	PatientHistoryField     = "History"
+	PatientAgeField     = "Age"
+	PatientGenderField  = "Gender"
+	PatientRaceField    = "Race"
+	PatientDiseaseField = "Disease"
+	PatientSubtypeField = "Subtype"
+	PatientGradeField   = "Grade"
+	PatientHistoryField = "History"
 )
 
 const (
-	ImagePatientIDField       = "PatientID"
-	ImageCreatorIDField       = "CreatorID"
-	ImageNameField            = "Name"
 	ImageFormatField          = "Format"
 	ImageWidthField           = "Width"
 	ImageHeightField          = "Height"
@@ -42,27 +34,26 @@ const (
 )
 
 const (
-	AnnotationTypeNameField                  = "Name"
-	AnnotationTypeCreatorIDField             = "CreatorID"
-	AnnotationTypeDescField                  = "Desc"
-	AnnotationTypeScoreEnabledField          = "ScoreEnabled"
-	AnnotationTypeScoreNameField             = "ScoreName"
-	AnnotationTypeScoreRangeField            = "ScoreRange"
-	AnnotationTypeClassificationEnabledField = "ClassificationEnabled"
-	AnnotationTypeClassListField             = "ClassList"
+	TagTypeField     = "TagType"
+	TagNameField     = "TagName"
+	TagColorField    = "TagColor"
+	TagOptionsField  = "TagOptions"
+	TagRequiredField = "TagRequired"
+	TagMinField      = "TagMin"
+	TagMaxField      = "TagMax"
+	TagColorsField   = "TagColor"
+	TagValueField    = "TagValue"
+	TagGlobalField   = "TagGlobal"
+	PolygonField     = "Polygon"
 )
 
 const (
-	AnnotationImageIDField          = "ImageID"
-	AnnotationAnnotatorIDField      = "AnnotatorID"
-	AnnotationAnnotationTypeIDField = "AnnotationTypeID"
-	AnnotationScoreField            = "Score"
-	AnnotationClassField            = "Class"
-	AnnotationPolygonField          = "Polygon"
-	AnnotationDescriptionField      = "Description"
-)
-
-const (
-	CreatedAtField = "CreatedAt"
-	UpdatedAtField = "UpdatedAt"
+	NameField       = "Name"
+	CreatorIDField  = "CreatorID"
+	ParentIDField   = "ParentID"
+	ParentTypeField = "ParentType"
+	IDField         = "ID"
+	CreatedAtField  = "CreatedAt"
+	UpdatedAtField  = "UpdatedAt"
+	EntityTypeField = "EntityType"
 )

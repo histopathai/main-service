@@ -2,7 +2,6 @@ package firestore
 
 import (
 	"fmt"
-	"time"
 
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/port"
@@ -32,20 +31,14 @@ func NewWorkspaceRepositoryImpl(client *firestore.Client, hasUniqueName bool) *W
 }
 
 func workspaceToFirestoreMap(w *model.Workspace) map[string]interface{} {
-	// Önce zorunlu (pointer olmayan) alanları ekle
-	m := map[string]interface{}{
-		"creator_id":   w.CreatorID,
-		"name":         w.Name,
-		"organ_type":   w.OrganType,
-		"organization": w.Organization,
-		"description":  w.Description,
-		"license":      w.License,
-		"created_at":   w.CreatedAt,
-		"updated_at":   w.UpdatedAt,
-	}
+	m := EntityToFirestoreMap(&w.Entity)
+	m["organ_type"] = w.OrganType
+	m["organization"] = w.Organization
+	m["description"] = w.Description
+	m["license"] = w.License
 
-	if w.AnnotationTypeID != nil {
-		m["annotation_type_id"] = *w.AnnotationTypeID
+	if len(w.AnnotationTypes) > 0 {
+		m["annotation_types"] = w.AnnotationTypes
 	}
 	if w.ResourceURL != nil {
 		m["resource_url"] = *w.ResourceURL
@@ -61,19 +54,23 @@ func workspaceFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Workspac
 	w := &model.Workspace{}
 	data := doc.Data()
 
-	w.ID = doc.Ref.ID
-	w.CreatorID = data["creator_id"].(string)
-
-	if v, ok := data["annotation_type_id"].(string); ok {
-		w.AnnotationTypeID = &v
+	entity, err := EntityFromFirestore(doc)
+	if err != nil {
+		return nil, err
 	}
+	w.Entity = *entity
 
-	w.Name = data["name"].(string)
 	w.OrganType = data["organ_type"].(string)
 	w.Organization = data["organization"].(string)
 	w.Description = data["description"].(string)
 	w.License = data["license"].(string)
 
+	if at, ok := data["annotation_types"].([]interface{}); ok {
+		w.AnnotationTypes = make([]string, len(at))
+		for i, v := range at {
+			w.AnnotationTypes[i] = v.(string)
+		}
+	}
 	if v, ok := data["resource_url"].(string); ok {
 		w.ResourceURL = &v
 	}
@@ -83,32 +80,38 @@ func workspaceFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Workspac
 		w.ReleaseYear = &year
 	}
 
-	w.CreatedAt, _ = data["created_at"].(time.Time)
-	w.UpdatedAt, _ = data["updated_at"].(time.Time)
-
 	return w, nil
 }
 
 func workspaceMapUpdates(updates map[string]interface{}) (map[string]interface{}, error) {
-	firestoreUpdates := make(map[string]interface{})
+	firestoreUpdates, err := EntityMapUpdates(updates)
+	if err != nil {
+		return nil, err
+	}
+
 	for key, value := range updates {
 		switch key {
-		case constants.WorkspaceNameField:
-			firestoreUpdates["name"] = value
 		case constants.WorkspaceOrganTypeField:
 			firestoreUpdates["organ_type"] = value
+			delete(updates, key)
 		case constants.WorkspaceOrganizationField:
 			firestoreUpdates["organization"] = value
+			delete(updates, key)
 		case constants.WorkspaceDescField:
 			firestoreUpdates["description"] = value
+			delete(updates, key)
 		case constants.WorkspaceLicenseField:
 			firestoreUpdates["license"] = value
+			delete(updates, key)
 		case constants.WorkspaceResourceURLField:
 			firestoreUpdates["resource_url"] = value
+			delete(updates, key)
 		case constants.WorkspaceReleaseYearField:
 			firestoreUpdates["release_year"] = value
-		case constants.WorkspaceAnnotationTypeIDField:
-			firestoreUpdates["annotation_type_id"] = value
+			delete(updates, key)
+		case constants.WorkspaceAnnotationTypes:
+			firestoreUpdates["annotation_types"] = value
+			delete(updates, key)
 		default:
 			return nil, fmt.Errorf("unknown update field: %s", key)
 		}
@@ -117,74 +120,68 @@ func workspaceMapUpdates(updates map[string]interface{}) (map[string]interface{}
 }
 
 func workspaceMapFilters(filters []query.Filter) ([]query.Filter, error) {
-	mappedFilters := make([]query.Filter, 0, len(filters))
-	for _, f := range filters {
+	mappedFilters, err := EntityMapFilter(filters)
+	if err != nil {
+		return nil, err
+	}
+
+	processedIndices := make(map[int]bool)
+
+	for i, f := range filters {
 		switch f.Field {
-		case constants.WorkspaceCreatorIDField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "creator_id",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.WorkspaceNameField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "name",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.WorkspaceAnnotationTypeIDField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "annotation_type_id",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
 		case constants.WorkspaceOrganTypeField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "organ_type",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
+			processedIndices[i] = true
 		case constants.WorkspaceOrganizationField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "organization",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
+			processedIndices[i] = true
+		case constants.WorkspaceDescField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "description",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+			processedIndices[i] = true
 		case constants.WorkspaceLicenseField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "license",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
+			processedIndices[i] = true
 		case constants.WorkspaceResourceURLField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "resource_url",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
+			processedIndices[i] = true
 		case constants.WorkspaceReleaseYearField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "release_year",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-		case constants.CreatedAtField:
+			processedIndices[i] = true
+		case constants.WorkspaceAnnotationTypes:
 			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "created_at",
+				Field:    "annotation_types",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-		case constants.UpdatedAtField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "updated_at",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
+			processedIndices[i] = true
 		default:
-			//ignore unknown fields
 			return nil, fmt.Errorf("unknown filter field: %s", f.Field)
-
 		}
 	}
+
 	return mappedFilters, nil
 }

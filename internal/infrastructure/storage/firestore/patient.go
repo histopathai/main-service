@@ -3,7 +3,6 @@ package firestore
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"cloud.google.com/go/firestore"
 	"github.com/histopathai/main-service/internal/domain/model"
@@ -32,12 +31,8 @@ func NewPatientRepositoryImpl(client *firestore.Client, hasUniqueName bool) *Pat
 }
 
 func patientToFirestoreMap(p *model.Patient) map[string]interface{} {
-	m := map[string]interface{}{
+	m := EntityToFirestoreMap(&p.Entity)
 
-		"workspace_id": p.WorkspaceID,
-		"name":         p.Name,
-		"creator_id":   p.CreatorID,
-	}
 	if p.Age != nil {
 		m["age"] = *p.Age
 	}
@@ -60,8 +55,6 @@ func patientToFirestoreMap(p *model.Patient) map[string]interface{} {
 	if p.History != nil {
 		m["history"] = *p.History
 	}
-	m["created_at"] = p.CreatedAt
-	m["updated_at"] = p.UpdatedAt
 	return m
 }
 
@@ -69,10 +62,11 @@ func patientFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Patient, e
 	p := &model.Patient{}
 	data := doc.Data()
 
-	p.ID = doc.Ref.ID
-	p.WorkspaceID = data["workspace_id"].(string)
-	p.Name = data["name"].(string)
-	p.CreatorID = data["creator_id"].(string)
+	entity, err := EntityFromFirestore(doc)
+	if err != nil {
+		return nil, err
+	}
+	p.Entity = *entity
 
 	if v, ok := data["age"].(int64); ok {
 		age := int(v)
@@ -104,22 +98,16 @@ func patientFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Patient, e
 		p.History = &v
 	}
 
-	p.CreatedAt, _ = data["created_at"].(time.Time)
-	p.UpdatedAt, _ = data["updated_at"].(time.Time)
-
 	return p, nil
 }
 
 func patientMapUpdates(updates map[string]interface{}) (map[string]interface{}, error) {
-	firestoreUpdates := make(map[string]interface{})
+	firestoreUpdates, err := EntityMapUpdates(updates)
+	if err != nil {
+		return nil, err
+	}
 	for key, value := range updates {
 		switch key {
-		case constants.PatientWorkspaceIDField:
-			firestoreUpdates["workspace_id"] = value
-		case constants.PatientCreatorIDField:
-			firestoreUpdates["creator_id"] = value
-		case constants.PatientNameField:
-			firestoreUpdates["name"] = value
 		case constants.PatientAgeField:
 			firestoreUpdates["age"] = value
 		case constants.PatientGenderField:
@@ -142,27 +130,12 @@ func patientMapUpdates(updates map[string]interface{}) (map[string]interface{}, 
 }
 
 func patientMapFilters(filters []query.Filter) ([]query.Filter, error) {
-	mappedFilters := make([]query.Filter, 0, len(filters))
+	mappedFilters, err := EntityMapFilter(filters)
+	if err != nil {
+		return nil, err
+	}
 	for _, f := range filters {
 		switch f.Field {
-		case constants.PatientWorkspaceIDField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "workspace_id",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.PatientCreatorIDField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "creator_id",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.PatientNameField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "name",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
 		case constants.PatientAgeField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "age",
@@ -199,18 +172,6 @@ func patientMapFilters(filters []query.Filter) ([]query.Filter, error) {
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-		case constants.CreatedAtField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "created_at",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.UpdatedAtField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "updated_at",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
 		default:
 			return nil, fmt.Errorf("unknown filter field: %s", f.Field)
 		}
@@ -220,7 +181,7 @@ func patientMapFilters(filters []query.Filter) ([]query.Filter, error) {
 
 func (pr *PatientRepositoryImpl) Transfer(ctx context.Context, patientID string, newWorkspaceID string) error {
 	updates := map[string]interface{}{
-		constants.PatientWorkspaceIDField: newWorkspaceID,
+		constants.ParentIDField: newWorkspaceID,
 	}
 	return pr.GenericRepositoryImpl.Update(ctx, patientID, updates)
 }

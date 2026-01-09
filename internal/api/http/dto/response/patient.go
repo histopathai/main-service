@@ -8,23 +8,25 @@ import (
 )
 
 type PatientResponse struct {
-	ID        string    `json:"id"`
-	Name      string    `json:"name"`
-	Age       *int      `json:"age,omitempty"`
-	Gender    *string   `json:"gender,omitempty"`
-	Race      *string   `json:"race,omitempty"`
-	Disease   *string   `json:"disease,omitempty"`
-	Subtype   *string   `json:"subtype,omitempty"`
-	Grade     *int      `json:"grade,omitempty"`
-	History   *string   `json:"history,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        string             `json:"id"`
+	Parent    *ParentRefResponse `json:"parent"` // Artık WorkspaceID yerine bu var
+	Name      string             `json:"name"`
+	Age       *int               `json:"age,omitempty"`
+	Gender    *string            `json:"gender,omitempty"`
+	Race      *string            `json:"race,omitempty"`
+	Disease   *string            `json:"disease,omitempty"`
+	Subtype   *string            `json:"subtype,omitempty"`
+	Grade     *int               `json:"grade,omitempty"`
+	History   *string            `json:"history,omitempty"`
+	CreatedAt time.Time          `json:"created_at"`
+	UpdatedAt time.Time          `json:"updated_at"`
 }
 
 func NewPatientResponse(p *model.Patient) *PatientResponse {
 	return &PatientResponse{
 		ID:        p.ID,
-		Name:      p.Name,
+		Parent:    NewParentRefResponse(p.Parent),
+		Name:      *p.Name,
 		Age:       p.Age,
 		Gender:    p.Gender,
 		Race:      p.Race,
@@ -36,27 +38,8 @@ func NewPatientResponse(p *model.Patient) *PatientResponse {
 		UpdatedAt: p.UpdatedAt,
 	}
 }
-func NewPatientListResponse(result *query.Result[*model.Patient]) *ListResponse[PatientResponse] {
 
-	data := make([]PatientResponse, len(result.Data))
-	for i, p := range result.Data {
-		dto := NewPatientResponse(p)
-		data[i] = *dto
-	}
-
-	pagination := PaginationResponse{
-		Limit:   result.Limit,
-		Offset:  result.Offset,
-		HasMore: result.HasMore,
-	}
-
-	return &ListResponse[PatientResponse]{
-		Data:       data,
-		Pagination: &pagination,
-	}
-}
-
-// Added DTOs for swagger responses. Swagger requires a concrete type for response schemas.
+// Swagger documentation helper
 type PatientDataResponse struct {
 	Data PatientResponse `json:"data"`
 }
@@ -64,4 +47,20 @@ type PatientDataResponse struct {
 type PatientListResponse struct {
 	Data       []PatientResponse   `json:"data"`
 	Pagination *PaginationResponse `json:"pagination,omitempty"`
+}
+
+func NewPatientListResponse(result *query.Result[*model.Patient]) *ListResponse[PatientResponse] {
+	data := make([]PatientResponse, len(result.Data))
+	for i, p := range result.Data {
+		data[i] = *NewPatientResponse(p)
+	}
+
+	return &ListResponse[PatientResponse]{
+		Data: data,
+		Pagination: &PaginationResponse{
+			Limit:   result.Limit,
+			Offset:  result.Offset,
+			HasMore: result.HasMore,
+		},
+	}
 }
