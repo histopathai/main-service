@@ -7,9 +7,7 @@ terraform {
       version = "~> 5.0"
     }
   }
-  backend "gcs" {
-    prefix = "services/main-service"
-  }
+  backend "gcs" {}
 }
 
 data "terraform_remote_state" "platform" {
