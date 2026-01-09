@@ -8,15 +8,15 @@ import (
 )
 
 type CreateWorkspaceCommand struct {
-	Name         string
-	CreatorID    string
-	ParentID     *string
-	OrganType    string
-	Organization string
-	Description  string
-	License      string
-	ResourceURL  *string
-	ReleaseYear  *int
+	Name            string
+	CreatorID       string
+	OrganType       string
+	Organization    string
+	Description     string
+	License         string
+	ResourceURL     *string
+	ReleaseYear     *int
+	AnnotationTypes *[]string
 }
 
 func NewCreateWorkspaceCommand(
@@ -29,6 +29,7 @@ func NewCreateWorkspaceCommand(
 	license string,
 	resourceURL *string,
 	releaseYear *int,
+	annotationTypes *[]string,
 ) (*CreateWorkspaceCommand, error) {
 	details := make(map[string]any)
 	if name == "" {
@@ -54,61 +55,57 @@ func NewCreateWorkspaceCommand(
 		return nil, err
 	}
 
+	if annotationTypes == nil {
+		annotationTypes = &[]string{}
+	}
 	return &CreateWorkspaceCommand{
-		Name:         name,
-		CreatorID:    creatorID,
-		ParentID:     parentID,
-		OrganType:    string(ot),
-		Organization: organization,
-		Description:  description,
-		License:      license,
-		ResourceURL:  resourceURL,
-		ReleaseYear:  releaseYear,
+		Name:            name,
+		CreatorID:       creatorID,
+		OrganType:       string(ot),
+		Organization:    organization,
+		Description:     description,
+		License:         license,
+		ResourceURL:     resourceURL,
+		ReleaseYear:     releaseYear,
+		AnnotationTypes: annotationTypes,
 	}, nil
 }
 
 func (c *CreateWorkspaceCommand) ToEntity() (*model.Workspace, error) {
-	var parentRef *vobj.ParentRef
 	var err error
-
-	if c.ParentID != nil {
-		parentRef, err = vobj.NewParentRef(*c.ParentID, vobj.ParentTypeWorkspace)
-		if err != nil {
-			return nil, err
-		}
-	}
 
 	entity, err := vobj.NewEntity(
 		vobj.EntityTypeWorkspace,
 		&c.Name,
 		c.CreatorID,
-		parentRef,
+		nil,
 	)
 	if err != nil {
 		return nil, err
 	}
 
 	return &model.Workspace{
-		Entity:       *entity,
-		OrganType:    c.OrganType,
-		Organization: c.Organization,
-		Description:  c.Description,
-		License:      c.License,
-		ResourceURL:  c.ResourceURL,
-		ReleaseYear:  c.ReleaseYear,
+		Entity:          *entity,
+		OrganType:       c.OrganType,
+		Organization:    c.Organization,
+		Description:     c.Description,
+		License:         c.License,
+		ResourceURL:     c.ResourceURL,
+		ReleaseYear:     c.ReleaseYear,
+		AnnotationTypes: c.AnnotationTypes,
 	}, nil
 }
 
 type UpdateWorkspaceCommand struct {
-	ID           string
-	Name         *string
-	CreatorID    *string
-	OrganType    *string
-	Organization *string
-	Description  *string
-	License      *string
-	ResourceURL  *string
-	ReleaseYear  *int
+	ID              string
+	Name            *string
+	OrganType       *string
+	Organization    *string
+	Description     *string
+	License         *string
+	ResourceURL     *string
+	ReleaseYear     *int
+	AnnotationTypes *[]string
 }
 
 func (c *UpdateWorkspaceCommand) GetID() string {
@@ -118,9 +115,6 @@ func (c *UpdateWorkspaceCommand) GetID() string {
 func (c *UpdateWorkspaceCommand) ApplyTo(entity *model.Workspace) (*model.Workspace, error) {
 	if c.Name != nil {
 		entity.SetName(*c.Name)
-	}
-	if c.CreatorID != nil {
-		entity.SetCreatorID(*c.CreatorID)
 	}
 	if c.OrganType != nil {
 		ot, err := vobj.NewOrganTypeFromString(*c.OrganType)
@@ -153,9 +147,6 @@ func (c *UpdateWorkspaceCommand) GetUpdates() (map[string]any, error) {
 	if c.Name != nil {
 		updates[constants.NameField] = *c.Name
 	}
-	if c.CreatorID != nil {
-		updates[constants.CreatorIDField] = *c.CreatorID
-	}
 	if c.OrganType != nil {
 		ot, err := vobj.NewOrganTypeFromString(*c.OrganType)
 		if err != nil {
@@ -177,6 +168,9 @@ func (c *UpdateWorkspaceCommand) GetUpdates() (map[string]any, error) {
 	}
 	if c.ReleaseYear != nil {
 		updates[constants.ReleaseYearField] = *c.ReleaseYear
+	}
+	if c.AnnotationTypes != nil {
+		updates[constants.AnnotationTypesField] = *c.AnnotationTypes
 	}
 
 	return updates, nil
