@@ -10,6 +10,7 @@ import (
 	"github.com/histopathai/main-service/internal/api/http/middleware"
 	"github.com/histopathai/main-service/internal/api/http/validator"
 	"github.com/histopathai/main-service/internal/domain/port"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -72,15 +73,22 @@ func (ih *ImageHandler) UploadImage(c *gin.Context) {
 	}
 
 	// DTO -> Service Input
+	entityInput := port.CreateEntityInput{
+		Name:      req.Name,
+		Type:      vobj.EntityTypeImage,
+		CreatorID: creator_id,
+		Parent: &vobj.ParentRef{
+			ID:   req.Parent.ID,
+			Type: vobj.ParentTypePatient,
+		},
+	}
+
 	input := port.UploadImageInput{
-		PatientID:   req.PatientID,
-		CreatorID:   creator_id,
-		ContentType: req.ContentType,
-		Name:        req.Name,
-		Format:      req.Format,
-		Width:       req.Width,
-		Height:      req.Height,
-		Size:        req.Size,
+		CreateEntityInput: entityInput,
+		Format:            req.Format,
+		Width:             req.Width,
+		Height:            req.Height,
+		Size:              req.Size,
 	}
 
 	storagePayload, err := ih.imageService.UploadImage(c.Request.Context(), &input)
