@@ -1,36 +1,11 @@
 package model
 
-import "time"
-
-type Point struct {
-	X float64
-	Y float64
-}
+import (
+	"github.com/histopathai/main-service/internal/domain/vobj"
+)
 
 type Annotation struct {
-	ID          string
-	ImageID     string
-	AnnotatorID string
-	Polygon     []Point
-	Score       *float64
-	Class       *string
-	Description *string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
-}
-
-func (a Annotation) GetID() string {
-	return a.ID
-}
-
-func (a *Annotation) SetID(id string) {
-	a.ID = id
-}
-
-func (a *Annotation) SetCreatedAt(t time.Time) {
-	a.CreatedAt = t
-}
-
-func (a *Annotation) SetUpdatedAt(t time.Time) {
-	a.UpdatedAt = t
+	vobj.Entity
+	Polygon *[]vobj.Point
+	vobj.TagValue
 }
