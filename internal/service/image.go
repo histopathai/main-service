@@ -60,6 +60,13 @@ func (is *ImageService) UploadImage(ctx context.Context, input *port.UploadImage
 	originpath := fmt.Sprintf("%s-%s", uuid, input.Name)
 
 	entity, err := vobj.NewEntity(vobj.EntityTypeImage, &input.Name, input.CreatorID, input.Parent)
+	if err != nil {
+		return nil, err
+	}
+
+	entity.ID = uuid
+	entity.CreatedAt = time.Now()
+	entity.UpdatedAt = time.Now()
 
 	image := &model.Image{
 		Entity:     *entity,
