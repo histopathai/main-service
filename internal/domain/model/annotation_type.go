@@ -6,5 +6,11 @@ import (
 
 type AnnotationType struct {
 	vobj.Entity
-	Tag vobj.Tag
+	Type     vobj.TagType
+	Global   bool
+	Required bool
+	Options  []string
+	Min      *float64
+	Max      *float64
+	Color    *string
 }
