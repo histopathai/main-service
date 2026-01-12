@@ -43,8 +43,14 @@ func (ats *AnnotationTypeService) CreateNewAnnotationType(ctx context.Context, i
 	}
 
 	atModel := &model.AnnotationType{
-		Entity: *entity,
-		Tag:    input.Tag,
+		Entity:   *entity,
+		Type:     input.Type,
+		Global:   input.Global,
+		Required: input.Required,
+		Options:  input.Options,
+		Min:      input.Min,
+		Max:      input.Max,
+		Color:    input.Color,
 	}
 
 	created, err := ats.annotationTypeRepo.Create(ctx, atModel)
@@ -69,8 +75,26 @@ func (ats *AnnotationTypeService) UpdateAnnotationType(ctx context.Context, id s
 	if input.Name != nil {
 		updates[constants.NameField] = *input.Name
 	}
-	if input.Tag != nil {
-		updates[constants.TagNameField] = *input.Tag
+	if input.Type != nil {
+		updates[constants.TagTypeField] = string(*input.Type)
+	}
+	if input.Global != nil {
+		updates[constants.TagGlobalField] = *input.Global
+	}
+	if input.Required != nil {
+		updates[constants.TagRequiredField] = *input.Required
+	}
+	if len(input.Options) > 0 {
+		updates[constants.TagOptionsField] = input.Options
+	}
+	if input.Min != nil {
+		updates[constants.TagMinField] = *input.Min
+	}
+	if input.Max != nil {
+		updates[constants.TagMaxField] = *input.Max
+	}
+	if input.Color != nil {
+		updates[constants.TagColorField] = *input.Color
 	}
 
 	if len(updates) == 0 {

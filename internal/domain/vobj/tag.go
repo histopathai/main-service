@@ -25,131 +25,13 @@ func (t TagType) IsValid() bool {
 	}
 }
 
-type TagValue struct {
-	TagType TagType
-	TagName string
-	Value   any
-	Color   *string
-	Global  bool
-}
-
-func NewTagValue(tagType TagType, tagName string, value any, color *string, global bool) (*TagValue, error) {
+func NewTagTypeFromString(s string) (TagType, error) {
+	tagType := TagType(s)
 	if !tagType.IsValid() {
-		details := map[string]any{"tag_type": tagType}
-		return nil, errors.NewValidationError("invalid tag type", details)
+		details := map[string]any{"tag_type": s}
+		return "", errors.NewValidationError("invalid tag type", details)
 	}
-
-	if tagName == "" {
-		return nil, errors.NewValidationError("tag name is required", nil)
-	}
-
-	return &TagValue{
-		TagType: tagType,
-		TagName: tagName,
-		Value:   value,
-		Color:   color,
-		Global:  global,
-	}, nil
-}
-
-func (tv *TagValue) IsGlobal() bool {
-	if tv == nil {
-		return false
-	}
-	return tv.Global
-}
-
-func (tv *TagValue) GetType() TagType {
-	if tv == nil {
-		return ""
-	}
-	return tv.TagType
-}
-
-type Tag struct {
-	Name     string
-	Type     TagType
-	Options  []string
-	Global   bool
-	Required bool
-	Min      *float64
-	Max      *float64
-	Color    *string
-}
-
-func NewTag(name string, tagType TagType, options []string, global, required bool, min, max *float64, color *string) (*Tag, error) {
-	if name == "" {
-		return nil, errors.NewValidationError("tag name is required", nil)
-	}
-
-	if !tagType.IsValid() {
-		details := map[string]any{"tag_type": tagType}
-		return nil, errors.NewValidationError("invalid tag type", details)
-	}
-
-	if err := validateTagConstraints(tagType, options, min, max); err != nil {
-		return nil, err
-	}
-
-	return &Tag{
-		Name:     name,
-		Type:     tagType,
-		Options:  options,
-		Global:   global,
-		Required: required,
-		Min:      min,
-		Max:      max,
-		Color:    color,
-	}, nil
-}
-
-func (t *Tag) IsGlobal() bool {
-	if t == nil {
-		return false
-	}
-	return t.Global
-}
-
-func (t *Tag) IsRequired() bool {
-	if t == nil {
-		return false
-	}
-	return t.Required
-}
-
-func (t *Tag) IsNumeric() bool {
-	if t == nil {
-		return false
-	}
-	return t.Type == NumberTag
-}
-
-func (t *Tag) IsText() bool {
-	if t == nil {
-		return false
-	}
-	return t.Type == TextTag
-}
-
-func (t *Tag) IsBoolean() bool {
-	if t == nil {
-		return false
-	}
-	return t.Type == BooleanTag
-}
-
-func (t *Tag) IsSelect() bool {
-	if t == nil {
-		return false
-	}
-	return t.Type == SelectTag
-}
-
-func (t *Tag) IsMultiSelect() bool {
-	if t == nil {
-		return false
-	}
-	return t.Type == MultiSelectTag
+	return tagType, nil
 }
 
 func validateTagConstraints(tagType TagType, options []string, min, max *float64) error {

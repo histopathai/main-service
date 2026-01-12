@@ -38,6 +38,9 @@ func imageMapUpdates(updates map[string]interface{}) (map[string]interface{}, er
 		return nil, err
 	}
 	for key, value := range updates {
+		if EntityFields[key] {
+			continue
+		}
 		switch key {
 		case constants.ImageWidthField:
 			firestoreUpdates["width"] = value
@@ -138,6 +141,9 @@ func imageMapFilters(filters []query.Filter) ([]query.Filter, error) {
 		return nil, err
 	}
 	for _, filter := range filters {
+		if EntityFields[filter.Field] {
+			continue
+		}
 		switch filter.Field {
 		case constants.ImageStatusField:
 			firestoreFilters = append(firestoreFilters, query.Filter{

@@ -79,22 +79,21 @@ func (ath *AnnotationTypeHandler) CreateNewAnnotationType(c *gin.Context) {
 		Parent:    nil,
 	}
 
-	tagInput := vobj.Tag{
-		Name:     req.Tag.Name,
-		Type:     vobj.TagType(req.Tag.Type),
-		Options:  req.Tag.Options,
-		Global:   req.Tag.Global,
-		Required: req.Tag.Required,
-		Min:      req.Tag.Min,
-		Max:      req.Tag.Max,
-		Color:    req.Tag.Color,
+	tagType, err := vobj.NewTagTypeFromString(req.Type)
+	if err != nil {
+		ath.handleError(c, err)
+		return
 	}
-
 	input := port.CreateAnnotationTypeInput{
 		CreateEntityInput: entityInput,
-		Tag:               tagInput,
+		Type:              tagType,
+		Global:            req.Global,
+		Required:          req.Required,
+		Options:           req.Options,
+		Min:               req.Min,
+		Max:               req.Max,
+		Color:             req.Color,
 	}
-
 	result, err := ath.annotationTypeService.CreateNewAnnotationType(c.Request.Context(), &input)
 	if err != nil {
 		ath.handleError(c, err)
@@ -263,26 +262,23 @@ func (ath *AnnotationTypeHandler) UpdateAnnotationType(c *gin.Context) {
 		Parent: nil,
 	}
 
-	tagInput := &vobj.Tag{}
-	if req.Tag != nil {
-		tagInput.Name = req.Tag.Name
-		tagInput.Type = vobj.TagType(req.Tag.Type)
-		tagInput.Options = req.Tag.Options
-		tagInput.Global = req.Tag.Global
-		tagInput.Required = req.Tag.Required
-		tagInput.Min = req.Tag.Min
-		tagInput.Max = req.Tag.Max
-		tagInput.Color = req.Tag.Color
-	} else {
-		tagInput = nil
+	tagType, err := vobj.NewTagTypeFromString(*req.Type)
+	if err != nil {
+		ath.handleError(c, err)
+		return
 	}
-
 	input := port.UpdateAnnotationTypeInput{
 		UpdateEntityInput: updateEntityInput,
-		Tag:               tagInput,
+		Type:              &tagType,
+		Global:            req.Global,
+		Required:          req.Required,
+		Options:           req.Options,
+		Min:               req.Min,
+		Max:               req.Max,
+		Color:             req.Color,
 	}
 
-	err := ath.annotationTypeService.UpdateAnnotationType(c.Request.Context(), id, &input)
+	err = ath.annotationTypeService.UpdateAnnotationType(c.Request.Context(), id, &input)
 	if err != nil {
 		ath.handleError(c, err)
 		return

@@ -101,28 +101,24 @@ func workspaceMapUpdates(updates map[string]interface{}) (map[string]interface{}
 	}
 
 	for key, value := range updates {
+		if EntityFields[key] {
+			continue
+		}
 		switch key {
 		case constants.WorkspaceOrganTypeField:
 			firestoreUpdates["organ_type"] = value
-			delete(updates, key)
 		case constants.WorkspaceOrganizationField:
 			firestoreUpdates["organization"] = value
-			delete(updates, key)
 		case constants.WorkspaceDescField:
 			firestoreUpdates["description"] = value
-			delete(updates, key)
 		case constants.WorkspaceLicenseField:
 			firestoreUpdates["license"] = value
-			delete(updates, key)
 		case constants.WorkspaceResourceURLField:
 			firestoreUpdates["resource_url"] = value
-			delete(updates, key)
 		case constants.WorkspaceReleaseYearField:
 			firestoreUpdates["release_year"] = value
-			delete(updates, key)
 		case constants.WorkspaceAnnotationTypes:
 			firestoreUpdates["annotation_types"] = value
-			delete(updates, key)
 		default:
 			return nil, fmt.Errorf("unknown update field: %s", key)
 		}
@@ -131,12 +127,18 @@ func workspaceMapUpdates(updates map[string]interface{}) (map[string]interface{}
 }
 
 func workspaceMapFilters(filters []query.Filter) ([]query.Filter, error) {
+	if len(filters) == 0 {
+		return []query.Filter{}, nil
+	}
 	mappedFilters, err := EntityMapFilter(filters)
 	if err != nil {
 		return nil, err
 	}
 
 	for _, f := range filters {
+		if EntityFields[f.Field] {
+			continue
+		}
 		switch f.Field {
 		case constants.WorkspaceOrganTypeField:
 			mappedFilters = append(mappedFilters, query.Filter{
@@ -180,13 +182,6 @@ func workspaceMapFilters(filters []query.Filter) ([]query.Filter, error) {
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-
-		// Explicitly ignore Entity fields as they are handled by EntityMapFilter
-		case constants.NameField, constants.CreatorIDField, constants.ParentIDField,
-			constants.ParentTypeField, constants.EntityTypeField,
-			constants.CreatedAtField, constants.UpdatedAtField:
-			continue
-
 		default:
 			return nil, fmt.Errorf("unknown filter field: %s", f.Field)
 		}

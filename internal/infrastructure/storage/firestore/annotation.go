@@ -35,14 +35,19 @@ func NewAnnotationRepositoryImpl(client *firestore.Client, hasUniqueName bool) *
 
 func annotationToFirestoreMap(a *model.Annotation) map[string]interface{} {
 	m := EntityToFirestoreMap(&a.Entity)
-	m_tag_value := TagValueToFirestoreMap(&a.TagValue)
-	for k, v := range m_tag_value {
-		m[k] = v
-	}
+
 	m["polygon"] = a.Polygon
+
+	m["tag_value"] = a.TagValue.Value
+	m["tag_type"] = string(a.TagValue.Type)
+	m["is_global"] = a.TagValue.Global
+	if a.TagValue.Color != nil {
+		m["color"] = *a.TagValue.Color
+	} else {
+		m["color"] = nil
+	}
 	return m
 }
-
 func annotationFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Annotation, error) {
 	var a model.Annotation
 	data := doc.Data()
@@ -54,22 +59,52 @@ func annotationFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Annotat
 
 	a.Entity = *entity
 
-	tagValue, err := TagValueFromFirestoreDoc(doc)
+	a.TagValue.Value = data["tag_value"]
+	tag_type, err := vobj.NewTagTypeFromString(data["tag_type"].(string))
 	if err != nil {
 		return nil, err
 	}
-	a.TagValue = *tagValue
+	a.TagValue.Type = tag_type
 
-	points := data["polygon"].([]interface{})
-	polygon := make([]vobj.Point, len(points))
-	for i, p := range points {
-		pointMap := p.(map[string]interface{})
-		polygon[i] = vobj.Point{
-			X: pointMap["X"].(float64),
-			Y: pointMap["Y"].(float64),
-		}
+	if v, ok := data["color"].(string); ok {
+		a.TagValue.Color = &v
 	}
-	a.Polygon = &polygon
+
+	if v, ok := data["is_global"].(bool); ok {
+		a.TagValue.Global = v
+	}
+
+	if polygonData, ok := data["polygon"].([]interface{}); ok {
+		jsonPoints := make([]map[string]float64, len(polygonData))
+		for i, p := range polygonData {
+			pointMap, ok := p.(map[string]interface{})
+			if !ok {
+				return nil, fmt.Errorf("invalid point format at index %d", i)
+			}
+
+			jsonPoints[i] = make(map[string]float64)
+			if x, ok := pointMap["X"].(float64); ok {
+				jsonPoints[i]["X"] = x
+			} else if xInt, ok := pointMap["X"].(int64); ok {
+				jsonPoints[i]["X"] = float64(xInt)
+			} else {
+				return nil, fmt.Errorf("invalid X value at index %d", i)
+			}
+
+			if y, ok := pointMap["Y"].(float64); ok {
+				jsonPoints[i]["Y"] = y
+			} else if yInt, ok := pointMap["Y"].(int64); ok {
+				jsonPoints[i]["Y"] = float64(yInt)
+			} else {
+				return nil, fmt.Errorf("invalid Y value at index %d", i)
+			}
+		}
+
+		polygon := vobj.FromJSONPoints(jsonPoints)
+		a.Polygon = &polygon
+	} else {
+		return nil, fmt.Errorf("polygon field is missing or invalid")
+	}
 
 	return &a, nil
 }
@@ -80,23 +115,32 @@ func annotationMapUpdate(updates map[string]interface{}) (map[string]interface{}
 	if err != nil {
 		return nil, err
 	}
-	tagvalueUpdates, err := TagValueMapUpdates(updates)
-	if err != nil {
-		return nil, err
-	}
 
 	firestoreUpdates := make(map[string]interface{})
 	for key, value := range entityUpdates {
 		firestoreUpdates[key] = value
 	}
-	for key, value := range tagvalueUpdates {
-		firestoreUpdates[key] = value
-	}
 
 	for key, value := range updates {
+		if EntityFields[key] {
+			continue
+		}
 		switch key {
 		case constants.PolygonField:
 			firestoreUpdates["polygon"] = value
+		case constants.TagValueField:
+			firestoreUpdates["tag_value"] = value
+		case constants.TagTypeField:
+			firestoreUpdates["tag_type"] = value.(string)
+		case constants.TagColorField:
+			if value != nil {
+				firestoreUpdates["color"] = value.(string)
+			} else {
+				firestoreUpdates["color"] = nil
+			}
+		case constants.TagGlobalField:
+			firestoreUpdates["is_global"] = value.(bool)
+
 		default:
 			return nil, fmt.Errorf("unknown update field: %s", key)
 		}
@@ -109,15 +153,49 @@ func annotationMapFilters(filters []query.Filter) ([]query.Filter, error) {
 	if err != nil {
 		return nil, err
 	}
-	tagValueFilters, err := TagValueMapFilters(filters)
-	if err != nil {
-		return nil, err
+
+	mappedFilters := make([]query.Filter, len(entityFilter))
+	copy(mappedFilters, entityFilter)
+
+	for _, f := range filters {
+		if EntityFields[f.Field] {
+			continue
+		}
+		switch f.Field {
+		case constants.PolygonField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "polygon",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.TagValueField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "tag_value",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.TagTypeField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "tag_type",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.TagColorField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "color",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.TagGlobalField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "is_global",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		default:
+			return nil, fmt.Errorf("unknown filter field: %s", f.Field)
+		}
 	}
-
-	mappedFilters := make([]query.Filter, 0, len(entityFilter)+len(tagValueFilters))
-	mappedFilters = append(mappedFilters, entityFilter...)
-	mappedFilters = append(mappedFilters, tagValueFilters...)
-
 	return mappedFilters, nil
 }
 

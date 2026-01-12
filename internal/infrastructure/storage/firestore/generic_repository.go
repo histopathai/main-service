@@ -3,11 +3,15 @@ package firestore
 import (
 	"context"
 	"reflect"
+	"strings"
 	"time"
 
+	"github.com/googleapis/gax-go/v2/apierror"
 	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/shared/query"
 	"google.golang.org/api/iterator"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 
 	"cloud.google.com/go/firestore"
 )
@@ -151,7 +155,6 @@ func (gr *GenericRepositoryImpl[T]) BatchTransfer(ctx context.Context, ids []str
 }
 
 func (gr *GenericRepositoryImpl[T]) FindByFilters(ctx context.Context, filters []query.Filter, paginationOpts *query.Pagination) (*query.Result[T], error) {
-	// Map filters if needed
 	mappedFilters, err := gr.fnMapFilters(filters)
 	if err != nil {
 		return nil, err
@@ -168,14 +171,11 @@ func (gr *GenericRepositoryImpl[T]) FindByFilters(ctx context.Context, filters [
 		paginationOpts = &query.Pagination{Limit: 10, Offset: 0}
 	}
 
-	// Apply sorting
 	if paginationOpts.SortBy != "" {
 		dir := firestore.Asc
 		if paginationOpts.SortDir == "desc" {
 			dir = firestore.Desc
 		}
-		// Map SortBy field if necessary. Assuming SortBy is already mapped or is a common field like created_at.
-		// NOTE: You might need a mapper for SortBy field similar to filters if field names differ.
 		fQuery = fQuery.OrderBy(paginationOpts.SortBy, dir)
 	}
 
@@ -201,6 +201,15 @@ func (gr *GenericRepositoryImpl[T]) FindByFilters(ctx context.Context, filters [
 			break
 		}
 		if err != nil {
+			if isIndexError(err) {
+				return &query.Result[T]{
+					Data:    []T{},
+					Limit:   paginationOpts.Limit,
+					Offset:  paginationOpts.Offset,
+					HasMore: false,
+				}, nil
+			}
+
 			return nil, mapFirestoreError(err)
 		}
 
@@ -224,9 +233,36 @@ func (gr *GenericRepositoryImpl[T]) FindByFilters(ctx context.Context, filters [
 		Offset:  paginationOpts.Offset,
 		HasMore: hasMore,
 	}, nil
-
 }
 
+func isIndexError(err error) bool {
+	if err == nil {
+		return false
+	}
+
+	errMsg := err.Error()
+	if strings.Contains(errMsg, "index") || strings.Contains(errMsg, "Index") {
+		return true
+	}
+
+	if apiErr, ok := err.(*apierror.APIError); ok {
+		grpcStatus := apiErr.GRPCStatus()
+		if grpcStatus.Code() == codes.FailedPrecondition {
+			return true
+		}
+	}
+
+	if st, ok := status.FromError(err); ok {
+		if st.Code() == codes.FailedPrecondition {
+			msg := st.Message()
+			if strings.Contains(msg, "index") || strings.Contains(msg, "Index") {
+				return true
+			}
+		}
+	}
+
+	return false
+}
 func (gr *GenericRepositoryImpl[T]) FindByName(ctx context.Context, name string) (T, error) {
 	if !gr.hasUniqueName {
 		var zero T
@@ -235,7 +271,7 @@ func (gr *GenericRepositoryImpl[T]) FindByName(ctx context.Context, name string)
 
 	filters := []query.Filter{
 		{
-			Field:    "Name", // used FindByFilters will map it
+			Field:    "Name",
 			Operator: query.OpEqual,
 			Value:    name,
 		},

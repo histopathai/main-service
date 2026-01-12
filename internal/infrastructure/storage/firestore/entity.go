@@ -10,15 +10,23 @@ import (
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
+var EntityFields = map[string]bool{
+	constants.NameField:       true,
+	constants.CreatorIDField:  true,
+	constants.ParentIDField:   true,
+	constants.ParentTypeField: true,
+	constants.EntityTypeField: true,
+	constants.CreatedAtField:  true,
+	constants.UpdatedAtField:  true,
+}
+
 func EntityFromFirestore(doc *firestore.DocumentSnapshot) (*vobj.Entity, error) {
 	data := doc.Data()
 
-	entityType, ok := data["entity_type"].(vobj.EntityType)
-	if !ok || !entityType.IsValid() {
-		details := map[string]any{"entity_type": data["entity_type"]}
-		return nil, errors.NewValidationError("invalid entity type", details)
+	entityType, err := vobj.NewEntityTypeFromString(data["entity_type"].(string))
+	if err != nil {
+		return nil, err
 	}
-
 	namePtr, _ := data["name"].(string)
 	var name *string
 	if namePtr != "" {
@@ -94,25 +102,18 @@ func EntityMapUpdates(updates map[string]interface{}) (map[string]interface{}, e
 		switch key {
 		case constants.NameField:
 			firestoreUpdates["name"] = value
-			delete(updates, key) // Processed field removed from original map
 		case constants.CreatorIDField:
 			firestoreUpdates["creator_id"] = value
-			delete(updates, key)
 		case constants.ParentIDField:
 			firestoreUpdates["parent_id"] = value
-			delete(updates, key)
 		case constants.ParentTypeField:
 			firestoreUpdates["parent_type"] = value
-			delete(updates, key)
 		case constants.UpdatedAtField:
 			firestoreUpdates["updated_at"] = value
-			delete(updates, key)
 		case constants.CreatedAtField:
 			firestoreUpdates["created_at"] = value
-			delete(updates, key)
 		case constants.EntityTypeField:
 			firestoreUpdates["entity_type"] = value
-			delete(updates, key)
 		default:
 			continue
 			// Ignore unknown fields
@@ -124,9 +125,8 @@ func EntityMapUpdates(updates map[string]interface{}) (map[string]interface{}, e
 
 func EntityMapFilter(filters []query.Filter) ([]query.Filter, error) {
 	mappedFilters := make([]query.Filter, 0, len(filters))
-	processedIndices := make(map[int]bool)
 
-	for i, f := range filters {
+	for _, f := range filters {
 		switch f.Field {
 		case constants.NameField:
 			mappedFilters = append(mappedFilters, query.Filter{
@@ -134,59 +134,45 @@ func EntityMapFilter(filters []query.Filter) ([]query.Filter, error) {
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-			processedIndices[i] = true
 		case constants.CreatorIDField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "creator_id",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-			processedIndices[i] = true
 		case constants.ParentIDField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "parent_id",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-			processedIndices[i] = true
 		case constants.ParentTypeField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "parent_type",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-			processedIndices[i] = true
 		case constants.EntityTypeField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "entity_type",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-			processedIndices[i] = true
 		case constants.CreatedAtField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "created_at",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-			processedIndices[i] = true
 		case constants.UpdatedAtField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "updated_at",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-			processedIndices[i] = true
 		default:
 			continue
 			// İgnore unknown fields
-		}
-	}
-
-	// Remove processed filters from the original slice
-	for i := len(filters) - 1; i >= 0; i-- {
-		if processedIndices[i] {
-			filters = append(filters[:i], filters[i+1:]...)
 		}
 	}
 
