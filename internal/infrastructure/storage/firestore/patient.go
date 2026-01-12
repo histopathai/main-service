@@ -107,6 +107,9 @@ func patientMapUpdates(updates map[string]interface{}) (map[string]interface{}, 
 		return nil, err
 	}
 	for key, value := range updates {
+		if EntityFields[key] {
+			continue
+		}
 		switch key {
 		case constants.PatientAgeField:
 			firestoreUpdates["age"] = value
@@ -130,11 +133,17 @@ func patientMapUpdates(updates map[string]interface{}) (map[string]interface{}, 
 }
 
 func patientMapFilters(filters []query.Filter) ([]query.Filter, error) {
+	if len(filters) == 0 {
+		return []query.Filter{}, nil
+	}
 	mappedFilters, err := EntityMapFilter(filters)
 	if err != nil {
 		return nil, err
 	}
 	for _, f := range filters {
+		if EntityFields[f.Field] {
+			continue
+		}
 		switch f.Field {
 		case constants.PatientAgeField:
 			mappedFilters = append(mappedFilters, query.Filter{
