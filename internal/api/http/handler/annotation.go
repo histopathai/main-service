@@ -74,11 +74,10 @@ func (ah *AnnotationHandler) CreateNewAnnotation(c *gin.Context) {
 	}
 
 	tagInput := vobj.TagValue{
-		TagType: vobj.TagType(req.Tag.TagType),
-		TagName: req.Tag.TagName,
-		Value:   req.Tag.Value,
-		Color:   req.Tag.Color,
-		Global:  req.Tag.Global,
+		Type:   vobj.TagType(req.Tag.TagType),
+		Value:  req.Tag.Value,
+		Color:  req.Tag.Color,
+		Global: req.Tag.Global,
 	}
 
 	var polygon *[]vobj.Point
