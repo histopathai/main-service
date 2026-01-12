@@ -85,6 +85,7 @@ func (ih *ImageHandler) UploadImage(c *gin.Context) {
 
 	input := port.UploadImageInput{
 		CreateEntityInput: entityInput,
+		ContentType:       req.ContentType,
 		Format:            req.Format,
 		Width:             req.Width,
 		Height:            req.Height,
