@@ -153,12 +153,24 @@ type IAnnotationService interface {
 
 type CreateAnnotationTypeInput struct {
 	CreateEntityInput
-	Tag vobj.Tag
+	Type     vobj.TagType
+	Global   bool
+	Required bool
+	Options  []string
+	Min      *float64
+	Max      *float64
+	Color    *string
 }
 
 type UpdateAnnotationTypeInput struct {
 	UpdateEntityInput
-	Tag *vobj.Tag
+	Type     *vobj.TagType
+	Global   *bool
+	Required *bool
+	Options  []string
+	Min      *float64
+	Max      *float64
+	Color    *string
 }
 
 type IAnnotationTypeService interface {
