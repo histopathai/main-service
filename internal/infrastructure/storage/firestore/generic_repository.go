@@ -171,13 +171,13 @@ func (gr *GenericRepositoryImpl[T]) FindByFilters(ctx context.Context, filters [
 		paginationOpts = &query.Pagination{Limit: 10, Offset: 0}
 	}
 
-	if paginationOpts.SortBy != "" {
-		dir := firestore.Asc
-		if paginationOpts.SortDir == "desc" {
-			dir = firestore.Desc
-		}
-		fQuery = fQuery.OrderBy(paginationOpts.SortBy, dir)
-	}
+	//if paginationOpts.SortBy != "" {
+	///	dir := firestore.Asc
+	//	if paginationOpts.SortDir == "desc" {
+	//		dir = firestore.Desc
+	//	}
+	//	fQuery = fQuery.OrderBy(paginationOpts.SortBy, dir)
+	//}
 
 	isLimited := paginationOpts.Limit >= 0
 

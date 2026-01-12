@@ -146,7 +146,7 @@ func Load() (*Config, error) {
 					DLQName: getEnv("IMAGE_PROCESSING_REQUEST_DLQ", "image-processing-requests-dlq"),
 				},
 				Subscription: SubscriptionConfig{
-					Name:    getEnv("IMAGE_PROCESSING_REQUEST_SUB", "image-processing-requests-sub"),
+					Name:    getEnv("IMAGE_PROCESSING_REQUEST_SUB", "image-processing-request-sub"),
 					Topic:   getEnv("IMAGE_PROCESSING_REQUEST_TOPIC", "image-processing-requests"),
 					DLQName: getEnv("IMAGE_PROCESSING_REQUEST_SUB_DLQ", "image-processing-requests-sub-dlq"),
 				},
