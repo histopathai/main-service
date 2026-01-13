@@ -102,8 +102,6 @@ func annotationFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Annotat
 
 		polygon := vobj.FromJSONPoints(jsonPoints)
 		a.Polygon = &polygon
-	} else {
-		return nil, fmt.Errorf("polygon field is missing or invalid")
 	}
 
 	return &a, nil
