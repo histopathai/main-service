@@ -28,7 +28,7 @@ func EntityFromFirestore(doc *firestore.DocumentSnapshot) (*vobj.Entity, error) 
 	}
 
 	if data["entity_type"] == nil {
-		return nil, errors.NewValidationError("entity_type is required", nil)
+		return nil, errors.NewForbiddenError("missed recorded entity_type field")
 	}
 
 	entityType, err := vobj.NewEntityTypeFromString(data["entity_type"].(string))
