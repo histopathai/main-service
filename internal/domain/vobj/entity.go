@@ -121,7 +121,6 @@ func (e Entity) HasParent() bool {
 	return e.Parent != nil && !e.Parent.IsEmpty()
 }
 
-// Setter metodları - pointer receiver (değişiklik yapabilmek için)
 func (e *Entity) SetID(id string) {
 	e.ID = id
 }
