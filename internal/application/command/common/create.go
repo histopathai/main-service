@@ -1,8 +1,6 @@
 package common
 
-import "github.com/histopathai/main-service/internal/domain/port"
-
-type CreateCommand[T port.Entity] interface {
+type CreateCommand interface {
 	Validate() error
-	ToEntity() (T, error)
+	ToEntity() (interface{}, error)
 }
