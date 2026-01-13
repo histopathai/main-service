@@ -64,7 +64,7 @@ func (ah *AnnotationHandler) CreateNewAnnotation(c *gin.Context) {
 
 	// DTO -> Service Input
 	entityInput := port.CreateEntityInput{
-		Name: "",
+		Name: req.Tag.TagName,
 		Type: vobj.EntityTypeAnnotation,
 		Parent: &vobj.ParentRef{
 			ID:   req.Parent.ID,
