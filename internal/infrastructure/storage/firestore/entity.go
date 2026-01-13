@@ -23,6 +23,14 @@ var EntityFields = map[string]bool{
 func EntityFromFirestore(doc *firestore.DocumentSnapshot) (*vobj.Entity, error) {
 	data := doc.Data()
 
+	if data == nil {
+		return nil, errors.NewValidationError("document data is nil", nil)
+	}
+
+	if data["entity_type"] == nil {
+		return nil, errors.NewForbiddenError("missed recorded entity_type field")
+	}
+
 	entityType, err := vobj.NewEntityTypeFromString(data["entity_type"].(string))
 	if err != nil {
 		return nil, err
