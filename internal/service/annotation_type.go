@@ -70,30 +70,53 @@ func (ats *AnnotationTypeService) ListAnnotationTypes(ctx context.Context, pagin
 }
 
 func (ats *AnnotationTypeService) UpdateAnnotationType(ctx context.Context, id string, input *port.UpdateAnnotationTypeInput) error {
+	current_entity, err := ats.annotationTypeRepo.Read(ctx, id)
+	if err != nil {
+		return err
+	}
+	if current_entity == nil {
+		return errors.NewNotFoundError("annotation type not found")
+	}
+
 	updates := make(map[string]interface{})
 
-	if input.Name != nil {
+	// Name update
+	if input.Name != nil && *input.Name != *current_entity.Name {
 		updates[constants.NameField] = *input.Name
 	}
-	if input.Type != nil {
-		updates[constants.TagTypeField] = string(*input.Type)
+
+	// Type update
+	if input.Type != nil && input.Type.String() != current_entity.Type.String() {
+		updates[constants.TagTypeField] = input.Type.String()
 	}
-	if input.Global != nil {
+
+	// Global update
+	if input.Global != nil && *input.Global != current_entity.Global {
 		updates[constants.TagGlobalField] = *input.Global
 	}
-	if input.Required != nil {
+
+	// Required update
+	if input.Required != nil && *input.Required != current_entity.Required {
 		updates[constants.TagRequiredField] = *input.Required
 	}
-	if len(input.Options) > 0 {
+
+	// Options update
+	if len(input.Options) > 0 && !areOptionsEqual(current_entity.Options, input.Options) {
 		updates[constants.TagOptionsField] = input.Options
 	}
-	if input.Min != nil {
+
+	// Min update
+	if input.Min != nil && (current_entity.Min == nil || *input.Min != *current_entity.Min) {
 		updates[constants.TagMinField] = *input.Min
 	}
-	if input.Max != nil {
+
+	// Max update
+	if input.Max != nil && (current_entity.Max == nil || *input.Max != *current_entity.Max) {
 		updates[constants.TagMaxField] = *input.Max
 	}
-	if input.Color != nil {
+
+	// Color update
+	if input.Color != nil && (current_entity.Color == nil || *input.Color != *current_entity.Color) {
 		updates[constants.TagColorField] = *input.Color
 	}
 
@@ -102,6 +125,27 @@ func (ats *AnnotationTypeService) UpdateAnnotationType(ctx context.Context, id s
 	}
 
 	return ats.annotationTypeRepo.Update(ctx, id, updates)
+}
+
+// areOptionsEqual
+func areOptionsEqual(current, new []string) bool {
+	if len(current) != len(new) {
+		return false
+	}
+
+	currentMap := make(map[string]int, len(current))
+	for _, v := range current {
+		currentMap[v]++
+	}
+
+	for _, v := range new {
+		if count, exists := currentMap[v]; !exists || count == 0 {
+			return false
+		}
+		currentMap[v]--
+	}
+
+	return true
 }
 
 func (ats *AnnotationTypeService) DeleteAnnotationType(ctx context.Context, id string) error {
