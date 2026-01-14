@@ -26,6 +26,7 @@ func NewPointResponse(points []vobj.Point) []PointResponse {
 
 type AnnotationResponse struct {
 	ID         string             `json:"id" example:"anno-123"`
+	Name       string             `json:"name" example:"Tumor Region"`
 	EntityType string             `json:"entity_type" example:"annotation"`
 	CreatorID  string             `json:"creator_id" example:"user-123"`
 	Parent     *ParentRefResponse `json:"parent,omitempty"`
@@ -55,6 +56,7 @@ func NewAnnotationResponse(a *model.Annotation) *AnnotationResponse {
 	return &AnnotationResponse{
 		ID:         a.ID,
 		EntityType: a.EntityType.String(),
+		Name:       *a.Name,
 		CreatorID:  a.Entity.CreatorID,
 		Parent:     parent,
 		Polygon:    polygon,
