@@ -18,6 +18,7 @@ const (
 
 type Image struct {
 	vobj.Entity
+	contentType   string
 	Format        string
 	Width         *int
 	Height        *int
