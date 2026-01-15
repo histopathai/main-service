@@ -1,6 +1,6 @@
 package common
 
 type CreateCommand interface {
-	Validate() (interface{}, interface{}, error)
+	Validate() error
 	ToEntity() (interface{}, error)
 }
