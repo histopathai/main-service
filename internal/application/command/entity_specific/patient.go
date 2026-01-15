@@ -8,7 +8,7 @@ import (
 
 type CreatePatientCommand struct {
 	Name       string
-	Type       string
+	EntityType string
 	CreatorID  string
 	ParentID   string
 	ParentType string
@@ -26,9 +26,6 @@ func (c *CreatePatientCommand) Validate() error {
 	if c.Name == "" {
 		details["name"] = "Name is required"
 	}
-	if c.Type == "" {
-		details["entity_type"] = "Type is required"
-	}
 	if c.CreatorID == "" {
 		details["creator_id"] = "CreatorID is required"
 	}
@@ -37,6 +34,9 @@ func (c *CreatePatientCommand) Validate() error {
 	}
 	if c.ParentType == "" {
 		details["parent_type"] = "ParentType is required"
+		if vobj.ParentTypeWorkspace.String() != c.ParentType {
+			details["parent_type"] = "ParentType must be WORKSPACE"
+		}
 	}
 	_, err := vobj.NewParentRef(c.ParentID, vobj.ParentType(c.ParentType))
 	if err != nil {
@@ -47,10 +47,10 @@ func (c *CreatePatientCommand) Validate() error {
 		details["age"] = "Age must be between 0 and 120"
 	}
 
-	_, err = vobj.NewEntityTypeFromString(c.Type)
 	if err != nil {
-		details["entity_type"] = "Invalid EntityType"
+		details["general"] = "Failed to create entity: " + err.Error()
 	}
+
 	if len(details) > 0 {
 		return errors.NewValidationError("validation failed", details)
 	}
@@ -63,18 +63,15 @@ func (c *CreatePatientCommand) ToEntity() (interface{}, error) {
 		return nil, ok
 	}
 
-	entity_type, _ := vobj.NewEntityTypeFromString(c.Type)
+	entity_type, _ := vobj.NewEntityTypeFromString(c.EntityType)
 
 	parent, _ := vobj.NewParentRef(c.ParentID, vobj.ParentType(c.ParentType))
 
-	entity, err := vobj.NewEntity(
+	entity, _ := vobj.NewEntity(
 		entity_type,
 		&c.Name,
 		c.CreatorID,
 		parent)
-	if err != nil {
-		return nil, err
-	}
 
 	return model.Patient{
 		Entity:  *entity,
