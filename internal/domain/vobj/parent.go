@@ -25,6 +25,19 @@ func (p ParentType) String() string {
 	return string(p)
 }
 
+func NewParentTypeFromString(s string) (ParentType, error) {
+	if s == "" {
+		return ParentTypeNone, nil
+	}
+	value := ParentType(s)
+	if value.IsValid() {
+		return value, nil
+	} else {
+		details := map[string]any{"value": s}
+		return "", errors.NewValidationError("invalid parent type", details)
+	}
+}
+
 type ParentRef struct {
 	ID   string
 	Type ParentType
