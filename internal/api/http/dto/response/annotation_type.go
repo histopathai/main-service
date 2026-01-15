@@ -1,6 +1,8 @@
 package response
 
 import (
+	"time"
+
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -8,32 +10,36 @@ import (
 type AnnotationTypeResponse struct {
 	ID         string             `json:"id"`
 	EntityType string             `json:"entity_type" example:"annotation_type"`
-	Name       *string            `json:"name,omitempty"`
+	Name       string             `json:"name,omitempty"`
 	CreatorID  string             `json:"creator_id"`
 	Parent     *ParentRefResponse `json:"parent,omitempty"`
-	Type       string             `json:"type" example:"NUMBER"`
-	Global     bool               `json:"global" example:"false"`
-	Required   bool               `json:"required" example:"true"`
+	TagType    string             `json:"tag_type" example:"NUMBER"`
+	IsGlobal   bool               `json:"is_global" example:"false"`
+	IsRequired bool               `json:"is_required" example:"true"`
 	Options    []string           `json:"options,omitempty"`
 	Min        *float64           `json:"min,omitempty" example:"1.0"`
 	Max        *float64           `json:"max,omitempty" example:"5.0"`
 	Color      *string            `json:"color,omitempty" example:"#FF0000"`
+	CreatedAt  time.Time          `json:"created_at" example:"2024-01-01T12:00:00Z"`
+	UpdatedAt  time.Time          `json:"updated_at" example:"2024-01-02T12:00:00Z"`
 }
 
 func NewAnnotationTypeResponse(at *model.AnnotationType) *AnnotationTypeResponse {
 	return &AnnotationTypeResponse{
 		ID:         at.ID,
-		EntityType: string(at.EntityType),
-		Name:       at.Entity.Name,
+		EntityType: at.EntityType.String(),
+		Name:       *at.Entity.Name,
 		CreatorID:  at.Entity.CreatorID,
 		Parent:     nil,
-		Type:       at.Type.String(),
-		Global:     at.Global,
-		Required:   at.Required,
+		TagType:    at.TagType.String(),
+		IsGlobal:   at.IsGlobal,
+		IsRequired: at.IsRequired,
 		Options:    at.Options,
 		Min:        at.Min,
 		Max:        at.Max,
 		Color:      at.Color,
+		CreatedAt:  at.Entity.CreatedAt,
+		UpdatedAt:  at.Entity.UpdatedAt,
 	}
 
 }

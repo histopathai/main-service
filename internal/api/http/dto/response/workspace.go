@@ -8,26 +8,30 @@ import (
 )
 
 type WorkspaceResponse struct {
-	ID              string    `json:"id"`
-	CreatorID       string    `json:"creator_id"`
-	Name            string    `json:"name"`
-	OrganType       string    `json:"organ_type"`
-	AnnotationTypes []string  `json:"annotation_types,omitempty"`
-	Organization    string    `json:"organization"`
-	Description     string    `json:"description"`
-	License         string    `json:"license"`
-	ResourceURL     *string   `json:"resource_url,omitempty"`
-	ReleaseYear     *int      `json:"release_year,omitempty"`
-	CreatedAt       time.Time `json:"created_at"`
-	UpdatedAt       time.Time `json:"updated_at"`
+	ID              string             `json:"id"`
+	EntityType      string             `json:"entity_type"`
+	CreatorID       string             `json:"creator_id"`
+	Parent          *ParentRefResponse `json:"parent,omitempty"`
+	Name            string             `json:"name"`
+	OrganType       string             `json:"organ_type"`
+	AnnotationTypes []string           `json:"annotation_types,omitempty"`
+	Organization    string             `json:"organization"`
+	Description     string             `json:"description"`
+	License         string             `json:"license"`
+	ResourceURL     *string            `json:"resource_url,omitempty"`
+	ReleaseYear     *int               `json:"release_year,omitempty"`
+	CreatedAt       time.Time          `json:"created_at"`
+	UpdatedAt       time.Time          `json:"updated_at"`
 }
 
 func NewWorkspaceResponse(ws *model.Workspace) *WorkspaceResponse {
 	return &WorkspaceResponse{
 		ID:              ws.ID,
+		EntityType:      ws.EntityType.String(),
+		Parent:          nil,
 		CreatorID:       ws.CreatorID,
 		Name:            *ws.Name,
-		OrganType:       ws.OrganType,
+		OrganType:       ws.OrganType.String(),
 		AnnotationTypes: ws.AnnotationTypes,
 		Organization:    ws.Organization,
 		Description:     ws.Description,

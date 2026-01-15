@@ -8,23 +8,29 @@ import (
 )
 
 type ImageResponse struct {
-	ID            string             `json:"id"`
-	Parent        *ParentRefResponse `json:"parent"`
-	CreatorID     string             `json:"creator_id"`
-	Name          string             `json:"name"`
-	Format        string             `json:"format"`
-	Width         *int               `json:"width,omitempty"`
-	Height        *int               `json:"height,omitempty"`
-	Size          *int64             `json:"size,omitempty"`
-	ProcessedPath *string            `json:"processed_path,omitempty"`
-	CreatedAt     time.Time          `json:"created_at"`
-	UpdatedAt     time.Time          `json:"updated_at"`
+	ID            string            `json:"id"`
+	EntityType    string            `json:"entity_type"`
+	Parent        ParentRefResponse `json:"parent"`
+	CreatorID     string            `json:"creator_id"`
+	Name          string            `json:"name"`
+	Format        string            `json:"format"`
+	Width         *int              `json:"width,omitempty"`
+	Height        *int              `json:"height,omitempty"`
+	Size          *int64            `json:"size,omitempty"`
+	ProcessedPath *string           `json:"processed_path,omitempty"`
+	CreatedAt     time.Time         `json:"created_at"`
+	UpdatedAt     time.Time         `json:"updated_at"`
 }
 
 func NewImageResponse(img *model.Image) *ImageResponse {
+	parent := ParentRefResponse{
+		ID:   img.Parent.ID,
+		Type: img.Parent.Type.String(),
+	}
 	return &ImageResponse{
 		ID:            img.ID,
-		Parent:        NewParentRefResponse(img.Parent),
+		EntityType:    img.EntityType.String(),
+		Parent:        parent,
 		CreatorID:     img.CreatorID,
 		Name:          *img.Name,
 		Format:        img.Format,

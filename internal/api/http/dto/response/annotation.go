@@ -30,23 +30,19 @@ type AnnotationResponse struct {
 	CreatorID  string             `json:"creator_id" example:"user-123"`
 	Parent     *ParentRefResponse `json:"parent,omitempty"`
 	Polygon    []PointResponse    `json:"polygon"`
-	Type       string             `json:"type" example:"NUMBER"`
+	TagType    string             `json:"tag_type" example:"NUMBER"`
 	Value      any                `json:"value"`
 	Color      *string            `json:"color,omitempty" example:"#FF0000"`
-	Global     bool               `json:"global" example:"false"`
+	IsGlobal   bool               `json:"is_global" example:"false"`
 	CreatedAt  time.Time          `json:"created_at" example:"2024-01-01T12:00:00Z"`
 	UpdatedAt  time.Time          `json:"updated_at" example:"2024-01-02T12:00:00Z"`
 }
 
 func NewAnnotationResponse(a *model.Annotation) *AnnotationResponse {
-	var parent *ParentRefResponse
-	if a.Parent != nil {
-		parent = &ParentRefResponse{
-			ID:   a.Parent.ID,
-			Type: a.Parent.Type.String(),
-		}
+	parent := &ParentRefResponse{
+		ID:   a.Parent.ID,
+		Type: a.Parent.Type.String(),
 	}
-
 	var polygon []PointResponse
 	if a.Polygon != nil {
 		polygon = NewPointResponse(*a.Polygon)
@@ -58,10 +54,10 @@ func NewAnnotationResponse(a *model.Annotation) *AnnotationResponse {
 		CreatorID:  a.Entity.CreatorID,
 		Parent:     parent,
 		Polygon:    polygon,
-		Type:       a.TagValue.Type.String(),
-		Value:      a.TagValue.Value,
-		Color:      a.TagValue.Color,
-		Global:     a.TagValue.Global,
+		TagType:    a.TagType.String(),
+		Value:      a.Value,
+		Color:      a.Color,
+		IsGlobal:   a.IsGlobal,
 		CreatedAt:  a.Entity.CreatedAt,
 		UpdatedAt:  a.Entity.UpdatedAt,
 	}
