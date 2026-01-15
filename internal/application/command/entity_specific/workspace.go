@@ -8,7 +8,7 @@ import (
 
 type CreateWorkspaceCommand struct {
 	Name            string
-	Type            string
+	EntityType      string
 	CreatorID       string
 	OrganType       string
 	Organization    string
@@ -26,16 +26,13 @@ func (c *CreateWorkspaceCommand) Validate() error {
 		details["name"] = "Name is required"
 	}
 
-	if c.Type == "" {
-		details["entity_type"] = "EntityType is required"
-	}
-
 	if c.CreatorID == "" {
 		details["creator_id"] = "CreatorID is required"
 	}
 
 	if c.OrganType == "" {
 		details["organ_type"] = "OrganType is required"
+
 	}
 
 	if c.Organization == "" {
@@ -58,12 +55,7 @@ func (c *CreateWorkspaceCommand) Validate() error {
 		details["release_year"] = "ReleaseYear cannot be negative"
 	}
 
-	_, err := vobj.NewEntityTypeFromString(c.Type)
-	if err != nil {
-		details["entity_type"] = "Invalid Type value"
-	}
-
-	_, err = vobj.NewOrganTypeFromString(c.OrganType)
+	_, err := vobj.NewOrganTypeFromString(c.OrganType)
 	if err != nil {
 		details["organ_type"] = "Invalid OrganType value"
 	}
@@ -79,12 +71,13 @@ func (c *CreateWorkspaceCommand) ToEntity() (interface{}, error) {
 		return nil, ok
 	}
 
-	entity_type, _ := vobj.NewEntityTypeFromString(c.Type)
+	entity_type, _ := vobj.NewEntityTypeFromString(c.EntityType)
+	parent, _ := vobj.NewParentRef("", vobj.ParentTypeNone)
 	entity, err := vobj.NewEntity(
 		entity_type,
 		&c.Name,
 		c.CreatorID,
-		nil)
+		parent)
 
 	if err != nil {
 		return nil, err
@@ -120,7 +113,7 @@ func (c *UpdateWorkspaceCommand) Validate() error {
 	detail := make(map[string]interface{})
 
 	if c.ID == "" {
-		detail["id"] = "ID is required"
+		detail["id"] = "ID is required in Form data"
 	}
 
 	if c.OrganType != nil {
