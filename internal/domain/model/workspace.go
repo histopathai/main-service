@@ -4,7 +4,7 @@ import "github.com/histopathai/main-service/internal/domain/vobj"
 
 type Workspace struct {
 	vobj.Entity
-	OrganType       string
+	OrganType       vobj.OrganType
 	Organization    string
 	Description     string
 	License         string
