@@ -6,6 +6,9 @@ import (
 
 type Annotation struct {
 	vobj.Entity
-	Polygon *[]vobj.Point
-	vobj.TagValue
+	Polygon  *[]vobj.Point
+	Value    any
+	TagType  vobj.TagType
+	IsGlobal bool
+	Color    *string
 }
