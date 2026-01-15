@@ -83,9 +83,10 @@ func (c *CreateWorkspaceCommand) ToEntity() (interface{}, error) {
 		return nil, err
 	}
 
+	organType, _ := vobj.NewOrganTypeFromString(c.OrganType)
 	return model.Workspace{
 		Entity:          *entity,
-		OrganType:       c.OrganType,
+		OrganType:       organType,
 		Organization:    c.Organization,
 		Description:     c.Description,
 		License:         c.License,
