@@ -108,6 +108,10 @@ func annotationFromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Annotat
 }
 
 func annotationMapUpdate(updates map[string]interface{}) (map[string]interface{}, error) {
+	if updates["TagName"] != nil {
+		updates["Name"] = updates["TagName"]
+		delete(updates, "TagName")
+	}
 
 	entityUpdates, err := EntityMapUpdates(updates)
 	if err != nil {
@@ -129,7 +133,8 @@ func annotationMapUpdate(updates map[string]interface{}) (map[string]interface{}
 		case constants.TagValueField:
 			firestoreUpdates["tag_value"] = value
 		case constants.TagTypeField:
-			firestoreUpdates["tag_type"] = value.(string)
+
+			firestoreUpdates["tag_type"] = value
 		case constants.TagColorField:
 			if value != nil {
 				firestoreUpdates["color"] = value.(string)
