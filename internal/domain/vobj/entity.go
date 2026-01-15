@@ -30,18 +30,14 @@ func (e EntityType) String() string {
 }
 
 func NewEntityTypeFromString(s string) (EntityType, error) {
-	switch s {
-	case "image":
-		return EntityTypeImage, nil
-	case "annotation":
-		return EntityTypeAnnotation, nil
-	case "patient":
-		return EntityTypePatient, nil
-	case "workspace":
-		return EntityTypeWorkspace, nil
-	case "annotation_type":
-		return EntityTypeAnnotationType, nil
-	default:
+	if s == "" {
+		details := map[string]any{"value": s}
+		return "", errors.NewValidationError("entity type cannot be empty", details)
+	}
+	value := EntityType(s)
+	if value.IsValid() {
+		return value, nil
+	} else {
 		details := map[string]any{"value": s}
 		return "", errors.NewValidationError("invalid entity type", details)
 	}
