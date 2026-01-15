@@ -7,13 +7,15 @@ import (
 )
 
 type CreateImageCommand struct {
-	ID            *string
-	Name          string
-	Type          string
+	EntityType string
+	CreatorID  string
+
+	ID         *string
+	Name       string
+	ParentID   string
+	ParentType string
+
 	ContentType   string
-	CreatorID     string
-	ParentID      string
-	ParentType    string
 	Format        string
 	OriginPath    string
 	Size          *int64
@@ -23,17 +25,10 @@ type CreateImageCommand struct {
 	ProcessedPath *string
 }
 
-func (c *CreateImageCommand) Validate() (interface{}, interface{}, error) {
+func (c *CreateImageCommand) Validate() error {
 	details := make(map[string]interface{})
 	if c.Name == "" {
 		details["name"] = "Name is required"
-	}
-	if c.Type == "" {
-		details["entity_type"] = "Type is required"
-	}
-	entity_type, err := vobj.NewEntityTypeFromString(c.Type)
-	if err != nil {
-		details["entity_type"] = "Invalid EntityType"
 	}
 
 	if c.ContentType == "" {
@@ -63,49 +58,62 @@ func (c *CreateImageCommand) Validate() (interface{}, interface{}, error) {
 	if c.Height != nil && *c.Height < 0 {
 		details["height"] = "Height cannot be negative"
 	}
+	if c.Status != nil {
+		_, err := model.NewImageStatusFromString(*c.Status)
+		if err != nil {
+			details["status"] = "Invalid ImageStatus"
+		}
+		if *c.Status == model.StatusProcessed.String() && (c.ProcessedPath == nil || *c.ProcessedPath == "") {
+			details["processed_path"] = "ProcessedPath must be set when status is PROCESSED"
+		}
 
-	entity, err := vobj.NewEntity(
-		entity_type,
-		&c.Name,
-		c.CreatorID,
-		nil)
-
-	if err != nil {
-		details["entity"] = "Failed to create entity"
 	}
 
 	if len(details) > 0 {
 		return errors.NewValidationError("validation failed", details)
 	}
-	return entity, nil, nil
+	return nil
 }
 
 func (c *CreateImageCommand) ToEntity() (interface{}, error) {
-	entity, _, err := c.Validate()
+	err := c.Validate()
 	if err != nil {
 		return nil, err
 	}
+	entity_type, _ := vobj.NewEntityTypeFromString(c.EntityType)
+	parentType, _ := vobj.NewParentTypeFromString(c.ParentType)
+	parent, _ := vobj.NewParentRef(c.ParentID, parentType)
+	entity, _ := vobj.NewEntity(
+		entity_type,
+		&c.Name,
+		c.CreatorID,
+		parent)
 
-	return model.Image{
-		Entity:        *(entity.(*vobj.Entity)),
+	status, _ := model.NewImageStatusFromString(*c.Status)
+
+	return &model.Image{
+		Entity:        *entity,
 		ContentType:   c.ContentType,
-		ParentID:      c.ParentID,
-		ParentType:    vobj.ParentType(c.ParentType),
 		Format:        c.Format,
 		OriginPath:    c.OriginPath,
 		Size:          c.Size,
 		Width:         c.Width,
 		Height:        c.Height,
-		Status:        c.Status,
+		Status:        status,
 		ProcessedPath: c.ProcessedPath,
 	}, nil
+
 }
 
 func (c *CreateImageCommand) GetID() string {
-	return c.ID
+	if c.ID == nil {
+		return ""
+	}
+	return *c.ID
 }
 
 type UpdateImageCommand struct {
+	ID            string
 	CreatorID     *string
 	Status        *string
 	Width         *int
@@ -115,20 +123,62 @@ type UpdateImageCommand struct {
 }
 
 func (c *UpdateImageCommand) Validate() error {
-	// Implement validation logic here
+	details := make(map[string]interface{})
+	if c.ID == "" {
+		details["id"] = "ID is required in Form data"
+	}
+	if c.Status != nil {
+		status, err := model.NewImageStatusFromString(*c.Status)
+		if err != nil {
+			details["status"] = "Invalid ImageStatus"
+		}
+		if status == model.StatusDeleting {
+			details["status"] = "Status cannot be set to DELETING"
+			details["status_reason"] = "DELETING status is managed by Deletion Request process"
+		}
+		if status == model.StatusProcessed && (c.ProcessedPath == nil || *c.ProcessedPath == "") {
+			details["processed_path"] = "ProcessedPath must be set when status is PROCESSED"
+		}
+	}
+
+	if c.Size != nil && *c.Size < 0 {
+		details["size"] = "Size cannot be negative"
+	}
+	if c.Width != nil && *c.Width < 0 {
+		details["width"] = "Width cannot be negative"
+	}
+	if c.Height != nil && *c.Height < 0 {
+		details["height"] = "Height cannot be negative"
+	}
+
 	return nil
 }
 
 func (c *UpdateImageCommand) GetID() string {
-	return ""
+	return c.ID
+
 }
 
 func (c *UpdateImageCommand) GetUpdates() map[string]interface{} {
-	// Implement logic to return updates as a map
-	return nil
-}
+	updates := make(map[string]interface{})
+	if c.CreatorID != nil {
+		updates["creator_id"] = *c.CreatorID
+	}
+	if c.Status != nil {
+		updates["status"] = *c.Status
+	}
+	if c.Width != nil {
+		updates["width"] = *c.Width
+	}
+	if c.Height != nil {
+		updates["height"] = *c.Height
+	}
+	if c.Size != nil {
+		updates["size"] = *c.Size
+	}
+	if c.ProcessedPath != nil {
+		updates["processed_path"] = *c.ProcessedPath
+	}
 
-func (c *UpdateImageCommand) GetUpdatebleFields() []string {
-	// Implement logic to return a list of updatable fields
-	return nil
+	return updates
 }
