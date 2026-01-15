@@ -1,12 +1,34 @@
 package model
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/histopathai/main-service/internal/domain/vobj"
 )
 
 type ImageStatus string
+
+func (is ImageStatus) String() string {
+	return string(is)
+}
+
+func (is ImageStatus) IsValid() bool {
+	switch is {
+	case StatusUploaded, StatusProcessing, StatusProcessed, StatusFailed, StatusDeleting:
+		return true
+	default:
+		return false
+	}
+}
+
+func NewImageStatusFromString(s string) (ImageStatus, error) {
+	is := ImageStatus(s)
+	if !is.IsValid() {
+		return "", fmt.Errorf("invalid ImageStatus: %s", s)
+	}
+	return is, nil
+}
 
 const (
 	StatusUploaded   ImageStatus = "UPLOADED"
@@ -18,7 +40,7 @@ const (
 
 type Image struct {
 	vobj.Entity
-	contentType   string
+	ContentType   string
 	Format        string
 	Width         *int
 	Height        *int
