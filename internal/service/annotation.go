@@ -77,7 +77,7 @@ func (as *AnnotationService) UpdateAnnotation(ctx context.Context, id string, in
 		updates[constants.PolygonField] = *input.Polygon
 	}
 	if input.TagType != nil {
-		updates[constants.TagTypeField] = *input.TagType
+		updates[constants.TagTypeField] = input.TagType.String()
 	}
 	if input.TagName != nil {
 		updates[constants.TagNameField] = *input.TagName
