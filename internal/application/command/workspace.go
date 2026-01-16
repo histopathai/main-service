@@ -1,4 +1,4 @@
-package entityspecific
+package command
 
 import (
 	"github.com/histopathai/main-service/internal/domain/model"
@@ -7,9 +7,8 @@ import (
 )
 
 type CreateWorkspaceCommand struct {
-	Name            string
-	EntityType      string
-	CreatorID       string
+	CreateEntityCommand
+
 	OrganType       string
 	Organization    string
 	Description     string
@@ -22,17 +21,23 @@ type CreateWorkspaceCommand struct {
 func (c *CreateWorkspaceCommand) Validate() error {
 	details := make(map[string]interface{})
 
-	if c.Name == "" {
-		details["name"] = "Name is required"
+	// Base validation if have errors pull them
+	if err := c.CreateEntityCommand.Validate(); err != nil {
+		if baseErr, ok := err.(*errors.Err); ok {
+			for k, v := range baseErr.Details {
+				details[k] = v
+			}
+		}
 	}
 
-	if c.CreatorID == "" {
-		details["creator_id"] = "CreatorID is required"
-	}
-
+	// Workspace-specific validations
 	if c.OrganType == "" {
 		details["organ_type"] = "OrganType is required"
-
+	} else {
+		_, err := vobj.NewOrganTypeFromString(c.OrganType)
+		if err != nil {
+			details["organ_type"] = "Invalid OrganType value"
+		}
 	}
 
 	if c.Organization == "" {
@@ -55,11 +60,6 @@ func (c *CreateWorkspaceCommand) Validate() error {
 		details["release_year"] = "ReleaseYear cannot be negative"
 	}
 
-	_, err := vobj.NewOrganTypeFromString(c.OrganType)
-	if err != nil {
-		details["organ_type"] = "Invalid OrganType value"
-	}
-
 	if len(details) > 0 {
 		return errors.NewValidationError("validation error", details)
 	}
@@ -67,24 +67,27 @@ func (c *CreateWorkspaceCommand) Validate() error {
 }
 
 func (c *CreateWorkspaceCommand) ToEntity() (interface{}, error) {
-	if ok := c.Validate(); ok != nil {
-		return nil, ok
+	if err := c.Validate(); err != nil {
+		return nil, err
 	}
 
-	entity_type, _ := vobj.NewEntityTypeFromString(c.EntityType)
-	parent, _ := vobj.NewParentRef("", vobj.ParentTypeNone)
-	entity, err := vobj.NewEntity(
-		entity_type,
-		&c.Name,
-		c.CreatorID,
-		parent)
+	// Workspace için ParentType always NONE
+	c.CreateEntityCommand.ParentID = ""
+	c.CreateEntityCommand.ParentType = vobj.ParentTypeNone.String()
 
+	baseEntity, err := c.CreateEntityCommand.ToEntity()
 	if err != nil {
 		return nil, err
 	}
 
+	entity, ok := baseEntity.(*vobj.Entity)
+	if !ok {
+		return nil, errors.NewValidationError("failed to cast to Entity", nil)
+	}
+
 	organType, _ := vobj.NewOrganTypeFromString(c.OrganType)
-	return model.Workspace{
+
+	return &model.Workspace{
 		Entity:          *entity,
 		OrganType:       organType,
 		Organization:    c.Organization,
@@ -94,13 +97,11 @@ func (c *CreateWorkspaceCommand) ToEntity() (interface{}, error) {
 		ReleaseYear:     c.ReleaseYear,
 		AnnotationTypes: c.AnnotationTypes,
 	}, nil
-
 }
 
 type UpdateWorkspaceCommand struct {
-	ID              string
-	CreatorID       *string
-	Name            *string
+	UpdateEntityCommand
+
 	OrganType       *string
 	Organization    *string
 	Description     *string
@@ -111,44 +112,44 @@ type UpdateWorkspaceCommand struct {
 }
 
 func (c *UpdateWorkspaceCommand) Validate() error {
-	detail := make(map[string]interface{})
+	details := make(map[string]interface{})
 
-	if c.ID == "" {
-		detail["id"] = "ID is required in Form data"
-	}
-
-	if c.OrganType != nil {
-		_, err := vobj.NewOrganTypeFromString(*c.OrganType)
-		if err != nil {
-			detail["organ_type"] = "Invalid OrganType value"
+	// Base validation if have errors pull them
+	if err := c.UpdateEntityCommand.Validate(); err != nil {
+		if baseErr, ok := err.(*errors.Err); ok {
+			for k, v := range baseErr.Details {
+				details[k] = v
+			}
 		}
 	}
 
-	if len(detail) > 0 {
-		return errors.NewValidationError("validation error", detail)
+	// Workspace-specific validation
+	if c.OrganType != nil {
+		_, err := vobj.NewOrganTypeFromString(*c.OrganType)
+		if err != nil {
+			details["organ_type"] = "Invalid OrganType value"
+		}
+	}
+
+	if len(details) > 0 {
+		return errors.NewValidationError("validation error", details)
 	}
 
 	return nil
 }
 
-func (c *UpdateWorkspaceCommand) GetID() string {
-	return c.ID
-}
-
 func (c *UpdateWorkspaceCommand) GetUpdates() map[string]interface{} {
-
-	if ok := c.Validate(); ok != nil {
+	if err := c.Validate(); err != nil {
 		return nil
 	}
 
-	updates := make(map[string]interface{})
+	// Base updates
+	updates := c.UpdateEntityCommand.GetUpdates()
+	if updates == nil {
+		updates = make(map[string]interface{})
+	}
 
-	if c.CreatorID != nil {
-		updates["creator_id"] = *c.CreatorID
-	}
-	if c.Name != nil {
-		updates["name"] = *c.Name
-	}
+	// Workspace-specific updates
 	if c.OrganType != nil {
 		updates["organ_type"] = *c.OrganType
 	}

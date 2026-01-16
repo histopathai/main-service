@@ -1,4 +1,4 @@
-package entityspecific
+package command
 
 import (
 	"github.com/histopathai/main-service/internal/domain/model"
@@ -7,13 +7,7 @@ import (
 )
 
 type CreateImageCommand struct {
-	EntityType string
-	CreatorID  string
-
-	ID         *string
-	Name       string
-	ParentID   string
-	ParentType string
+	CreateEntityCommand
 
 	ContentType   string
 	Format        string
@@ -27,21 +21,19 @@ type CreateImageCommand struct {
 
 func (c *CreateImageCommand) Validate() error {
 	details := make(map[string]interface{})
-	if c.Name == "" {
-		details["name"] = "Name is required"
+
+	// Base validation if has errors pull them
+	if err := c.CreateEntityCommand.Validate(); err != nil {
+		if baseErr, ok := err.(*errors.Err); ok {
+			for k, v := range baseErr.Details {
+				details[k] = v
+			}
+		}
 	}
 
+	// Image-specific validations
 	if c.ContentType == "" {
 		details["content_type"] = "ContentType is required"
-	}
-	if c.CreatorID == "" {
-		details["creator_id"] = "CreatorID is required"
-	}
-	if c.ParentID == "" {
-		details["parent_id"] = "ParentID is required"
-	}
-	if c.ParentType == "" {
-		details["parent_type"] = "ParentType is required"
 	}
 	if c.Format == "" {
 		details["format"] = "Format is required"
@@ -58,15 +50,14 @@ func (c *CreateImageCommand) Validate() error {
 	if c.Height != nil && *c.Height < 0 {
 		details["height"] = "Height cannot be negative"
 	}
+
 	if c.Status != nil {
-		_, err := model.NewImageStatusFromString(*c.Status)
+		status, err := model.NewImageStatusFromString(*c.Status)
 		if err != nil {
 			details["status"] = "Invalid ImageStatus"
-		}
-		if *c.Status == model.StatusProcessed.String() && (c.ProcessedPath == nil || *c.ProcessedPath == "") {
+		} else if status == model.StatusProcessed && (c.ProcessedPath == nil || *c.ProcessedPath == "") {
 			details["processed_path"] = "ProcessedPath must be set when status is PROCESSED"
 		}
-
 	}
 
 	if len(details) > 0 {
@@ -76,20 +67,24 @@ func (c *CreateImageCommand) Validate() error {
 }
 
 func (c *CreateImageCommand) ToEntity() (interface{}, error) {
-	err := c.Validate()
+	if err := c.Validate(); err != nil {
+		return nil, err
+	}
+
+	baseEntity, err := c.CreateEntityCommand.ToEntity()
 	if err != nil {
 		return nil, err
 	}
-	entity_type, _ := vobj.NewEntityTypeFromString(c.EntityType)
-	parentType, _ := vobj.NewParentTypeFromString(c.ParentType)
-	parent, _ := vobj.NewParentRef(c.ParentID, parentType)
-	entity, _ := vobj.NewEntity(
-		entity_type,
-		&c.Name,
-		c.CreatorID,
-		parent)
 
-	status, _ := model.NewImageStatusFromString(*c.Status)
+	entity, ok := baseEntity.(*vobj.Entity)
+	if !ok {
+		return nil, errors.NewValidationError("failed to cast to Entity", nil)
+	}
+
+	var status model.ImageStatus
+	if c.Status != nil {
+		status, _ = model.NewImageStatusFromString(*c.Status)
+	}
 
 	return &model.Image{
 		Entity:        *entity,
@@ -102,19 +97,11 @@ func (c *CreateImageCommand) ToEntity() (interface{}, error) {
 		Status:        status,
 		ProcessedPath: c.ProcessedPath,
 	}, nil
-
-}
-
-func (c *CreateImageCommand) GetID() string {
-	if c.ID == nil {
-		return ""
-	}
-	return *c.ID
 }
 
 type UpdateImageCommand struct {
-	ID            string
-	CreatorID     *string
+	UpdateEntityCommand
+
 	Status        *string
 	Width         *int
 	Height        *int
@@ -124,20 +111,29 @@ type UpdateImageCommand struct {
 
 func (c *UpdateImageCommand) Validate() error {
 	details := make(map[string]interface{})
-	if c.ID == "" {
-		details["id"] = "ID is required in Form data"
+
+	// Base validation errors
+	if err := c.UpdateEntityCommand.Validate(); err != nil {
+		if baseErr, ok := err.(*errors.Err); ok {
+			for k, v := range baseErr.Details {
+				details[k] = v
+			}
+		}
 	}
+
+	// Image-specific validations
 	if c.Status != nil {
 		status, err := model.NewImageStatusFromString(*c.Status)
 		if err != nil {
 			details["status"] = "Invalid ImageStatus"
-		}
-		if status == model.StatusDeleting {
-			details["status"] = "Status cannot be set to DELETING"
-			details["status_reason"] = "DELETING status is managed by Deletion Request process"
-		}
-		if status == model.StatusProcessed && (c.ProcessedPath == nil || *c.ProcessedPath == "") {
-			details["processed_path"] = "ProcessedPath must be set when status is PROCESSED"
+		} else {
+			if status == model.StatusDeleting {
+				details["status"] = "Status cannot be set to DELETING"
+				details["status_reason"] = "DELETING status is managed by Deletion Request process"
+			}
+			if status == model.StatusProcessed && (c.ProcessedPath == nil || *c.ProcessedPath == "") {
+				details["processed_path"] = "ProcessedPath must be set when status is PROCESSED"
+			}
 		}
 	}
 
@@ -151,19 +147,24 @@ func (c *UpdateImageCommand) Validate() error {
 		details["height"] = "Height cannot be negative"
 	}
 
+	if len(details) > 0 {
+		return errors.NewValidationError("validation failed", details)
+	}
 	return nil
 }
 
-func (c *UpdateImageCommand) GetID() string {
-	return c.ID
-
-}
-
 func (c *UpdateImageCommand) GetUpdates() map[string]interface{} {
-	updates := make(map[string]interface{})
-	if c.CreatorID != nil {
-		updates["creator_id"] = *c.CreatorID
+	if err := c.Validate(); err != nil {
+		return nil
 	}
+
+	// Base updates
+	updates := c.UpdateEntityCommand.GetUpdates()
+	if updates == nil {
+		updates = make(map[string]interface{})
+	}
+
+	// Image-specific updates
 	if c.Status != nil {
 		updates["status"] = *c.Status
 	}
