@@ -46,14 +46,15 @@ func NewEntityTypeFromString(s string) (EntityType, error) {
 type Entity struct {
 	ID         string
 	EntityType EntityType
-	Name       *string
+	Name       string
 	CreatorID  string
-	Parent     *ParentRef
+	Parent     ParentRef
+	Deleted    bool
 	CreatedAt  time.Time
 	UpdatedAt  time.Time
 }
 
-func NewEntity(entityType EntityType, name *string, creatorID string, parent *ParentRef) (*Entity, error) {
+func NewEntity(entityType EntityType, name string, creatorID string, parent *ParentRef) (*Entity, error) {
 	if !entityType.IsValid() {
 		details := map[string]any{"entity_type": entityType}
 		return nil, errors.NewValidationError("invalid entity type", details)
@@ -63,19 +64,11 @@ func NewEntity(entityType EntityType, name *string, creatorID string, parent *Pa
 		return nil, errors.NewValidationError("creator ID is required", nil)
 	}
 
-	if name != nil && *name == "" {
-		name = nil
-	}
-
-	if parent != nil && parent.IsEmpty() {
-		parent = nil
-	}
-
 	return &Entity{
 		EntityType: entityType,
 		Name:       name,
 		CreatorID:  creatorID,
-		Parent:     parent,
+		Parent:     *parent,
 		CreatedAt:  time.Now(),
 		UpdatedAt:  time.Now(),
 	}, nil
@@ -91,10 +84,7 @@ func (e Entity) GetCreatorID() string {
 }
 
 func (e Entity) GetName() string {
-	if e.Name == nil {
-		return ""
-	}
-	return *e.Name
+	return e.Name
 }
 
 func (e Entity) GetEntityType() EntityType {
@@ -110,11 +100,11 @@ func (e Entity) GetUpdatedAt() time.Time {
 }
 
 func (e Entity) GetParent() *ParentRef {
-	return e.Parent
+	return &e.Parent
 }
 
 func (e Entity) HasParent() bool {
-	return e.Parent != nil && !e.Parent.IsEmpty()
+	return e.Parent.Type != ParentTypeNone && e.Parent.ID != ""
 }
 
 func (e *Entity) SetID(id string) {
@@ -126,7 +116,7 @@ func (e *Entity) SetCreatorID(creatorID string) {
 }
 
 func (e *Entity) SetName(name string) {
-	e.Name = &name
+	e.Name = name
 }
 
 func (e *Entity) SetEntityType(entityType EntityType) {
@@ -142,5 +132,13 @@ func (e *Entity) SetUpdatedAt(t time.Time) {
 }
 
 func (e *Entity) SetParent(parent *ParentRef) {
-	e.Parent = parent
+	e.Parent = *parent
+}
+
+func (e *Entity) IsDeleted() bool {
+	return e.Deleted
+}
+
+func (e *Entity) SetDeleted(deleted bool) {
+	e.Deleted = deleted
 }
