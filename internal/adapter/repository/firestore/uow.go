@@ -33,24 +33,25 @@ type FirestoreUnitOfWorkFactory struct {
 func NewFirestoreUnitOfWorkFactory(client *firestore.Client) *FirestoreUnitOfWorkFactory {
 	return &FirestoreUnitOfWorkFactory{
 		client:             client,
-		workspaceRepo:      NewGenericRepositoryImpl[*model.Workspace](client, "workspaces", mappers.NewWorkspaceMapper()),
-		patientRepo:        NewGenericRepositoryImpl[*model.Patient](client, "patients", mappers.NewPatientMapper()),
-		imageRepo:          NewGenericRepositoryImpl[*model.Image](client, "images", mappers.NewImageMapper()),
-		annotationRepo:     NewGenericRepositoryImpl[*model.Annotation](client, "annotations", mappers.NewAnnotationMapper()),
-		annotationTypeRepo: NewGenericRepositoryImpl[*model.AnnotationType](client, "annotation_types", mappers.NewAnnotationTypeMapper()),
+		workspaceRepo:      NewGenericRepositoryImpl(client, "workspaces", mappers.NewWorkspaceMapper()),
+		patientRepo:        NewGenericRepositoryImpl(client, "patients", mappers.NewPatientMapper()),
+		imageRepo:          NewGenericRepositoryImpl(client, "images", mappers.NewImageMapper()),
+		annotationRepo:     NewGenericRepositoryImpl(client, "annotations", mappers.NewAnnotationMapper()),
+		annotationTypeRepo: NewGenericRepositoryImpl(client, "annotation_types", mappers.NewAnnotationTypeMapper()),
 	}
 }
 
-func (f *FirestoreUnitOfWorkFactory) WithTx(ctx context.Context, fn func(ctx context.Context, repos map[vobj.EntityType]port.Repository[port.Entity]) error) error {
+func (f *FirestoreUnitOfWorkFactory) WithTx(ctx context.Context, fn func(ctx context.Context, repos map[vobj.EntityType]any) error) error {
 	return f.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 		txCtx := withTx(ctx, tx)
 
-		repos := make(map[vobj.EntityType]port.Repository[port.Entity])
-		repos[vobj.EntityTypeWorkspace] = f.workspaceRepo.(port.Repository[port.Entity])
-		repos[vobj.EntityTypePatient] = f.patientRepo.(port.Repository[port.Entity])
-		repos[vobj.EntityTypeImage] = f.imageRepo.(port.Repository[port.Entity])
-		repos[vobj.EntityTypeAnnotation] = f.annotationRepo.(port.Repository[port.Entity])
-		repos[vobj.EntityTypeAnnotationType] = f.annotationTypeRepo.(port.Repository[port.Entity])
+		repos := map[vobj.EntityType]any{
+			vobj.EntityTypeWorkspace:      f.workspaceRepo,
+			vobj.EntityTypePatient:        f.patientRepo,
+			vobj.EntityTypeImage:          f.imageRepo,
+			vobj.EntityTypeAnnotation:     f.annotationRepo,
+			vobj.EntityTypeAnnotationType: f.annotationTypeRepo,
+		}
 
 		return fn(txCtx, repos)
 	})
