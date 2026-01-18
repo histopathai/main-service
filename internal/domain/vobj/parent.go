@@ -10,6 +10,7 @@ const (
 	ParentTypePatient        ParentType = "patient"
 	ParentTypeImage          ParentType = "image"
 	ParentTypeAnnotationType ParentType = "annotation_type"
+	ParentTypeAnnotation     ParentType = "annotation"
 )
 
 func (p ParentType) IsValid() bool {
