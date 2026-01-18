@@ -175,7 +175,7 @@ func (gr *GenericRepositoryImpl[T]) Transfer(ctx context.Context, id string, new
 	}
 
 	updates := map[string]interface{}{
-		"creator_id": newOwnerID,
+		"parent_id":  newOwnerID,
 		"updated_at": time.Now(),
 	}
 
