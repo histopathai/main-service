@@ -98,6 +98,7 @@ func (c *CreateAnnotationTypeCommand) ToEntity() (interface{}, error) {
 
 type UpdateAnnotationTypeCommand struct {
 	UpdateEntityCommand
+	Name       *string
 	IsGlobal   *bool
 	IsRequired *bool
 	Options    []string
