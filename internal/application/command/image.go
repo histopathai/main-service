@@ -1,6 +1,7 @@
 package command
 
 import (
+	"github.com/google/uuid"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/errors"
@@ -85,7 +86,9 @@ func (c *CreateImageCommand) ToEntity() (interface{}, error) {
 	if c.Status != nil {
 		status, _ = model.NewImageStatusFromString(*c.Status)
 	}
-
+	// Generate new UID for the image UID + Name
+	uuid := uuid.New().String()
+	entity.SetID(uuid + "-" + entity.Name)
 	return &model.Image{
 		Entity:        *entity,
 		ContentType:   c.ContentType,
