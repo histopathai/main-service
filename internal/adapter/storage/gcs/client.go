@@ -12,7 +12,7 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/port"
+	"github.com/histopathai/main-service/internal/port"
 	"google.golang.org/api/iterator"
 )
 
@@ -54,7 +54,7 @@ func (g *GCSClient) GenerateSignedURL(
 		// Entity specific metadata
 		"x-goog-meta-image-id:" + image.ID,
 		"x-goog-meta-entity-type:" + image.Entity.EntityType.String(),
-		"x-goog-meta-name:" + *image.Name,
+		"x-goog-meta-name:" + image.GetName(),
 		"x-goog-meta-parent-id:" + image.Parent.ID,
 		"x-goog-meta-parent-type:" + image.Parent.Type.String(),
 		"x-goog-meta-creator-id:" + image.CreatorID,
