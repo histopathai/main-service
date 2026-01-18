@@ -11,6 +11,7 @@ type UploadImageRequest struct {
 	Width         *int    `json:"width,omitempty" binding:"omitempty,gte=0" example:"1024"`
 	Height        *int    `json:"height,omitempty" binding:"omitempty,gte=0" example:"768"`
 	Size          *int64  `json:"size,omitempty" binding:"omitempty,gte=0" example:"2048000"`
+	Status        *string `json:"status,omitempty" binding:"omitempty,oneof=UPLOADED PROCESSING PROCESSED FAILED DELETING" example:"UPLOADED"`
 	OriginPath    *string `json:"origin_path,omitempty" binding:"omitempty" example:"s3://bucket/path/to/slide1.tiff"`
 	ProcessedPath *string `json:"processed_path,omitempty" binding:"omitempty" example:"s3://bucket/path/to/processed/slide1.tiff"`
 }
