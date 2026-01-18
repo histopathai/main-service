@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -41,5 +42,10 @@ type Repository[T Entity] interface {
 }
 
 type UnitOfWorkFactory interface {
-	WithTx(ctx context.Context, fn func(ctx context.Context, repos map[vobj.EntityType]Repository[Entity]) error) error
+	WithTx(ctx context.Context, fn func(ctx context.Context, repos map[vobj.EntityType]any) error) error
+	GetWorkspaceRepo() Repository[*model.Workspace]
+	GetPatientRepo() Repository[*model.Patient]
+	GetImageRepo() Repository[*model.Image]
+	GetAnnotationRepo() Repository[*model.Annotation]
+	GetAnnotationTypeRepo() Repository[*model.AnnotationType]
 }
