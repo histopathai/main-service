@@ -106,9 +106,9 @@ func (c *UpdateWorkspaceCommand) GetUpdates() map[string]interface{} {
 		updates = make(map[string]interface{})
 	}
 
-	organType, _ := vobj.NewOrganTypeFromString(*c.OrganType)
 	// Workspace-specific updates
 	if c.OrganType != nil {
+		organType, _ := vobj.NewOrganTypeFromString(*c.OrganType)
 		updates[constants.WorkspaceOrganTypeField] = organType
 	}
 	if c.Organization != nil {

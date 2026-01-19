@@ -24,17 +24,6 @@ type SoftDeleteCommands struct {
 	IDs []string
 }
 
-type PaginateCommand struct {
-	Limit  int
-	Offset int
-}
-
 type CountCommand struct {
 	Filters []FilterCommand
-}
-
-type ListCommand struct {
-	Filters  []FilterCommand
-	Sorts    []SortCommand
-	Paginate PaginateCommand
 }

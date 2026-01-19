@@ -12,7 +12,7 @@ import (
 
 type FilterCommand interface {
 	Validate() error
-	ToFilter() query.Filter
+	ToFilter() (query.Filter, error)
 }
 
 type BaseFilterCommand struct {
