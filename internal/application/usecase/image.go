@@ -6,7 +6,6 @@ import (
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
-	"github.com/histopathai/main-service/internal/shared/constants"
 )
 
 type ImageUseCase struct {
@@ -52,16 +51,6 @@ func (uc *ImageUseCase) Update(ctx context.Context, imageID string, updates map[
 	return nil
 }
 
-func (uc *ImageUseCase) Delete(ctx context.Context, imageID string) error {
-	// Implement the logic to delete an image
-	err := uc.repo.SoftDelete(ctx, imageID)
-	if err != nil {
-		return err
-	}
-
-	return nil
-}
-
 func (uc *ImageUseCase) Transfer(ctx context.Context, imageID string, newParent vobj.ParentRef) error {
 
 	err := uc.uow.WithTx(ctx, func(txCtx context.Context, repos map[vobj.EntityType]any) error {
@@ -71,17 +60,10 @@ func (uc *ImageUseCase) Transfer(ctx context.Context, imageID string, newParent 
 			return err
 		}
 
-		// Update the parent reference of the image
-		updates := map[string]interface{}{
-			constants.ParentIDField:   newParent.ID,
-			constants.ParentTypeField: newParent.Type,
-		}
-
-		err := uc.repo.Update(txCtx, imageID, updates)
+		err := uc.repo.Transfer(txCtx, imageID, newParent.ID)
 		if err != nil {
 			return err
 		}
-
 		return nil
 	})
 

@@ -200,9 +200,3 @@ func (uc *AnnotationTypeUseCase) checkOptionsInUse(ctx context.Context, annotati
 
 	return false, "", nil
 }
-
-func (uc *AnnotationTypeUseCase) Delete(ctx context.Context, annotationTypeID string) error {
-
-	// Use soft delete for now
-	return uc.repo.SoftDelete(ctx, annotationTypeID)
-}

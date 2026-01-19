@@ -32,8 +32,9 @@ func (uc *AnnotationUseCase) Create(ctx context.Context, entity *model.Annotatio
 		// 1. Check parent exists
 		if err := CheckParentExists(txCtx, &entity.Parent, uc.uow); err != nil {
 			return errors.NewValidationError("parent image not found", map[string]interface{}{
-				"parent_id": entity.GetParent().ID,
-				"error":     err.Error(),
+				"parent_id":   entity.GetParent().ID,
+				"parent_type": entity.GetParent().Type,
+				"error":       err.Error(),
 			})
 		}
 

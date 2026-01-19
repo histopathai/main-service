@@ -103,48 +103,60 @@ func (uc *PatientUseCase) Update(ctx context.Context, patientID string, updates 
 	return err
 }
 
-func (uc *PatientUseCase) Delete(ctx context.Context, patientID string) error {
-	// Use soft delete for now
-	return uc.repo.SoftDelete(ctx, patientID)
-}
-
-func (uc *PatientUseCase) TransferPatient(ctx context.Context, patientID string, newParentID string) error {
+func (uc *PatientUseCase) Transfer(ctx context.Context, patientID string, newParent vobj.ParentRef) error {
 	err := uc.uow.WithTx(ctx, func(txCtx context.Context, repos map[vobj.EntityType]any) error {
 		currentPatient, err := uc.repo.Read(txCtx, patientID)
 		if err != nil {
 			return errors.NewInternalError("failed to read patient", err)
 		}
 
-		newParentWorkspace, err := uc.uow.GetWorkspaceRepo().Read(txCtx, newParentID)
+		newParentWorkspace, err := uc.uow.GetWorkspaceRepo().Read(txCtx, newParent.ID)
 		if err != nil {
 			return errors.NewValidationError("new parent workspace does not exist", map[string]interface{}{
-				"parent_id": newParentID,
+				"parent_id": newParent.ID,
 				"error":     err.Error(),
 			})
 		}
 
 		if len(newParentWorkspace.AnnotationTypes) == 0 {
 			return errors.NewValidationError("new parent workspace has no annotation types defined", map[string]interface{}{
-				"parent_id": newParentID,
+				"parent_id": newParent.ID,
 			})
+		} else {
+			// Check Old parent's annotation types are subset of new parent's annotation types
+			oldParentWorkspace, err := uc.uow.GetWorkspaceRepo().Read(txCtx, currentPatient.Parent.ID)
+			if err != nil {
+				return errors.NewInternalError("failed to read old parent workspace", err)
+			}
+
+			oldAnnotationTypeSet := make(map[string]struct{})
+			for _, at := range oldParentWorkspace.AnnotationTypes {
+				oldAnnotationTypeSet[at] = struct{}{}
+			}
+
+			for _, at := range oldParentWorkspace.AnnotationTypes {
+				if _, exists := oldAnnotationTypeSet[at]; !exists {
+					return errors.NewValidationError("new parent workspace does not contain all annotation types of old parent", map[string]interface{}{
+						"old_parent_id": currentPatient.Parent.ID,
+						"new_parent_id": newParent.ID,
+						"missing_type":  at,
+					})
+				}
+			}
 		}
 
-		isUnique, err := CheckNameUniqueUnderParent(txCtx, uc.repo, currentPatient.Name, newParentID)
+		isUnique, err := CheckNameUniqueUnderParent(txCtx, uc.repo, currentPatient.Name, newParent.ID)
 		if err != nil {
 			return errors.NewInternalError("failed to check name uniqueness", err)
 		}
 		if !isUnique {
 			return errors.NewConflictError("patient with same name already exists in new parent", map[string]interface{}{
 				"name":      currentPatient.Name,
-				"parent_id": newParentID,
+				"parent_id": newParent.ID,
 			})
 		}
 
-		updates := map[string]interface{}{
-			constants.ParentIDField: newParentID,
-		}
-
-		err = uc.repo.Update(txCtx, patientID, updates)
+		err = uc.repo.Transfer(txCtx, patientID, newParent.ID)
 		if err != nil {
 			return errors.NewInternalError("failed to transfer patient", err)
 		}

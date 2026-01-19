@@ -115,11 +115,6 @@ func (uc *WorkspaceUseCase) Update(ctx context.Context, id string, updates map[s
 	return err
 }
 
-func (uc *WorkspaceUseCase) Delete(ctx context.Context, workspaceID string) error {
-	// Use soft delete for now
-	return uc.repo.SoftDelete(ctx, workspaceID)
-}
-
 func (uc *WorkspaceUseCase) CheckAnnotationTypeInUse(ctx context.Context, workspaceID string, annotationTypeName string) (bool, error) {
 	patientRepo := uc.uow.GetPatientRepo()
 	imageRepo := uc.uow.GetImageRepo()
