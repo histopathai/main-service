@@ -24,22 +24,6 @@ type SoftDeleteCommands struct {
 	IDs []string
 }
 
-type CreateCommand interface {
-	Validate() error
-	ToEntity() (interface{}, error)
-}
-
-type FilterCommand struct {
-	Field    string
-	Operator string
-	Value    interface{}
-}
-
-type SortCommand struct {
-	Field     string
-	Direction string
-}
-
 type PaginateCommand struct {
 	Limit  int
 	Offset int
