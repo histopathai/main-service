@@ -2,6 +2,15 @@ package query
 
 type FilterOp string
 
+func (op FilterOp) IsValid() bool {
+	for _, validOp := range ValidOperators {
+		if op == validOp {
+			return true
+		}
+	}
+	return false
+}
+
 const (
 	OpEqual     FilterOp = "=="
 	OpNotEqual  FilterOp = "!="
@@ -14,7 +23,7 @@ const (
 	OpContains  FilterOp = "contains"
 )
 
-var SupportedFilterOps = []FilterOp{
+var ValidOperators = []FilterOp{
 	OpEqual,
 	OpNotEqual,
 	OpGreater,
