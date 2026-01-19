@@ -14,7 +14,7 @@ type SortCommand struct {
 	Validator validators.FieldValidator
 }
 
-func (c *SortCommand) Validate() error {
+func (c *SortCommand) Validate() (map[string]interface{}, bool) {
 	details := make(map[string]interface{})
 
 	if c.Field == "" {
@@ -26,25 +26,21 @@ func (c *SortCommand) Validate() error {
 	}
 
 	if !c.Validator.IsValidField(c.Field) {
-		return errors.NewNotFoundError("invalid field")
+		details["field"] = "Invalid field"
 	}
 
 	if len(details) > 0 {
-		return errors.NewValidationError("validation failed", details)
+		return details, false
 	}
 
-	return nil
+	return nil, true
 }
 
 func (c *SortCommand) ToSort() (string, string, error) {
-	if err := c.Validate(); err != nil {
-		return "", "", err
+	if _, ok := c.Validate(); !ok {
+		return "", "", errors.NewValidationError("invalid sort command", nil)
 	}
-
-	fieldConstant, ok := c.Validator.GetFieldConstant(c.Field)
-	if !ok {
-		return "", "", errors.NewNotFoundError("field mapping not found")
-	}
+	fieldConstant, _ := c.Validator.GetFieldConstant(c.Field)
 
 	return fieldConstant, c.Direction, nil
 }

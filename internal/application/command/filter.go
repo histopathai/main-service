@@ -58,10 +58,7 @@ func (c *BaseFilterCommand) ToFilter() (query.Filter, error) {
 		return query.Filter{}, err
 	}
 
-	fieldConstant, ok := c.Validator.GetFieldConstant(c.Field)
-	if !ok {
-		return query.Filter{}, errors.NewNotFoundError("field mapping not found")
-	}
+	fieldConstant, _ := c.Validator.GetFieldConstant(c.Field)
 
 	return query.Filter{
 		Field:    fieldConstant,
