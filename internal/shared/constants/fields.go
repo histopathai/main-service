@@ -21,6 +21,7 @@ const (
 )
 
 const (
+	ImageContentTypeField     = "ContentType"
 	ImageFormatField          = "Format"
 	ImageWidthField           = "Width"
 	ImageHeightField          = "Height"
