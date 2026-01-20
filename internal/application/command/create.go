@@ -161,9 +161,15 @@ func (c *CreateWorkspaceCommand) ToEntity() (*model.Workspace, error) {
 		return nil, errors.NewValidationError("validation error", details)
 	}
 
-	entityInterface, _ := c.CreateEntityCommand.ToEntity()
+	entityInterface, err := c.CreateEntityCommand.ToEntity()
+	if err != nil {
+		return nil, err
+	}
 
-	organType, _ := vobj.NewOrganTypeFromString(c.OrganType)
+	organType, err := vobj.NewOrganTypeFromString(c.OrganType)
+	if err != nil {
+		return nil, err
+	}
 
 	workspaceEntity := model.Workspace{
 		Entity:       *entityInterface,
@@ -229,7 +235,10 @@ func (c *CreatePatientCommand) ToEntity() (*model.Patient, error) {
 		return nil, errors.NewValidationError("validation error", details)
 	}
 
-	baseEntity, _ := c.CreateEntityCommand.ToEntity()
+	baseEntity, err := c.CreateEntityCommand.ToEntity()
+	if err != nil {
+		return nil, err
+	}
 
 	patientEntity := model.Patient{
 		Entity:  *baseEntity,
@@ -304,11 +313,17 @@ func (c *CreateImageCommand) ToEntity() (*model.Image, error) {
 		return nil, errors.NewValidationError("validation error", details)
 	}
 
-	baseEntity, _ := c.CreateEntityCommand.ToEntity()
+	baseEntity, err := c.CreateEntityCommand.ToEntity()
+	if err != nil {
+		return nil, err
+	}
 
 	var status model.ImageStatus
 	if c.Status != nil {
-		status, _ = model.NewImageStatusFromString(*c.Status)
+		status, err = model.NewImageStatusFromString(*c.Status)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		status = model.StatusUploaded
 	}
@@ -385,8 +400,14 @@ func (c *CreateAnnotationCommand) ToEntity() (*model.Annotation, error) {
 		return nil, errors.NewValidationError("validation error", details)
 	}
 
-	baseEntity, _ := c.CreateEntityCommand.ToEntity()
-	tagType, _ := vobj.NewTagTypeFromString(c.TagType)
+	baseEntity, err := c.CreateEntityCommand.ToEntity()
+	if err != nil {
+		return nil, err
+	}
+	tagType, err := vobj.NewTagTypeFromString(c.TagType)
+	if err != nil {
+		return nil, err
+	}
 
 	var points []vobj.Point
 	if !c.IsGlobal {
@@ -470,8 +491,14 @@ func (c *CreateAnnotationTypeCommand) ToEntity() (*model.AnnotationType, error) 
 		return nil, errors.NewValidationError("validation error", details)
 	}
 
-	baseEntity, _ := c.CreateEntityCommand.ToEntity()
-	tagType, _ := vobj.NewTagTypeFromString(c.TagType)
+	baseEntity, err := c.CreateEntityCommand.ToEntity()
+	if err != nil {
+		return nil, err
+	}
+	tagType, err := vobj.NewTagTypeFromString(c.TagType)
+	if err != nil {
+		return nil, err
+	}
 
 	annotationTypeEntity := model.AnnotationType{
 		Entity:     *baseEntity,
