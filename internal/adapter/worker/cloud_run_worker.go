@@ -7,7 +7,7 @@ import (
 
 	run "cloud.google.com/go/run/apiv2"
 	runpb "cloud.google.com/go/run/apiv2/runpb"
-	"github.com/histopathai/main-service/internal/domain/port"
+	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/pkg/config"
 )
 
