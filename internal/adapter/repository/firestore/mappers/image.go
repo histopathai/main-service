@@ -30,6 +30,7 @@ func (im *ImageMapper) ToFirestoreMap(entity *model.Image) map[string]interface{
 	m["origin_path"] = entity.OriginPath
 	m["status"] = entity.Status.String()
 	m["retry_count"] = entity.RetryCount
+	m["ws_id"] = entity.WsID
 	if entity.Width != nil {
 		m["width"] = *entity.Width
 	}
@@ -70,6 +71,7 @@ func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model
 	image.OriginPath = data["origin_path"].(string)
 	image.RetryCount = int(data["retry_count"].(int64))
 	image.Status, err = model.NewImageStatusFromString(data["status"].(string))
+	image.WsID = data["ws_id"].(string)
 	if err != nil {
 		return nil, err
 	}
@@ -182,6 +184,12 @@ func (im *ImageMapper) MapUpdates(updates map[string]interface{}) (map[string]in
 			} else {
 				return nil, errors.NewValidationError("invalid type for last_processed_at field", nil)
 			}
+		case constants.WsIDField:
+			if wsID, ok := v.(string); ok {
+				mappedUpdates["ws_id"] = wsID
+			} else {
+				return nil, errors.NewValidationError("invalid type for ws_id field", nil)
+			}
 		}
 	}
 
@@ -249,6 +257,12 @@ func (im *ImageMapper) MapFilters(filters []query.Filter) ([]query.Filter, error
 		case constants.ImageLastProcessedAtField:
 			firestoreFilters = append(firestoreFilters, query.Filter{
 				Field:    "last_processed_at",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.WsIDField:
+			firestoreFilters = append(firestoreFilters, query.Filter{
+				Field:    "ws_id",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})

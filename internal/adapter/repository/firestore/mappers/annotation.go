@@ -31,6 +31,7 @@ func (am *AnnotationMapper) ToFirestoreMap(entity *model.Annotation) map[string]
 	if entity.Color != nil {
 		m["color"] = *entity.Color
 	}
+	m["ws_id"] = entity.WsID
 
 	return m
 }
@@ -82,6 +83,10 @@ func (am *AnnotationMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*
 		annotation.Color = &color
 	}
 
+	if wsID, ok := data["ws_id"].(string); ok {
+		annotation.WsID = wsID
+	}
+
 	return annotation, nil
 }
 
@@ -129,6 +134,12 @@ func (am *AnnotationMapper) MapUpdates(updates map[string]interface{}) (map[stri
 			} else {
 				return nil, errors.NewValidationError("invalid type for color field", nil)
 			}
+		case constants.WsIDField:
+			if wsID, ok := v.(string); ok {
+				mappedUpdates["ws_id"] = wsID
+			} else {
+				return nil, errors.NewValidationError("invalid type for ws_id field", nil)
+			}
 		}
 	}
 
@@ -164,6 +175,12 @@ func (am *AnnotationMapper) MapFilters(filters []query.Filter) ([]query.Filter, 
 		case constants.TagValueField:
 			mappedFilters = append(mappedFilters, query.Filter{
 				Field:    "value",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+		case constants.WsIDField:
+			mappedFilters = append(mappedFilters, query.Filter{
+				Field:    "ws_id",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
