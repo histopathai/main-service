@@ -2,6 +2,7 @@ package firestore
 
 import (
 	"context"
+	"errors"
 	"reflect"
 	"strings"
 	"time"
@@ -14,6 +15,10 @@ import (
 	"google.golang.org/grpc/status"
 
 	"cloud.google.com/go/firestore"
+)
+
+var (
+	ErrTooManyOperations = errors.New("too many operations for a single transaction")
 )
 
 type IMapper[T port.Entity] interface {
@@ -119,6 +124,26 @@ func (gr *GenericRepositoryImpl[T]) Update(ctx context.Context, id string, updat
 
 	return nil
 }
+func (gr *GenericRepositoryImpl[T]) UpdateMany(ctx context.Context, ids []string, updates map[string]interface{}) error {
+	if len(ids) == 0 {
+		return nil
+	}
+
+	updates, err := gr.mapper.MapUpdates(updates)
+	if err != nil {
+		return err
+	}
+	updates["updated_at"] = time.Now()
+
+	// Check if running in transaction
+	if tx := fromCtx(ctx); tx != nil {
+		// Transaction mode: Use sequential updates (slower but safe)
+		return gr.updateManyInTransaction(ctx, tx, ids, updates)
+	}
+
+	// Non-transaction mode: Use BulkWriter (faster)
+	return gr.updateManyWithBulkWriter(ctx, ids, updates)
+}
 
 func (gr *GenericRepositoryImpl[T]) SoftDelete(ctx context.Context, id string) error {
 	updates := map[string]interface{}{
@@ -141,32 +166,24 @@ func (gr *GenericRepositoryImpl[T]) SoftDelete(ctx context.Context, id string) e
 
 	return nil
 }
-
 func (gr *GenericRepositoryImpl[T]) SoftDeleteMany(ctx context.Context, ids []string) error {
 	if len(ids) == 0 {
 		return nil
 	}
-
-	bulkWriter := gr.client.BulkWriter(ctx)
-	collRef := gr.client.Collection(gr.collection)
 
 	updates := map[string]interface{}{
 		"is_deleted": true,
 		"updated_at": time.Now(),
 	}
 
-	for _, id := range ids {
-		docRef := collRef.Doc(id)
-		_, err := bulkWriter.Set(docRef, updates, firestore.MergeAll)
-		if err != nil {
-			bulkWriter.End()
-			return mapFirestoreError(err)
-		}
+	// Check if running in transaction
+	if tx := fromCtx(ctx); tx != nil {
+		// Transaction mode: Use sequential updates (slower but safe)
+		return gr.updateManyInTransaction(ctx, tx, ids, updates)
 	}
 
-	bulkWriter.End()
-
-	return nil
+	// Non-transaction mode: Use BulkWriter (faster)
+	return gr.softDeleteManyWithBulkWriter(ctx, ids, updates)
 }
 
 func (gr *GenericRepositoryImpl[T]) Transfer(ctx context.Context, id string, newOwnerID string) error {
@@ -194,7 +211,6 @@ func (gr *GenericRepositoryImpl[T]) Transfer(ctx context.Context, id string, new
 
 	return nil
 }
-
 func (gr *GenericRepositoryImpl[T]) TransferMany(ctx context.Context, ids []string, newOwnerID string) error {
 	if len(ids) == 0 {
 		return nil
@@ -204,26 +220,19 @@ func (gr *GenericRepositoryImpl[T]) TransferMany(ctx context.Context, ids []stri
 		return ErrInvalidInput
 	}
 
-	bulkWriter := gr.client.BulkWriter(ctx)
-	collRef := gr.client.Collection(gr.collection)
-
 	updates := map[string]interface{}{
-		"creator_id": newOwnerID,
+		"parent_id":  newOwnerID,
 		"updated_at": time.Now(),
 	}
 
-	for _, id := range ids {
-		docRef := collRef.Doc(id)
-		_, err := bulkWriter.Set(docRef, updates, firestore.MergeAll)
-		if err != nil {
-			bulkWriter.End()
-			return mapFirestoreError(err)
-		}
+	// Check if running in transaction
+	if tx := fromCtx(ctx); tx != nil {
+		//  Transaction mode: Use sequential updates
+		return gr.updateManyInTransaction(ctx, tx, ids, updates)
 	}
 
-	bulkWriter.End()
-
-	return nil
+	// Non-transaction mode: Use BulkWriter (faster)
+	return gr.transferManyWithBulkWriter(ctx, ids, updates)
 }
 
 func (gr *GenericRepositoryImpl[T]) Count(ctx context.Context, filters []query.Filter) (int64, error) {
@@ -375,4 +384,74 @@ func isIndexError(err error) bool {
 	}
 
 	return false
+}
+
+func (gr *GenericRepositoryImpl[T]) updateManyInTransaction(ctx context.Context, tx *firestore.Transaction, ids []string, updates map[string]interface{}) error {
+	const maxOpsPerTx = 500
+
+	if len(ids) > maxOpsPerTx {
+		return ErrTooManyOperations
+	}
+
+	collRef := gr.client.Collection(gr.collection)
+
+	for _, id := range ids {
+		docRef := collRef.Doc(id)
+		err := tx.Set(docRef, updates, firestore.MergeAll)
+		if err != nil {
+			return mapFirestoreError(err)
+		}
+	}
+
+	return nil
+}
+func (gr *GenericRepositoryImpl[T]) updateManyWithBulkWriter(ctx context.Context, ids []string, updates map[string]interface{}) error {
+	bulkWriter := gr.client.BulkWriter(ctx)
+	defer bulkWriter.End()
+
+	collRef := gr.client.Collection(gr.collection)
+
+	for _, id := range ids {
+		docRef := collRef.Doc(id)
+		_, err := bulkWriter.Set(docRef, updates, firestore.MergeAll)
+		if err != nil {
+			return mapFirestoreError(err)
+		}
+	}
+
+	return nil
+}
+
+func (gr *GenericRepositoryImpl[T]) softDeleteManyWithBulkWriter(ctx context.Context, ids []string, updates map[string]interface{}) error {
+	bulkWriter := gr.client.BulkWriter(ctx)
+	defer bulkWriter.End()
+
+	collRef := gr.client.Collection(gr.collection)
+
+	for _, id := range ids {
+		docRef := collRef.Doc(id)
+		_, err := bulkWriter.Set(docRef, updates, firestore.MergeAll)
+		if err != nil {
+			return mapFirestoreError(err)
+		}
+	}
+
+	return nil
+}
+
+func (gr *GenericRepositoryImpl[T]) transferManyWithBulkWriter(ctx context.Context, ids []string, updates map[string]interface{}) error {
+	bulkWriter := gr.client.BulkWriter(ctx)
+	defer bulkWriter.End()
+
+	collRef := gr.client.Collection(gr.collection)
+
+	for _, id := range ids {
+		docRef := collRef.Doc(id)
+		_, err := bulkWriter.Set(docRef, updates, firestore.MergeAll)
+		if err != nil {
+			return mapFirestoreError(err)
+		}
+	}
+
+	return nil
 }
