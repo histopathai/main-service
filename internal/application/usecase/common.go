@@ -10,6 +10,8 @@ import (
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
+const maxOpsPerTx = 1000
+
 func CheckParentExists(ctx context.Context, parent *vobj.ParentRef, uow port.UnitOfWorkFactory) error {
 	if parent == nil || parent.ID == "" {
 		return nil
