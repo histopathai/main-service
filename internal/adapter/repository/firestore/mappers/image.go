@@ -5,6 +5,7 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
@@ -21,16 +22,13 @@ func NewImageMapper() *ImageMapper {
 }
 
 func (im *ImageMapper) ToFirestoreMap(entity *model.Image) map[string]interface{} {
-
 	m := im.EntityMapper.ToFirestoreMap(entity)
 
-	// Image specific fields
-	m["content_type"] = entity.ContentType
-	m["format"] = entity.Format
-	m["origin_path"] = entity.OriginPath
-	m["status"] = entity.Status.String()
-	m["retry_count"] = entity.RetryCount
+	// Basic fields
 	m["ws_id"] = entity.WsID
+	m["format"] = entity.Format
+
+	// Optional basic fields
 	if entity.Width != nil {
 		m["width"] = *entity.Width
 	}
@@ -40,21 +38,77 @@ func (im *ImageMapper) ToFirestoreMap(entity *model.Image) map[string]interface{
 	if entity.Size != nil {
 		m["size"] = *entity.Size
 	}
-	if entity.ProcessedPath != nil {
-		m["processed_path"] = *entity.ProcessedPath
+
+	// Magnification (nested object or null)
+	if entity.Magnification != nil {
+		magMap := make(map[string]interface{})
+		if entity.Magnification.Objective != nil {
+			magMap["objective"] = *entity.Magnification.Objective
+		}
+		if entity.Magnification.NativeLevel != nil {
+			magMap["native_level"] = *entity.Magnification.NativeLevel
+		}
+		if entity.Magnification.ScanMagnification != nil {
+			magMap["scan_magnification"] = *entity.Magnification.ScanMagnification
+		}
+		if len(magMap) > 0 {
+			m["magnification"] = magMap
+		}
 	}
-	if entity.FailureReason != nil {
-		m["failure_reason"] = *entity.FailureReason
+
+	// Origin content
+	if entity.OriginContent != nil {
+		m["origin_content"] = im.contentToMap(entity.OriginContent)
 	}
-	if entity.LastProcessedAt != nil {
-		m["last_processed_at"] = *entity.LastProcessedAt
+
+	// Processed content
+	if entity.ProcessedContent != nil {
+		procMap := make(map[string]interface{})
+		if entity.ProcessedContent.DZI != nil {
+			procMap["dzi"] = im.contentToMap(entity.ProcessedContent.DZI)
+		}
+		if entity.ProcessedContent.Tiles != nil {
+			procMap["tiles"] = im.contentToMap(entity.ProcessedContent.Tiles)
+		}
+		if entity.ProcessedContent.Thumbnail != nil {
+			procMap["thumbnail"] = im.contentToMap(entity.ProcessedContent.Thumbnail)
+		}
+		if entity.ProcessedContent.IndexMap != nil {
+			procMap["index_map"] = im.contentToMap(entity.ProcessedContent.IndexMap)
+		}
+		m["processed_content"] = procMap
 	}
+
+	// Processing info
+	processingMap := make(map[string]interface{})
+	processingMap["status"] = entity.Processing.Status.String()
+	processingMap["version"] = entity.Processing.Version.String()
+	processingMap["retry_count"] = entity.Processing.RetryCount
+	if entity.Processing.FailureReason != nil {
+		processingMap["failure_reason"] = *entity.Processing.FailureReason
+	}
+	if entity.Processing.LastProcessedAt != nil {
+		processingMap["last_processed_at"] = *entity.Processing.LastProcessedAt
+	}
+	m["processing"] = processingMap
 
 	return m
 }
 
-func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Image, error) {
+func (im *ImageMapper) contentToMap(content *vobj.Content) map[string]interface{} {
+	m := map[string]interface{}{
+		"provider":     content.Provider.String(),
+		"path":         content.Path,
+		"content_type": content.ContentType.String(),
+		"size":         content.Size,
+	}
+	if content.Metadata != nil && len(content.Metadata) > 0 {
+		m["metadata"] = content.Metadata
+	}
+	return m
+}
 
+func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Image, error) {
 	entity, err := im.EntityMapper.ParseEntity(doc)
 	if err != nil {
 		return nil, err
@@ -66,16 +120,11 @@ func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model
 
 	data := doc.Data()
 
-	image.ContentType = data["content_type"].(string)
-	image.Format = data["format"].(string)
-	image.OriginPath = data["origin_path"].(string)
-	image.RetryCount = int(data["retry_count"].(int64))
-	image.Status, err = model.NewImageStatusFromString(data["status"].(string))
+	// Basic fields
 	image.WsID = data["ws_id"].(string)
-	if err != nil {
-		return nil, err
-	}
+	image.Format = data["format"].(string)
 
+	// Optional basic fields
 	if v, ok := data["width"].(int64); ok {
 		width := int(v)
 		image.Width = &width
@@ -85,23 +134,142 @@ func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model
 		image.Height = &height
 	}
 	if v, ok := data["size"].(int64); ok {
-		size := int64(v)
-		image.Size = &size
+		image.Size = &v
 	}
 
-	if v, ok := data["processed_path"].(string); ok {
-		image.ProcessedPath = &v
+	// Magnification
+	if magData, ok := data["magnification"].(map[string]interface{}); ok {
+		mag := &vobj.OpticalMagnification{}
+		if v, ok := magData["objective"].(float64); ok {
+			mag.Objective = &v
+		}
+		if v, ok := magData["native_level"].(int64); ok {
+			level := int(v)
+			mag.NativeLevel = &level
+		}
+		if v, ok := magData["scan_magnification"].(float64); ok {
+			mag.ScanMagnification = &v
+		}
+		image.Magnification = mag
 	}
 
-	if v, ok := data["failure_reason"].(string); ok {
-		image.FailureReason = &v
+	// Origin content
+	if contentData, ok := data["origin_content"].(map[string]interface{}); ok {
+		image.OriginContent, err = im.mapToContent(contentData)
+		if err != nil {
+			return nil, errors.NewValidationError("invalid origin_content", map[string]interface{}{
+				"error": err.Error(),
+			})
+		}
 	}
 
-	if v, ok := data["last_processed_at"].(time.Time); ok {
-		image.LastProcessedAt = &v
+	// Processed content
+	if procData, ok := data["processed_content"].(map[string]interface{}); ok {
+		procContent := &model.ProcessedContent{}
+
+		if dziData, ok := procData["dzi"].(map[string]interface{}); ok {
+			procContent.DZI, err = im.mapToContent(dziData)
+			if err != nil {
+				return nil, errors.NewValidationError("invalid dzi content", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}
+
+		if tilesData, ok := procData["tiles"].(map[string]interface{}); ok {
+			procContent.Tiles, err = im.mapToContent(tilesData)
+			if err != nil {
+				return nil, errors.NewValidationError("invalid tiles content", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}
+
+		if thumbData, ok := procData["thumbnail"].(map[string]interface{}); ok {
+			procContent.Thumbnail, err = im.mapToContent(thumbData)
+			if err != nil {
+				return nil, errors.NewValidationError("invalid thumbnail content", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}
+
+		if indexData, ok := procData["index_map"].(map[string]interface{}); ok {
+			procContent.IndexMap, err = im.mapToContent(indexData)
+			if err != nil {
+				return nil, errors.NewValidationError("invalid index_map content", map[string]interface{}{
+					"error": err.Error(),
+				})
+			}
+		}
+
+		image.ProcessedContent = procContent
+	}
+
+	// Processing info
+	if procInfo, ok := data["processing"].(map[string]interface{}); ok {
+		if statusStr, ok := procInfo["status"].(string); ok {
+			image.Processing.Status, err = vobj.NewImageStatusFromString(statusStr)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if versionStr, ok := procInfo["version"].(string); ok {
+			image.Processing.Version = vobj.ProcessingVersion(versionStr)
+		}
+
+		if retryCount, ok := procInfo["retry_count"].(int64); ok {
+			image.Processing.RetryCount = int(retryCount)
+		}
+
+		if failureReason, ok := procInfo["failure_reason"].(string); ok {
+			image.Processing.FailureReason = &failureReason
+		}
+
+		if lastProcessedAt, ok := procInfo["last_processed_at"].(time.Time); ok {
+			image.Processing.LastProcessedAt = &lastProcessedAt
+		}
 	}
 
 	return image, nil
+}
+
+func (im *ImageMapper) mapToContent(data map[string]interface{}) (*vobj.Content, error) {
+	content := &vobj.Content{}
+
+	if provider, ok := data["provider"].(string); ok {
+		content.Provider = vobj.ContentProvider(provider)
+		if !content.Provider.IsValid() {
+			return nil, errors.NewValidationError("invalid content provider: "+provider, nil)
+		}
+	}
+
+	if path, ok := data["path"].(string); ok {
+		content.Path = path
+	}
+
+	if contentType, ok := data["content_type"].(string); ok {
+		content.ContentType = vobj.ContentType(contentType)
+		if !content.ContentType.IsValid() {
+			return nil, errors.NewValidationError("invalid content type: "+contentType, nil)
+		}
+	}
+
+	if size, ok := data["size"].(int64); ok {
+		content.Size = size
+	}
+
+	if metadata, ok := data["metadata"].(map[string]interface{}); ok {
+		content.Metadata = make(map[string]string)
+		for k, v := range metadata {
+			if strVal, ok := v.(string); ok {
+				content.Metadata[k] = strVal
+			}
+		}
+	}
+
+	return content, nil
 }
 
 func (im *ImageMapper) MapUpdates(updates map[string]interface{}) (map[string]interface{}, error) {
@@ -110,7 +278,6 @@ func (im *ImageMapper) MapUpdates(updates map[string]interface{}) (map[string]in
 		return nil, err
 	}
 
-	// Image specific updates
 	for k, v := range updates {
 		switch k {
 		case constants.ImageWidthField:
@@ -140,50 +307,95 @@ func (im *ImageMapper) MapUpdates(updates map[string]interface{}) (map[string]in
 				return nil, errors.NewValidationError("invalid type for size field", nil)
 			}
 
-		case constants.ImageProcessedPathField:
-			if processedPath, ok := v.(*string); ok {
-				mappedUpdates["processed_path"] = *processedPath
-			} else if processedPathStr, ok := v.(string); ok {
-				mappedUpdates["processed_path"] = processedPathStr
+		case constants.ImageMagnificationField:
+			if mag, ok := v.(*vobj.OpticalMagnification); ok && mag != nil {
+				magMap := make(map[string]interface{})
+				if mag.Objective != nil {
+					magMap["objective"] = *mag.Objective
+				}
+				if mag.NativeLevel != nil {
+					magMap["native_level"] = *mag.NativeLevel
+				}
+				if mag.ScanMagnification != nil {
+					magMap["scan_magnification"] = *mag.ScanMagnification
+				}
+				mappedUpdates["magnification"] = magMap
 			} else {
-				return nil, errors.NewValidationError("invalid type for processed_path field", nil)
+				return nil, errors.NewValidationError("invalid type for magnification field", nil)
 			}
 
-		case constants.ImageStatusField:
-			if status, ok := v.(model.ImageStatus); ok {
-				mappedUpdates["status"] = status.String()
+		case constants.ImageOriginContentField:
+			if content, ok := v.(*vobj.Content); ok && content != nil {
+				mappedUpdates["origin_content"] = im.contentToMap(content)
+			} else {
+				return nil, errors.NewValidationError("invalid type for origin_content field", nil)
+			}
+
+		case constants.ImageProcessedContentField:
+			if procContent, ok := v.(*model.ProcessedContent); ok && procContent != nil {
+				procMap := make(map[string]interface{})
+				if procContent.DZI != nil {
+					procMap["dzi"] = im.contentToMap(procContent.DZI)
+				}
+				if procContent.Tiles != nil {
+					procMap["tiles"] = im.contentToMap(procContent.Tiles)
+				}
+				if procContent.Thumbnail != nil {
+					procMap["thumbnail"] = im.contentToMap(procContent.Thumbnail)
+				}
+				if procContent.IndexMap != nil {
+					procMap["index_map"] = im.contentToMap(procContent.IndexMap)
+				}
+				mappedUpdates["processed_content"] = procMap
+			} else {
+				return nil, errors.NewValidationError("invalid type for processed_content field", nil)
+			}
+
+		case constants.ImageProcessingStatusField:
+			if status, ok := v.(vobj.ImageStatus); ok {
+				mappedUpdates["processing.status"] = status.String()
 			} else if statusStr, ok := v.(string); ok {
-				mappedUpdates["status"] = statusStr
+				mappedUpdates["processing.status"] = statusStr
 			} else {
-				return nil, errors.NewValidationError("invalid type for status field", nil)
+				return nil, errors.NewValidationError("invalid type for processing.status field", nil)
 			}
 
-		case constants.ImageFailureReasonField:
-			if failureReason, ok := v.(*string); ok {
-				mappedUpdates["failure_reason"] = *failureReason
-			} else if failureReasonStr, ok := v.(string); ok {
-				mappedUpdates["failure_reason"] = failureReasonStr
+		case constants.ImageProcessingVersionField:
+			if version, ok := v.(vobj.ProcessingVersion); ok {
+				mappedUpdates["processing.version"] = version.String()
+			} else if versionStr, ok := v.(string); ok {
+				mappedUpdates["processing.version"] = versionStr
 			} else {
-				return nil, errors.NewValidationError("invalid type for failure_reason field", nil)
+				return nil, errors.NewValidationError("invalid type for processing.version field", nil)
 			}
 
-		case constants.ImageRetryCountField:
+		case constants.ImageProcessingFailureReasonField:
+			if reason, ok := v.(*string); ok {
+				mappedUpdates["processing.failure_reason"] = *reason
+			} else if reasonStr, ok := v.(string); ok {
+				mappedUpdates["processing.failure_reason"] = reasonStr
+			} else {
+				return nil, errors.NewValidationError("invalid type for processing.failure_reason field", nil)
+			}
+
+		case constants.ImageProcessingRetryCountField:
 			if retryCount, ok := v.(*int); ok {
-				mappedUpdates["retry_count"] = *retryCount
+				mappedUpdates["processing.retry_count"] = *retryCount
 			} else if retryCountInt, ok := v.(int); ok {
-				mappedUpdates["retry_count"] = retryCountInt
+				mappedUpdates["processing.retry_count"] = retryCountInt
 			} else {
-				return nil, errors.NewValidationError("invalid type for retry_count field", nil)
+				return nil, errors.NewValidationError("invalid type for processing.retry_count field", nil)
 			}
 
-		case constants.ImageLastProcessedAtField:
+		case constants.ImageProcessingLastProcessedAtField:
 			if lastProcessedAt, ok := v.(*time.Time); ok {
-				mappedUpdates["last_processed_at"] = *lastProcessedAt
+				mappedUpdates["processing.last_processed_at"] = *lastProcessedAt
 			} else if lastProcessedAtTime, ok := v.(time.Time); ok {
-				mappedUpdates["last_processed_at"] = lastProcessedAtTime
+				mappedUpdates["processing.last_processed_at"] = lastProcessedAtTime
 			} else {
-				return nil, errors.NewValidationError("invalid type for last_processed_at field", nil)
+				return nil, errors.NewValidationError("invalid type for processing.last_processed_at field", nil)
 			}
+
 		case constants.WsIDField:
 			if wsID, ok := v.(string); ok {
 				mappedUpdates["ws_id"] = wsID
@@ -202,12 +414,18 @@ func (im *ImageMapper) MapFilters(filters []query.Filter) ([]query.Filter, error
 		return nil, err
 	}
 
-	// Image specific filters
 	for _, f := range filters {
 		switch f.Field {
-		case constants.ImageStatusField:
+		case constants.ImageProcessingStatusField:
 			firestoreFilters = append(firestoreFilters, query.Filter{
-				Field:    "status",
+				Field:    "processing.status",
+				Operator: f.Operator,
+				Value:    f.Value,
+			})
+
+		case constants.ImageProcessingVersionField:
+			firestoreFilters = append(firestoreFilters, query.Filter{
+				Field:    "processing.version",
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
@@ -240,26 +458,6 @@ func (im *ImageMapper) MapFilters(filters []query.Filter) ([]query.Filter, error
 				Value:    f.Value,
 			})
 
-		case constants.ImageFailureReasonField:
-			firestoreFilters = append(firestoreFilters, query.Filter{
-				Field:    "failure_reason",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-
-		case constants.ImageRetryCountField:
-			firestoreFilters = append(firestoreFilters, query.Filter{
-				Field:    "retry_count",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-
-		case constants.ImageLastProcessedAtField:
-			firestoreFilters = append(firestoreFilters, query.Filter{
-				Field:    "last_processed_at",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
 		case constants.WsIDField:
 			firestoreFilters = append(firestoreFilters, query.Filter{
 				Field:    "ws_id",
@@ -267,7 +465,6 @@ func (im *ImageMapper) MapFilters(filters []query.Filter) ([]query.Filter, error
 				Value:    f.Value,
 			})
 		}
-
 	}
 
 	return firestoreFilters, nil
