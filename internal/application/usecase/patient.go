@@ -175,7 +175,6 @@ func (uc *PatientUseCase) Transfer(ctx context.Context, patientID string, newPar
 		// Transfer images if any exist
 		if len(imageIDs) > 0 {
 			// Check Firestore transaction limit (500 operations)
-			const maxOpsPerTx = 500
 			totalOps := 1 + len(imageIDs) // patient update + image updates
 
 			// Get annotation count to calculate total operations
