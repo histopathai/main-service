@@ -6,6 +6,18 @@ import (
 	"github.com/histopathai/main-service/internal/shared/constants"
 )
 
+// ============================================================================
+// Update Command Interfaces
+// ============================================================================
+type UpdateCommand interface {
+	Validate() (map[string]interface{}, bool)
+	GetID() string
+	GetUpdates() map[string]interface{}
+}
+
+// ===============================================================================
+// Update Entity Command
+// ===============================================================================
 type UpdateEntityCommand struct {
 	ID        string
 	CreatorID *string

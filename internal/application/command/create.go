@@ -6,6 +6,14 @@ import (
 	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
+// ============================================================================
+// Create Command Interfaces
+// ============================================================================
+type CreateCommand interface {
+	Validate() (map[string]interface{}, bool)
+	ToEntity() (any, error)
+}
+
 // =============================================================================
 // Create Entity Command
 // =============================================================================
@@ -243,6 +251,7 @@ func (c *CreatePatientCommand) ToEntity() (*model.Patient, error) {
 
 type CreateImageCommand struct {
 	CreateEntityCommand
+	WsID          *string
 	ContentType   string
 	Format        string
 	OriginPath    string
@@ -303,9 +312,13 @@ func (c *CreateImageCommand) ToEntity() (*model.Image, error) {
 	} else {
 		status = model.StatusUploaded
 	}
-
+	wsID := ""
+	if c.WsID != nil {
+		wsID = *c.WsID
+	}
 	imageEntity := model.Image{
 		Entity:        *baseEntity,
+		WsID:          wsID,
 		ContentType:   c.ContentType,
 		Format:        c.Format,
 		OriginPath:    c.OriginPath,
@@ -330,6 +343,7 @@ type CommandPoint struct {
 
 type CreateAnnotationCommand struct {
 	CreateEntityCommand
+	WsID     *string
 	TagType  string
 	Value    any
 	Color    *string
@@ -381,8 +395,13 @@ func (c *CreateAnnotationCommand) ToEntity() (*model.Annotation, error) {
 			points[i] = vobj.Point{X: p.X, Y: p.Y}
 		}
 	}
+	wsID := ""
+	if c.WsID != nil {
+		wsID = *c.WsID
+	}
 	annotationEntity := model.Annotation{
 		Entity:   *baseEntity,
+		WsID:     wsID,
 		TagType:  tagType,
 		Value:    c.Value,
 		Color:    c.Color,

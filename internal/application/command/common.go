@@ -24,6 +24,7 @@ type SoftDeleteCommands struct {
 	IDs []string
 }
 
-type CountCommand struct {
-	Filters []FilterCommand
+type ReadByParentIDCommand struct {
+	ParentID   string
+	ParentType string
 }
