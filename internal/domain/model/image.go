@@ -1,74 +1,107 @@
 package model
 
 import (
-	"fmt"
-	"time"
-
 	"github.com/histopathai/main-service/internal/domain/vobj"
 )
 
-type ImageStatus string
-
-func (is ImageStatus) String() string {
-	return string(is)
+// ProcessedContent represents the artifacts generated from image processing
+type ProcessedContent struct {
+	DZI       *vobj.Content // image.dzi file
+	Tiles     *vobj.Content // v2: tiles.zip, v1: tiles/ directory
+	Thumbnail *vobj.Content // thumbnail.jpg
+	IndexMap  *vobj.Content // v2 only: indexmap.json (inside zip or separate)
 }
-
-func (is ImageStatus) IsValid() bool {
-	switch is {
-	case StatusUploaded, StatusProcessing, StatusProcessed, StatusFailed, StatusDeleting:
-		return true
-	default:
-		return false
-	}
-}
-
-func NewImageStatusFromString(s string) (ImageStatus, error) {
-	is := ImageStatus(s)
-	if !is.IsValid() {
-		return "", fmt.Errorf("invalid ImageStatus: %s", s)
-	}
-	return is, nil
-}
-
-const (
-	StatusUploaded   ImageStatus = "UPLOADED"
-	StatusProcessing ImageStatus = "PROCESSING"
-	StatusProcessed  ImageStatus = "PROCESSED"
-	StatusFailed     ImageStatus = "FAILED"
-	StatusDeleting   ImageStatus = "DELETING" // Added
-)
 
 type Image struct {
 	vobj.Entity
-	WsID          string
-	ContentType   string
-	Format        string
-	Width         *int
-	Height        *int
-	Size          *int64
-	OriginPath    string
-	ProcessedPath *string
-	Status        ImageStatus
 
-	FailureReason   *string
-	RetryCount      int
-	LastProcessedAt *time.Time
+	WsID string
+
+	// Basic image properties
+	Format string
+	Width  *int
+	Height *int
+	Size   *int64
+
+	// WSI-specific optical information
+	Magnification *vobj.OpticalMagnification
+
+	// Content references
+	OriginContent    *vobj.Content
+	ProcessedContent *ProcessedContent
+
+	// Processing state
+	Processing vobj.ProcessingInfo
 }
 
-func (i *Image) IsRetryable(maxRetries int) bool {
-	// Prevent retry if status is DELETING
-	if i.Status == StatusDeleting {
-		return false
+// Status checks
+func (i *Image) IsProcessed() bool {
+	return i.Processing.Status == vobj.StatusProcessed && i.ProcessedContent != nil
+}
+
+func (i *Image) HasOriginContent() bool {
+	return i.OriginContent != nil
+}
+
+// Upload source detection
+func (i *Image) IsWebUpload() bool {
+	return i.OriginContent != nil && i.OriginContent.Provider.IsCloud()
+}
+
+func (i *Image) IsAdminUpload() bool {
+	return i.OriginContent != nil && i.OriginContent.Provider == vobj.ContentProviderLocal
+}
+
+// Processing version checks
+func (i *Image) GetProcessingVersion() vobj.ProcessingVersion {
+	return i.Processing.Version
+}
+
+func (i *Image) IsV1Processing() bool {
+	return i.Processing.Version == vobj.ProcessingV1
+}
+
+func (i *Image) IsV2Processing() bool {
+	return i.Processing.Version == vobj.ProcessingV2
+}
+
+// Processing content setters
+func (i *Image) SetProcessedContentV1(dziContent, tilesDir, thumbnail *vobj.Content) {
+	i.ProcessedContent = &ProcessedContent{
+		DZI:       dziContent,
+		Tiles:     tilesDir,
+		Thumbnail: thumbnail,
 	}
-	if i.Status == StatusFailed && i.RetryCount < maxRetries {
-		return true
+	i.Processing.MarkAsProcessed(vobj.ProcessingV1)
+}
+
+func (i *Image) SetProcessedContentV2(dziContent, tilesZip, thumbnail, indexMap *vobj.Content) {
+	i.ProcessedContent = &ProcessedContent{
+		DZI:       dziContent,
+		Tiles:     tilesZip,
+		Thumbnail: thumbnail,
+		IndexMap:  indexMap,
 	}
-	return false
+	i.Processing.MarkAsProcessed(vobj.ProcessingV2)
+}
+
+// Processing state management
+func (i *Image) MarkAsProcessing() {
+	i.Processing.Status = vobj.StatusProcessing
+}
+
+func (i *Image) MarkAsFailed(reason string) {
+	i.Processing.MarkAsFailed(reason)
 }
 
 func (i *Image) MarkForRetry() {
-	i.Status = StatusProcessing
-	i.RetryCount++
-	now := time.Now()
-	i.LastProcessedAt = &now
+	i.Processing.MarkForRetry()
+}
+
+func (i *Image) MarkAsDeleting() {
+	i.Processing.Status = vobj.StatusDeleting
+}
+
+func (i *Image) IsRetryable(maxRetries int) bool {
+	return i.Processing.IsRetryable(maxRetries)
 }
