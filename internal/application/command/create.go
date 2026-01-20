@@ -255,99 +255,6 @@ func (c *CreatePatientCommand) ToEntity() (*model.Patient, error) {
 }
 
 // =============================================================================
-// Create Image Command
-// =============================================================================
-
-type CreateImageCommand struct {
-	CreateEntityCommand
-	WsID          *string
-	ContentType   string
-	Format        string
-	OriginPath    string
-	Size          int64
-	Width         *int
-	Height        *int
-	Status        *string
-	ProcessedPath *string
-}
-
-func (c *CreateImageCommand) Validate() (map[string]interface{}, bool) {
-
-	details, ok := c.CreateEntityCommand.Validate()
-	if ok {
-		details = make(map[string]interface{})
-	}
-
-	if c.ContentType == "" {
-		details["content_type"] = "ContentType is required"
-	}
-	if c.Format == "" {
-		details["format"] = "Format is required"
-	}
-	if c.OriginPath == "" {
-		details["origin_path"] = "OriginPath is required"
-	}
-	if c.Size <= 0 {
-		details["size"] = "Size must be a positive integer"
-	}
-
-	if c.Status != nil {
-		status, err := model.NewImageStatusFromString(*c.Status)
-		if err != nil {
-			details["status"] = "Invalid Status value"
-		} else if status == model.StatusProcessed && (c.ProcessedPath == nil || *c.ProcessedPath == "") {
-			details["processed_path"] = "ProcessedPath must be set when status is PROCESSED"
-		}
-	} else {
-		details["status"] = "Status is required"
-	}
-
-	if len(details) > 0 {
-		return details, false
-	}
-	return nil, true
-}
-
-func (c *CreateImageCommand) ToEntity() (*model.Image, error) {
-	if details, ok := c.Validate(); !ok {
-		return nil, errors.NewValidationError("validation error", details)
-	}
-
-	baseEntity, err := c.CreateEntityCommand.ToEntity()
-	if err != nil {
-		return nil, err
-	}
-
-	var status model.ImageStatus
-	if c.Status != nil {
-		status, err = model.NewImageStatusFromString(*c.Status)
-		if err != nil {
-			return nil, err
-		}
-	} else {
-		status = model.StatusUploaded
-	}
-	wsID := ""
-	if c.WsID != nil {
-		wsID = *c.WsID
-	}
-	imageEntity := model.Image{
-		Entity:        *baseEntity,
-		WsID:          wsID,
-		ContentType:   c.ContentType,
-		Format:        c.Format,
-		OriginPath:    c.OriginPath,
-		Size:          &c.Size,
-		Width:         c.Width,
-		Height:        c.Height,
-		Status:        status,
-		ProcessedPath: c.ProcessedPath,
-	}
-
-	return &imageEntity, nil
-}
-
-// =============================================================================
 // Create Annotation Command
 // =============================================================================
 
@@ -512,4 +419,317 @@ func (c *CreateAnnotationTypeCommand) ToEntity() (*model.AnnotationType, error) 
 	}
 
 	return &annotationTypeEntity, nil
+}
+
+// =============================================================================
+// Create Image Command
+// =============================================================================
+type CreateImageCommand struct {
+	CreateEntityCommand
+
+	// Required fields
+	WsID   string
+	Format string
+
+	// Origin content (required)
+	OriginContent struct {
+		Provider    string
+		Path        string
+		ContentType string
+		Size        int64
+		Metadata    map[string]string
+	}
+
+	// Optional basic fields
+	Width  *int
+	Height *int
+
+	// Optional WSI fields
+	Magnification *struct {
+		Objective         *float64
+		NativeLevel       *int
+		ScanMagnification *float64
+	}
+
+	// Optional processed content (usually not provided on create)
+	ProcessedContent *struct {
+		DZI       *ContentData
+		Tiles     *ContentData
+		Thumbnail *ContentData
+		IndexMap  *ContentData
+	}
+
+	// Optional processing info (usually not provided on web uploads)
+	Processing *struct {
+		Status          *string
+		Version         *string
+		FailureReason   *string
+		RetryCount      *int
+		LastProcessedAt *string // ISO 8601 format
+	}
+}
+
+type ContentData struct {
+	Provider    string
+	Path        string
+	ContentType string
+	Size        int64
+	Metadata    map[string]string
+}
+
+func (c *CreateImageCommand) Validate() (map[string]interface{}, bool) {
+	details, ok := c.CreateEntityCommand.Validate()
+	if !ok {
+		// Base entity validation failed, use those details
+		return details, false
+	}
+
+	// Initialize details for this level
+	details = make(map[string]interface{})
+
+	// Required fields
+	if c.WsID == "" {
+		details["ws_id"] = "WsID is required"
+	}
+	if c.Format == "" {
+		details["format"] = "Format is required"
+	}
+
+	// Origin content validation
+	if c.OriginContent.Provider == "" {
+		details["origin_content.provider"] = "Origin content provider is required"
+	} else {
+		provider := vobj.ContentProvider(c.OriginContent.Provider)
+		if !provider.IsValid() {
+			details["origin_content.provider"] = "Invalid origin content provider"
+		}
+	}
+
+	if c.OriginContent.Path == "" {
+		details["origin_content.path"] = "Origin content path is required"
+	}
+
+	if c.OriginContent.ContentType == "" {
+		details["origin_content.content_type"] = "Origin content type is required"
+	} else {
+		contentType := vobj.ContentType(c.OriginContent.ContentType)
+		if !contentType.IsValid() {
+			details["origin_content.content_type"] = "Invalid origin content type"
+		} else if contentType.GetCategory() != "image" {
+			// Ensure origin is an image type
+			details["origin_content.content_type"] = "Origin content must be an image type"
+		}
+	}
+
+	if c.OriginContent.Size <= 0 {
+		details["origin_content.size"] = "Origin content size must be positive"
+	}
+
+	// Optional fields validation
+	if c.Width != nil && *c.Width <= 0 {
+		details["width"] = "Width must be positive if provided"
+	}
+
+	if c.Height != nil && *c.Height <= 0 {
+		details["height"] = "Height must be positive if provided"
+	}
+
+	// Processing validation (if provided)
+	if c.Processing != nil {
+		if c.Processing.Status != nil {
+			if _, err := vobj.NewImageStatusFromString(*c.Processing.Status); err != nil {
+				details["processing.status"] = "Invalid processing status"
+			}
+		}
+
+		if c.Processing.Version != nil {
+			version := vobj.ProcessingVersion(*c.Processing.Version)
+			if !version.IsValid() {
+				details["processing.version"] = "Invalid processing version"
+			}
+		}
+
+		if c.Processing.RetryCount != nil && *c.Processing.RetryCount < 0 {
+			details["processing.retry_count"] = "Retry count cannot be negative"
+		}
+	}
+
+	// Processed content validation (if provided)
+	if c.ProcessedContent != nil {
+		if c.ProcessedContent.DZI != nil {
+			if contentDetails, valid := c.validateContentData(c.ProcessedContent.DZI); !valid {
+				details["processed_content.dzi"] = contentDetails
+			}
+		}
+		if c.ProcessedContent.Tiles != nil {
+			if contentDetails, valid := c.validateContentData(c.ProcessedContent.Tiles); !valid {
+				details["processed_content.tiles"] = contentDetails
+			}
+		}
+		if c.ProcessedContent.Thumbnail != nil {
+			if contentDetails, valid := c.validateContentData(c.ProcessedContent.Thumbnail); !valid {
+				details["processed_content.thumbnail"] = contentDetails
+			}
+		}
+		if c.ProcessedContent.IndexMap != nil {
+			if contentDetails, valid := c.validateContentData(c.ProcessedContent.IndexMap); !valid {
+				details["processed_content.index_map"] = contentDetails
+			}
+		}
+	}
+
+	if len(details) > 0 {
+		return details, false
+	}
+	return nil, true
+}
+
+func (c *CreateImageCommand) validateContentData(data *ContentData) (map[string]interface{}, bool) {
+	details := make(map[string]interface{})
+
+	if data == nil {
+		return nil, true
+	}
+
+	if data.Provider == "" {
+		details["provider"] = "Provider is required"
+	} else {
+		provider := vobj.ContentProvider(data.Provider)
+		if !provider.IsValid() {
+			details["provider"] = "Invalid provider"
+		}
+	}
+
+	if data.Path == "" {
+		details["path"] = "Path is required"
+	}
+
+	if data.ContentType == "" {
+		details["content_type"] = "Content type is required"
+	} else {
+		contentType := vobj.ContentType(data.ContentType)
+		if !contentType.IsValid() {
+			details["content_type"] = "Invalid content type"
+		}
+	}
+
+	if data.Size <= 0 {
+		details["size"] = "Size must be positive"
+	}
+
+	if len(details) > 0 {
+		return details, false
+	}
+	return nil, true
+}
+
+func (c *CreateImageCommand) ToEntity() (*model.Image, error) {
+	if details, ok := c.Validate(); !ok {
+		return nil, errors.NewValidationError("validation error", details)
+	}
+
+	baseEntity, err := c.CreateEntityCommand.ToEntity()
+	if err != nil {
+		return nil, err
+	}
+
+	// Build origin content
+	originContent := &vobj.Content{
+		Provider:    vobj.ContentProvider(c.OriginContent.Provider),
+		Path:        c.OriginContent.Path,
+		ContentType: vobj.ContentType(c.OriginContent.ContentType),
+		Size:        c.OriginContent.Size,
+		Metadata:    c.OriginContent.Metadata,
+	}
+
+	// Build image entity
+	image := &model.Image{
+		Entity:        *baseEntity,
+		WsID:          c.WsID,
+		Format:        c.Format,
+		Width:         c.Width,
+		Height:        c.Height,
+		OriginContent: originContent,
+	}
+
+	// Size is from origin content
+	image.Size = &c.OriginContent.Size
+
+	// Optional magnification
+	if c.Magnification != nil {
+		image.Magnification = &vobj.OpticalMagnification{
+			Objective:         c.Magnification.Objective,
+			NativeLevel:       c.Magnification.NativeLevel,
+			ScanMagnification: c.Magnification.ScanMagnification,
+		}
+	}
+
+	// Optional processed content
+	if c.ProcessedContent != nil {
+		procContent := &model.ProcessedContent{}
+
+		if c.ProcessedContent.DZI != nil {
+			procContent.DZI = c.contentDataToVobj(c.ProcessedContent.DZI)
+		}
+		if c.ProcessedContent.Tiles != nil {
+			procContent.Tiles = c.contentDataToVobj(c.ProcessedContent.Tiles)
+		}
+		if c.ProcessedContent.Thumbnail != nil {
+			procContent.Thumbnail = c.contentDataToVobj(c.ProcessedContent.Thumbnail)
+		}
+		if c.ProcessedContent.IndexMap != nil {
+			procContent.IndexMap = c.contentDataToVobj(c.ProcessedContent.IndexMap)
+		}
+
+		image.ProcessedContent = procContent
+	}
+
+	// Processing info - defaults for web uploads
+	if c.Processing != nil {
+		if c.Processing.Status != nil {
+			image.Processing.Status, err = vobj.NewImageStatusFromString(*c.Processing.Status)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			image.Processing.Status = vobj.StatusPending // Default for web uploads
+		}
+
+		if c.Processing.Version != nil {
+			image.Processing.Version = vobj.ProcessingVersion(*c.Processing.Version)
+		}
+
+		if c.Processing.FailureReason != nil {
+			image.Processing.FailureReason = c.Processing.FailureReason
+		}
+
+		if c.Processing.RetryCount != nil {
+			image.Processing.RetryCount = *c.Processing.RetryCount
+		}
+
+		if c.Processing.LastProcessedAt != nil {
+			// Parse ISO 8601 timestamp if needed
+			// For now just skip it, will be set when processing starts
+		}
+	} else {
+		// Default processing info for web uploads
+		image.Processing.Status = vobj.StatusPending
+		image.Processing.RetryCount = 0
+	}
+
+	return image, nil
+}
+
+func (c *CreateImageCommand) contentDataToVobj(data *ContentData) *vobj.Content {
+	if data == nil {
+		return nil
+	}
+
+	return &vobj.Content{
+		Provider:    vobj.ContentProvider(data.Provider),
+		Path:        data.Path,
+		ContentType: vobj.ContentType(data.ContentType),
+		Size:        data.Size,
+		Metadata:    data.Metadata,
+	}
 }
