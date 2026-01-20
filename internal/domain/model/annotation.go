@@ -6,6 +6,7 @@ import (
 
 type Annotation struct {
 	vobj.Entity
+	WsID     string
 	Polygon  *[]vobj.Point
 	Value    any
 	TagType  vobj.TagType

@@ -40,6 +40,7 @@ const (
 
 type Image struct {
 	vobj.Entity
+	WsID          string
 	ContentType   string
 	Format        string
 	Width         *int
