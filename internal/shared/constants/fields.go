@@ -21,17 +21,22 @@ const (
 )
 
 const (
-	ImageContentTypeField     = "ContentType"
-	ImageFormatField          = "Format"
-	ImageWidthField           = "Width"
-	ImageHeightField          = "Height"
-	ImageSizeField            = "Size"
-	ImageOriginPathField      = "OriginPath"
-	ImageProcessedPathField   = "ProcessedPath"
-	ImageStatusField          = "Status"
-	ImageFailureReasonField   = "FailureReason"
-	ImageRetryCountField      = "RetryCount"
-	ImageLastProcessedAtField = "LastProcessedAt"
+	ImageContentTypeField               = "ContentType"
+	ImageFormatField                    = "Format"
+	ImageWidthField                     = "Width"
+	ImageHeightField                    = "Height"
+	ImageSizeField                      = "Size"
+	ImageOriginPathField                = "OriginPath"
+	ImageProcessedPathField             = "ProcessedPath"
+	ImageProcessingStatusField          = "ProcessingStatus"
+	ImageLastProcessedAtField           = "LastProcessedAt"
+	ImageProcessingVersionField         = "ProcessingVersion"
+	ImageProcessingFailureReasonField   = "ProcessingFailureReason"
+	ImageProcessingRetryCountField      = "ProcessingRetryCount"
+	ImageProcessedContentField          = "ProcessedContent"
+	ImageOriginContentField             = "OriginContent"
+	ImageMagnificationField             = "Magnification"
+	ImageProcessingLastProcessedAtField = "ProcessingLastProcessedAt"
 )
 
 const (
