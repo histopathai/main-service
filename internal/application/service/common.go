@@ -4,7 +4,10 @@ import (
 	"context"
 
 	"github.com/histopathai/main-service/internal/application/command"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
+	"github.com/histopathai/main-service/internal/shared/constants"
+	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
@@ -17,41 +20,88 @@ type Service[T port.Entity] struct {
 func (s *Service[T]) Create(ctx context.Context, cmd command.CreateCommand) (T, error) {
 	// Implement the logic to create an entity based on the command
 
+	// This is a placeholder implementation
 	var entity T
 
-	return entity, nil
+	return entity, errors.NewNotFoundError("not implemented")
 }
 
 func (s *Service[T]) Update(ctx context.Context, cmd command.UpdateCommand) error {
 	// Implement the logic to update an entity based on the command
-	return nil
+
+	return errors.NewNotFoundError("not implemented")
 }
 
-func (s *Service[T]) Read(ctx context.Context, cmd command.ReadCommand) (T, error) {
+func (s *Service[T]) Get(ctx context.Context, cmd command.ReadCommand) (T, error) {
 	return s.repo.Read(ctx, cmd.ID)
 }
 
 func (s *Service[T]) Delete(ctx context.Context, cmd command.DeleteCommand) error {
-	// Implement the logic to delete an entity based on the command
-	return nil
+	id := cmd.ID
+	return s.repo.SoftDelete(ctx, id)
 }
 
 func (s *Service[T]) DeleteMany(ctx context.Context, cmd command.DeleteCommands) error {
-	// Implement the logic to delete multiple entities based on the command
-	return nil
+	ids := cmd.IDs
+	return s.repo.SoftDeleteMany(ctx, ids)
 }
 
-func (s *Service[T]) List(ctx context.Context, cmd command.ListCommand) ([]query.Result[T], error) {
-	// Implement the logic to list entities based on the command
-	return nil, nil
+func (s *Service[T]) List(ctx context.Context, cmd command.ListCommand) (*query.Result[T], error) {
+	filters := cmd.ToQueryFilters(false)
+
+	if filters == nil {
+		filters = []query.Filter{}
+	}
+
+	pagination := cmd.ToPagination()
+
+	return s.repo.FindByFilters(ctx, filters, pagination)
 }
 
 func (s *Service[T]) Count(ctx context.Context, cmd command.CountCommand) (int64, error) {
-	// Implement the logic to count entities based on the command
-	return 0, nil
+
+	filters := cmd.ToQueryFilters(false)
+
+	if filters == nil {
+		filters = []query.Filter{}
+	}
+
+	return s.repo.Count(ctx, filters)
 }
 
-func (s *Service[T]) ReadByParentID(ctx context.Context, cmd command.ListCommand) ([]query.Result[T], error) {
-	// Implement the logic to read entities by parent ID based on the command
-	return nil, nil
+func (s *Service[T]) GetByParentID(ctx context.Context, cmd command.ReadByParentIDCommand) (*query.Result[T], error) {
+	id := cmd.ParentID
+	parentTypeStr := cmd.ParentType
+
+	if id == "" || parentTypeStr == "" {
+		return nil, errors.NewValidationError("parent ID and parent type must be provided", nil)
+	}
+
+	parentType, err := vobj.NewParentTypeFromString(parentTypeStr)
+
+	if err != nil {
+		return nil, errors.NewValidationError("invalid parent type", map[string]interface{}{
+			"parent_type": parentTypeStr,
+		})
+	}
+
+	if parentType == vobj.ParentTypeNone {
+		return nil, errors.NewValidationError("parent type cannot be 'none'", map[string]interface{}{
+			"parent_type": parentTypeStr,
+		})
+	}
+	filters := []query.Filter{
+		{
+			Field:    constants.ParentIDField,
+			Operator: query.OpEqual,
+			Value:    id,
+		},
+		{
+			Field:    "parent.type",
+			Operator: query.OpEqual,
+			Value:    parentType,
+		},
+	}
+
+	return s.repo.FindByFilters(ctx, filters, nil)
 }
