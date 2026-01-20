@@ -58,4 +58,5 @@ const (
 	UpdatedAtField  = "UpdatedAt"
 	EntityTypeField = "EntityType"
 	DeletedField    = "Deleted"
+	WsIDField       = "WsID"
 )
