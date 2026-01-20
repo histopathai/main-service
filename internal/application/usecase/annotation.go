@@ -88,6 +88,16 @@ func (uc *AnnotationUseCase) Create(ctx context.Context, entity *model.Annotatio
 			return err
 		}
 
+		if entity.WsID == "" {
+			// Fetch parent image to get workspace ID
+			imageRepo := uc.uow.GetImageRepo()
+			parentImage, err := imageRepo.Read(txCtx, entity.Parent.ID)
+			if err != nil {
+				return errors.NewInternalError("failed to read parent image", err)
+			}
+			entity.WsID = parentImage.WsID
+		}
+
 		// Create annotation
 		created, err := uc.repo.Create(txCtx, entity)
 		if err != nil {

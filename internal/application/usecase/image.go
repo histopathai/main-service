@@ -43,7 +43,14 @@ func (uc *ImageUseCase) Create(ctx context.Context, entity *model.Image) (*model
 				"expected":    vobj.ParentTypePatient,
 			})
 		}
-
+		if entity.WsID == "" {
+			parentRepo := uc.uow.GetPatientRepo()
+			parentPatient, err := parentRepo.Read(txCtx, entity.Parent.ID)
+			if err != nil {
+				return errors.NewInternalError("failed to read parent patient", err)
+			}
+			entity.WsID = parentPatient.Parent.ID
+		}
 		// Create image
 		created, err := uc.repo.Create(txCtx, entity)
 		if err != nil {
