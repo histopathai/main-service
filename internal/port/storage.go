@@ -3,11 +3,13 @@ package port
 import (
 	"context"
 	"time"
-
-	"github.com/histopathai/main-service/internal/domain/model"
 )
 
 type SignedURLMethod string
+
+func (s SignedURLMethod) String() string {
+	return string(s)
+}
 
 const (
 	MethodGet    SignedURLMethod = "GET"
@@ -15,28 +17,35 @@ const (
 	MethodDelete SignedURLMethod = "DELETE"
 )
 
-type SignedURLPayload struct {
-	URL     string
-	Headers map[string]string
+type StoragePayload struct {
+	URL       string            `json:"url"`
+	Method    SignedURLMethod   `json:"method"`
+	ExpiresAt time.Time         `json:"expires_at"`
+	Headers   map[string]string `json:"headers,omitempty"`
 }
 
-type ObjectStorage interface {
-	GenerateSignedURL(ctx context.Context, bucketName string, method SignedURLMethod,
-		image *model.Image, contentType string, expiration time.Duration) (*SignedURLPayload, error)
-	GetObjectMetadata(ctx context.Context, bucketName string, objectKey string) (*ObjectMetadata, error)
-	ObjectExists(ctx context.Context, bucketName string, objectKey string) (bool, error)
-	ListObjects(ctx context.Context, bucketName string, prefix string) ([]string, error)
+type StorageProvider string
 
-	DeleteObject(ctx context.Context, bucketName string, objectKey string) error
-	DeleteObjects(ctx context.Context, bucketName string, objectKeys []string) error
-	DeleteByPrefix(ctx context.Context, bucketName string, prefix string) error
+const (
+	ProviderS3    StorageProvider = "S3"
+	ProviderGCS   StorageProvider = "GCS"
+	ProviderAzure StorageProvider = "AZURE"
+	ProviderMinIO StorageProvider = "MINIO"
+)
+
+type Storage interface {
+	Provider() StorageProvider
+
+	Exists(ctx context.Context, path string) (bool, error)
+
+	GetAttributes(ctx context.Context, path string) (*FileAttributes, error)
+
+	// metadata parametresi eklendi
+	GenerateSignedURL(ctx context.Context, path string, method SignedURLMethod, contentType string, metadata map[string]string, expiry time.Duration) (*StoragePayload, error)
 }
 
-type ObjectMetadata struct {
-	Name        string
+type FileAttributes struct {
 	Size        int64
 	ContentType string
-	CreatedAt   *time.Time
-	UpdatedAt   *time.Time
-	MetaData    map[string]string
+	UpdatedAt   time.Time
 }
