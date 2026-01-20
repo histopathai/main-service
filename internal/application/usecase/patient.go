@@ -8,6 +8,7 @@ import (
 	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
+	"github.com/histopathai/main-service/internal/shared/query"
 )
 
 type PatientUseCase struct {
@@ -122,29 +123,32 @@ func (uc *PatientUseCase) Transfer(ctx context.Context, patientID string, newPar
 			return errors.NewValidationError("new parent workspace has no annotation types defined", map[string]interface{}{
 				"parent_id": newParent.ID,
 			})
-		} else {
-			// Check Old parent's annotation types are subset of new parent's annotation types
-			oldParentWorkspace, err := uc.uow.GetWorkspaceRepo().Read(txCtx, currentPatient.Parent.ID)
-			if err != nil {
-				return errors.NewInternalError("failed to read old parent workspace", err)
-			}
+		}
 
-			oldAnnotationTypeSet := make(map[string]struct{})
-			for _, at := range oldParentWorkspace.AnnotationTypes {
-				oldAnnotationTypeSet[at] = struct{}{}
-			}
+		// Check Old parent's annotation types are subset of new parent's annotation types
+		oldParentWorkspace, err := uc.uow.GetWorkspaceRepo().Read(txCtx, currentPatient.Parent.ID)
+		if err != nil {
+			return errors.NewInternalError("failed to read old parent workspace", err)
+		}
 
-			for _, at := range oldParentWorkspace.AnnotationTypes {
-				if _, exists := oldAnnotationTypeSet[at]; !exists {
-					return errors.NewValidationError("new parent workspace does not contain all annotation types of old parent", map[string]interface{}{
-						"old_parent_id": currentPatient.Parent.ID,
-						"new_parent_id": newParent.ID,
-						"missing_type":  at,
-					})
-				}
+		// NEW workspace annotation types set
+		newAnnotationTypeSet := make(map[string]struct{})
+		for _, at := range newParentWorkspace.AnnotationTypes {
+			newAnnotationTypeSet[at] = struct{}{}
+		}
+
+		// Check each OLD annotation type exists in NEW workspace
+		for _, oldType := range oldParentWorkspace.AnnotationTypes {
+			if _, exists := newAnnotationTypeSet[oldType]; !exists {
+				return errors.NewValidationError("new parent workspace does not contain all annotation types of old parent", map[string]interface{}{
+					"old_parent_id": currentPatient.Parent.ID,
+					"new_parent_id": newParent.ID,
+					"missing_type":  oldType,
+				})
 			}
 		}
 
+		// Check name uniqueness in new parent
 		isUnique, err := CheckNameUniqueUnderParent(txCtx, uc.repo, currentPatient.Name, newParent.ID)
 		if err != nil {
 			return errors.NewInternalError("failed to check name uniqueness", err)
@@ -156,13 +160,169 @@ func (uc *PatientUseCase) Transfer(ctx context.Context, patientID string, newPar
 			})
 		}
 
+		// Transfer patient first (parent entity)
 		err = uc.repo.Transfer(txCtx, patientID, newParent.ID)
 		if err != nil {
 			return errors.NewInternalError("failed to transfer patient", err)
+		}
+
+		// Get all image IDs under this patient
+		imageIDs, err := uc.getImageIDsUnderPatient(txCtx, patientID, currentPatient.Parent.ID)
+		if err != nil {
+			return err
+		}
+
+		// Transfer images if any exist
+		if len(imageIDs) > 0 {
+			// Check Firestore transaction limit (500 operations)
+			const maxOpsPerTx = 500
+			totalOps := 1 + len(imageIDs) // patient update + image updates
+
+			// Get annotation count to calculate total operations
+			annotationIDs, err := uc.getAnnotationIDsUnderImages(txCtx, imageIDs, currentPatient.Parent.ID)
+			if err != nil {
+				return err
+			}
+			totalOps += len(annotationIDs)
+
+			if totalOps > maxOpsPerTx {
+				return errors.NewValidationError("transfer operation exceeds transaction limit", map[string]interface{}{
+					"image_count":      len(imageIDs),
+					"annotation_count": len(annotationIDs),
+					"total_operations": totalOps,
+					"limit":            maxOpsPerTx,
+					"message":          "Patient has too many images/annotations for atomic transfer. Please contact support.",
+				})
+			}
+
+			// Transfer images
+			imageRepo := uc.uow.GetImageRepo()
+			err = imageRepo.UpdateMany(txCtx, imageIDs, map[string]interface{}{
+				constants.WsIDField: newParent.ID,
+			})
+			if err != nil {
+				return errors.NewInternalError("failed to transfer images to new workspace", err)
+			}
+
+			// Transfer annotations if any exist
+			if len(annotationIDs) > 0 {
+				annotationRepo := uc.uow.GetAnnotationRepo()
+				err = annotationRepo.UpdateMany(txCtx, annotationIDs, map[string]interface{}{
+					constants.WsIDField: newParent.ID,
+				})
+				if err != nil {
+					return errors.NewInternalError("failed to transfer annotations to new workspace", err)
+				}
+			}
 		}
 
 		return nil
 	})
 
 	return err
+}
+
+func (uc *PatientUseCase) getImageIDsUnderPatient(ctx context.Context, patientID string, oldWsID string) ([]string, error) {
+	imageRepo := uc.uow.GetImageRepo()
+
+	filters := []query.Filter{
+		{
+			Field:    constants.ParentIDField,
+			Operator: query.OpEqual,
+			Value:    patientID,
+		},
+		{
+			Field:    constants.WsIDField,
+			Operator: query.OpEqual,
+			Value:    oldWsID,
+		},
+		{
+			Field:    constants.DeletedField,
+			Operator: query.OpEqual,
+			Value:    false,
+		},
+	}
+
+	const limit = 1000
+	offset := 0
+	var allImageIDs []string
+
+	for {
+		pagination := &query.Pagination{
+			Limit:  limit,
+			Offset: offset,
+		}
+
+		result, err := imageRepo.FindByFilters(ctx, filters, pagination)
+		if err != nil {
+			return nil, errors.NewInternalError("failed to fetch images", err)
+		}
+
+		for _, img := range result.Data {
+			allImageIDs = append(allImageIDs, img.GetID())
+		}
+
+		if !result.HasMore {
+			break
+		}
+
+		offset += limit
+	}
+
+	return allImageIDs, nil
+}
+
+func (uc *PatientUseCase) getAnnotationIDsUnderImages(ctx context.Context, imageIDs []string, oldWsID string) ([]string, error) {
+	if len(imageIDs) == 0 {
+		return []string{}, nil
+	}
+
+	annotationRepo := uc.uow.GetAnnotationRepo()
+
+	// Use OpIn to fetch all annotations for all images in a single query batch
+	filters := []query.Filter{
+		{
+			Field:    constants.ParentIDField,
+			Operator: query.OpIn,
+			Value:    imageIDs,
+		},
+		{
+			Field:    constants.WsIDField,
+			Operator: query.OpEqual,
+			Value:    oldWsID,
+		},
+		{
+			Field:    constants.DeletedField,
+			Operator: query.OpEqual,
+			Value:    false,
+		},
+	}
+
+	const limit = 1000
+	offset := 0
+	var allAnnotationIDs []string
+
+	for {
+		pagination := &query.Pagination{
+			Limit:  limit,
+			Offset: offset,
+		}
+
+		result, err := annotationRepo.FindByFilters(ctx, filters, pagination)
+		if err != nil {
+			return nil, errors.NewInternalError("failed to fetch annotations", err)
+		}
+
+		for _, ann := range result.Data {
+			allAnnotationIDs = append(allAnnotationIDs, ann.GetID())
+		}
+
+		if !result.HasMore {
+			break
+		}
+
+		offset += limit
+	}
+
+	return allAnnotationIDs, nil
 }

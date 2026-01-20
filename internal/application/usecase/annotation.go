@@ -29,12 +29,20 @@ func (uc *AnnotationUseCase) Create(ctx context.Context, entity *model.Annotatio
 	var createdAnnotation *model.Annotation
 
 	err := uc.uow.WithTx(ctx, func(txCtx context.Context, repos map[vobj.EntityType]any) error {
-		// 1. Check parent exists
+		// 1. Check parent exists (must be Image)
 		if err := CheckParentExists(txCtx, &entity.Parent, uc.uow); err != nil {
 			return errors.NewValidationError("parent image not found", map[string]interface{}{
 				"parent_id":   entity.GetParent().ID,
 				"parent_type": entity.GetParent().Type,
 				"error":       err.Error(),
+			})
+		}
+
+		// 2. Validate parent type is Image
+		if entity.Parent.Type != vobj.ParentTypeImage {
+			return errors.NewValidationError("annotation parent must be an image", map[string]interface{}{
+				"parent_type": entity.Parent.Type,
+				"expected":    vobj.ParentTypeImage,
 			})
 		}
 
@@ -98,17 +106,24 @@ func (uc *AnnotationUseCase) Create(ctx context.Context, entity *model.Annotatio
 }
 
 func (uc *AnnotationUseCase) Update(ctx context.Context, annotationID string, updates map[string]interface{}) error {
-	err := uc.uow.WithTx(ctx, func(txCtx context.Context, repos map[vobj.EntityType]any) error {
+	// Annotation name cannot be updated (it references annotation type)
+	if _, ok := updates[constants.NameField]; ok {
+		return errors.NewValidationError("annotation name cannot be updated", map[string]interface{}{
+			"field":   "name",
+			"message": "name field references annotation type and is immutable",
+		})
+	}
 
-		//Read current annotation
+	err := uc.uow.WithTx(ctx, func(txCtx context.Context, repos map[vobj.EntityType]any) error {
+		// Read current annotation
 		currentAnnotation, err := uc.repo.Read(txCtx, annotationID)
 		if err != nil {
 			return errors.NewInternalError("failed to read annotation", err)
 		}
 
 		// If value is being updated, validate it
-		if value, ok := updates["tag_value"]; ok {
-			// Find current annotation type
+		if value, ok := updates[constants.TagValueField]; ok {
+			// Find annotation type
 			annotationTypeRepo := uc.uow.GetAnnotationTypeRepo()
 
 			annotationTypeFilters := []query.Filter{
@@ -143,7 +158,7 @@ func (uc *AnnotationUseCase) Update(ctx context.Context, annotationID string, up
 			}
 		}
 
-		// Polygon can be updated (free, no validation)
+		// Polygon can be updated (free, no validation beyond basic structure)
 		// Color can be updated (free, no validation)
 
 		// Perform update
