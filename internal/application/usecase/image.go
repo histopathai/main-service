@@ -43,6 +43,8 @@ func (uc *ImageUseCase) Create(ctx context.Context, entity *model.Image) (*model
 				"expected":    vobj.ParentTypePatient,
 			})
 		}
+
+		// Get workspace ID from parent patient if not set
 		if entity.WsID == "" {
 			parentRepo := uc.uow.GetPatientRepo()
 			parentPatient, err := parentRepo.Read(txCtx, entity.Parent.ID)
@@ -51,6 +53,18 @@ func (uc *ImageUseCase) Create(ctx context.Context, entity *model.Image) (*model
 			}
 			entity.WsID = parentPatient.Parent.ID
 		}
+
+		// Validate origin content
+		if entity.OriginContent == nil {
+			return errors.NewValidationError("origin content is required", nil)
+		}
+
+		// Ensure processing status is set
+		if entity.Processing.Status == "" {
+			// Default to PENDING for web uploads
+			entity.Processing.Status = vobj.StatusPending
+		}
+
 		// Create image
 		created, err := uc.repo.Create(txCtx, entity)
 		if err != nil {
@@ -76,9 +90,9 @@ func (uc *ImageUseCase) Update(ctx context.Context, imageID string, updates map[
 			return errors.NewInternalError("failed to read image", err)
 		}
 
-		// Validate status transitions if status is being updated
-		if status, ok := updates[constants.ImageStatusField]; ok {
-			newStatus, err := model.NewImageStatusFromString(status.(string))
+		// Validate processing status transitions if status is being updated
+		if status, ok := updates[constants.ImageProcessingStatusField]; ok {
+			newStatus, err := vobj.NewImageStatusFromString(status.(string))
 			if err != nil {
 				return errors.NewValidationError("invalid status value", map[string]interface{}{
 					"status": status,
@@ -86,17 +100,34 @@ func (uc *ImageUseCase) Update(ctx context.Context, imageID string, updates map[
 			}
 
 			// Validate status transition
-			if err := uc.validateStatusTransition(currentImage.Status, newStatus); err != nil {
+			if err := uc.validateStatusTransition(currentImage.Processing.Status, newStatus); err != nil {
 				return err
 			}
 
-			// If transitioning to PROCESSED, ProcessedPath is required
-			if newStatus == model.StatusProcessed {
-				if processedPath, ok := updates[constants.ImageProcessedPathField]; !ok || processedPath == nil || processedPath.(string) == "" {
-					return errors.NewValidationError("processed_path is required when status is PROCESSED", map[string]interface{}{
+			// If transitioning to PROCESSED, processed content is required
+			if newStatus == vobj.StatusProcessed {
+				// Check if processed content is being set in this update
+				if processedContent, ok := updates[constants.ImageProcessedContentField]; ok {
+					if processedContent == nil {
+						return errors.NewValidationError("processed content cannot be nil when status is PROCESSED", nil)
+					}
+				} else if currentImage.ProcessedContent == nil {
+					// Neither in update nor in current state
+					return errors.NewValidationError("processed content is required when status is PROCESSED", map[string]interface{}{
 						"status": newStatus,
 					})
 				}
+			}
+		}
+
+		// Validate processing version if being updated
+		if version, ok := updates[constants.ImageProcessingVersionField]; ok {
+			versionStr := version.(string)
+			processingVersion := vobj.ProcessingVersion(versionStr)
+			if !processingVersion.IsValid() {
+				return errors.NewValidationError("invalid processing version", map[string]interface{}{
+					"version": versionStr,
+				})
 			}
 		}
 
@@ -149,7 +180,7 @@ func (uc *ImageUseCase) Transfer(ctx context.Context, imageID string, newParent 
 		}
 
 		// Get annotation IDs under this image
-		annotationIDs, err := uc.getAnnotationIDsUnderImage(txCtx, imageID, currentImage.Parent.ID)
+		annotationIDs, err := uc.getAnnotationIDsUnderImage(txCtx, imageID, currentImage.WsID)
 		if err != nil {
 			return err
 		}
@@ -157,7 +188,6 @@ func (uc *ImageUseCase) Transfer(ctx context.Context, imageID string, newParent 
 		// Transfer annotations to new workspace if any exist
 		if len(annotationIDs) > 0 {
 			// Check transaction limit
-			const maxOpsPerTx = 500
 			totalOps := 1 + len(annotationIDs) // image transfer + annotation transfers
 
 			if totalOps > maxOpsPerTx {
@@ -185,26 +215,27 @@ func (uc *ImageUseCase) Transfer(ctx context.Context, imageID string, newParent 
 }
 
 // validateStatusTransition validates if status transition is allowed
-func (uc *ImageUseCase) validateStatusTransition(currentStatus, newStatus model.ImageStatus) error {
+func (uc *ImageUseCase) validateStatusTransition(currentStatus, newStatus vobj.ImageStatus) error {
 	// Define allowed transitions
-	allowedTransitions := map[model.ImageStatus][]model.ImageStatus{
-		model.StatusUploaded: {
-			model.StatusProcessing,
-			model.StatusDeleting,
+	allowedTransitions := map[vobj.ImageStatus][]vobj.ImageStatus{
+		vobj.StatusPending: {
+			vobj.StatusProcessing,
+			vobj.StatusDeleting,
 		},
-		model.StatusProcessing: {
-			model.StatusProcessed,
-			model.StatusFailed,
-			model.StatusDeleting,
+		vobj.StatusProcessing: {
+			vobj.StatusProcessed,
+			vobj.StatusFailed,
+			vobj.StatusDeleting,
 		},
-		model.StatusProcessed: {
-			model.StatusDeleting,
+		vobj.StatusProcessed: {
+			vobj.StatusDeleting,
+			vobj.StatusProcessing, // Re-processing allowed (e.g., V1 -> V2 migration)
 		},
-		model.StatusFailed: {
-			model.StatusProcessing, // Retry
-			model.StatusDeleting,
+		vobj.StatusFailed: {
+			vobj.StatusProcessing, // Retry
+			vobj.StatusDeleting,
 		},
-		model.StatusDeleting: {
+		vobj.StatusDeleting: {
 			// No transitions allowed from DELETING
 		},
 	}
@@ -277,4 +308,81 @@ func (uc *ImageUseCase) getAnnotationIDsUnderImage(ctx context.Context, imageID 
 	}
 
 	return allAnnotationIDs, nil
+}
+
+// RetryProcessing retries a failed image processing
+func (uc *ImageUseCase) RetryProcessing(ctx context.Context, imageID string, maxRetries int) error {
+	err := uc.uow.WithTx(ctx, func(txCtx context.Context, repos map[vobj.EntityType]any) error {
+		// Read current image
+		currentImage, err := uc.repo.Read(txCtx, imageID)
+		if err != nil {
+			return errors.NewInternalError("failed to read image", err)
+		}
+
+		// Check if retryable
+		if !currentImage.IsRetryable(maxRetries) {
+			return errors.NewValidationError("image is not retryable", map[string]interface{}{
+				"status":      currentImage.Processing.Status,
+				"retry_count": currentImage.Processing.RetryCount,
+				"max_retries": maxRetries,
+			})
+		}
+
+		// Mark for retry
+		currentImage.MarkForRetry()
+
+		// Update in repository
+		updates := map[string]interface{}{
+			constants.ImageProcessingStatusField:          currentImage.Processing.Status.String(),
+			constants.ImageProcessingRetryCountField:      currentImage.Processing.RetryCount,
+			constants.ImageProcessingLastProcessedAtField: currentImage.Processing.LastProcessedAt,
+		}
+
+		err = uc.repo.Update(txCtx, imageID, updates)
+		if err != nil {
+			return errors.NewInternalError("failed to update image for retry", err)
+		}
+
+		return nil
+	})
+
+	return err
+}
+
+// MigrateToV2 migrates an image from V1 to V2 processing
+func (uc *ImageUseCase) MigrateToV2(ctx context.Context, imageID string) error {
+	err := uc.uow.WithTx(ctx, func(txCtx context.Context, repos map[vobj.EntityType]any) error {
+		// Read current image
+		currentImage, err := uc.repo.Read(txCtx, imageID)
+		if err != nil {
+			return errors.NewInternalError("failed to read image", err)
+		}
+
+		// Validate current state
+		if !currentImage.IsProcessed() {
+			return errors.NewValidationError("image must be processed before migration", map[string]interface{}{
+				"status": currentImage.Processing.Status,
+			})
+		}
+
+		if currentImage.IsV2Processing() {
+			return errors.NewValidationError("image is already V2", map[string]interface{}{
+				"version": currentImage.Processing.Version,
+			})
+		}
+
+		// Mark as processing for V2 migration
+		updates := map[string]interface{}{
+			constants.ImageProcessingStatusField: vobj.StatusProcessing.String(),
+		}
+
+		err = uc.repo.Update(txCtx, imageID, updates)
+		if err != nil {
+			return errors.NewInternalError("failed to mark image for V2 migration", err)
+		}
+
+		return nil
+	})
+
+	return err
 }
