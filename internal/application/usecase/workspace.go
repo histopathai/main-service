@@ -27,6 +27,8 @@ func (uc *WorkspaceUseCase) Create(ctx context.Context, entity *model.Workspace)
 	var createdWorkspace *model.Workspace
 
 	err := uc.uow.WithTx(ctx, func(txCtx context.Context, repos map[vobj.EntityType]any) error {
+
+		// Check name uniqueness
 		isUnique, err := CheckNameUniqueInCollection(txCtx, uc.repo, entity.Name)
 		if err != nil {
 			return errors.NewInternalError("failed to check name uniqueness", err)
