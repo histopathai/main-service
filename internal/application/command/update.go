@@ -353,6 +353,13 @@ func (c *UpdateAnnotationTypeCommand) GetUpdates() map[string]interface{} {
 // Update Image Command
 //===============================================================================
 
+type ContentData struct {
+	Provider    string
+	Path        string
+	ContentType string
+	Size        int64
+}
+
 type UpdateImageCommand struct {
 	UpdateEntityCommand
 
@@ -614,6 +621,5 @@ func (c *UpdateImageCommand) contentDataToVobj(data *ContentData) *vobj.Content 
 		Path:        data.Path,
 		ContentType: vobj.ContentType(data.ContentType),
 		Size:        data.Size,
-		Metadata:    data.Metadata,
 	}
 }
