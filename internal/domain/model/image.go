@@ -21,7 +21,6 @@ type Image struct {
 	Format string
 	Width  *int
 	Height *int
-	Size   *int64
 
 	// WSI-specific optical information
 	Magnification *vobj.OpticalMagnification
@@ -31,7 +30,7 @@ type Image struct {
 	ProcessedContent *ProcessedContent
 
 	// Processing state
-	Processing vobj.ProcessingInfo
+	Processing *vobj.ProcessingInfo
 }
 
 // Status checks
