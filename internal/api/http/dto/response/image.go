@@ -30,11 +30,11 @@ type ProcessedContentResponse struct {
 }
 
 type ProcessingInfoResponse struct {
-	Status          string     `json:"status"`
-	Version         string     `json:"version,omitempty"`
-	FailureReason   *string    `json:"failure_reason,omitempty"`
-	RetryCount      int        `json:"retry_count"`
-	LastProcessedAt *time.Time `json:"last_processed_at,omitempty"`
+	Status          string    `json:"status"`
+	Version         string    `json:"version,omitempty"`
+	FailureReason   *string   `json:"failure_reason,omitempty"`
+	RetryCount      int       `json:"retry_count"`
+	LastProcessedAt time.Time `json:"last_processed_at,omitempty"`
 }
 
 type ImageResponse struct {
@@ -49,7 +49,7 @@ type ImageResponse struct {
 	Format string `json:"format"`
 	Width  *int   `json:"width,omitempty"`
 	Height *int   `json:"height,omitempty"`
-	Size   *int64 `json:"size,omitempty"`
+	Size   int64  `json:"size,omitempty"`
 
 	// WSI magnification
 	Magnification *MagnificationResponse `json:"magnification,omitempty"`
@@ -75,7 +75,6 @@ func newContentResponse(content *vobj.Content) *ContentResponse {
 		Path:        content.Path,
 		ContentType: content.ContentType.String(),
 		Size:        content.Size,
-		Metadata:    content.Metadata,
 	}
 }
 
@@ -128,11 +127,11 @@ func NewImageResponse(img *model.Image) *ImageResponse {
 		Format:           img.Format,
 		Width:            img.Width,
 		Height:           img.Height,
-		Size:             img.Size,
+		Size:             img.OriginContent.Size,
 		Magnification:    newMagnificationResponse(img.Magnification),
 		OriginContent:    newContentResponse(img.OriginContent),
 		ProcessedContent: newProcessedContentResponse(img.ProcessedContent),
-		Processing:       newProcessingInfoResponse(img.Processing),
+		Processing:       newProcessingInfoResponse(*img.Processing),
 		CreatedAt:        img.CreatedAt,
 		UpdatedAt:        img.UpdatedAt,
 	}
