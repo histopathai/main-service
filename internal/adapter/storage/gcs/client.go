@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/storage"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
 )
 
@@ -27,8 +28,8 @@ func NewGCSAdapter(client *storage.Client, bucketName string, logger *slog.Logge
 	}
 }
 
-func (g *GCSAdapter) Provider() port.StorageProvider {
-	return port.ProviderGCS
+func (g *GCSAdapter) Provider() vobj.ContentProvider {
+	return vobj.ContentProviderGCS
 }
 
 func (g *GCSAdapter) Exists(ctx context.Context, path string) (bool, error) {
