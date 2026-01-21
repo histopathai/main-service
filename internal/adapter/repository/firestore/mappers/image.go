@@ -35,9 +35,6 @@ func (im *ImageMapper) ToFirestoreMap(entity *model.Image) map[string]interface{
 	if entity.Height != nil {
 		m["height"] = *entity.Height
 	}
-	if entity.Size != nil {
-		m["size"] = *entity.Size
-	}
 
 	// Magnification (nested object or null)
 	if entity.Magnification != nil {
@@ -87,8 +84,8 @@ func (im *ImageMapper) ToFirestoreMap(entity *model.Image) map[string]interface{
 	if entity.Processing.FailureReason != nil {
 		processingMap["failure_reason"] = *entity.Processing.FailureReason
 	}
-	if entity.Processing.LastProcessedAt != nil {
-		processingMap["last_processed_at"] = *entity.Processing.LastProcessedAt
+	if !entity.Processing.LastProcessedAt.IsZero() {
+		processingMap["last_processed_at"] = entity.Processing.LastProcessedAt
 	}
 	m["processing"] = processingMap
 
@@ -102,9 +99,7 @@ func (im *ImageMapper) contentToMap(content *vobj.Content) map[string]interface{
 		"content_type": content.ContentType.String(),
 		"size":         content.Size,
 	}
-	if content.Metadata != nil && len(content.Metadata) > 0 {
-		m["metadata"] = content.Metadata
-	}
+
 	return m
 }
 
@@ -132,9 +127,6 @@ func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model
 	if v, ok := data["height"].(int64); ok {
 		height := int(v)
 		image.Height = &height
-	}
-	if v, ok := data["size"].(int64); ok {
-		image.Size = &v
 	}
 
 	// Magnification
@@ -228,7 +220,7 @@ func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model
 		}
 
 		if lastProcessedAt, ok := procInfo["last_processed_at"].(time.Time); ok {
-			image.Processing.LastProcessedAt = &lastProcessedAt
+			image.Processing.LastProcessedAt = lastProcessedAt
 		}
 	}
 
@@ -258,15 +250,6 @@ func (im *ImageMapper) mapToContent(data map[string]interface{}) (*vobj.Content,
 
 	if size, ok := data["size"].(int64); ok {
 		content.Size = size
-	}
-
-	if metadata, ok := data["metadata"].(map[string]interface{}); ok {
-		content.Metadata = make(map[string]string)
-		for k, v := range metadata {
-			if strVal, ok := v.(string); ok {
-				content.Metadata[k] = strVal
-			}
-		}
 	}
 
 	return content, nil
