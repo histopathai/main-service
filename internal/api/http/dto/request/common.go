@@ -1,8 +1,6 @@
 package request
 
 import (
-	"fmt"
-
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
@@ -52,26 +50,6 @@ type JSONFilterRequest struct {
 	Field    string      `json:"field" binding:"required" example:"disease"`
 	Operator string      `json:"operator" binding:"required" example:"=="`
 	Value    interface{} `json:"value" binding:"required" example:"Breast Cancer"`
-}
-
-func (jfr *JSONFilterRequest) ToFilter() (query.Filter, error) {
-	supported := false
-	for _, op := range query.SupportedFilterOps {
-		if jfr.Operator == string(op) {
-			supported = true
-			break
-		}
-	}
-
-	if !supported {
-		return query.Filter{}, fmt.Errorf("unsupported filter operator: %s", jfr.Operator)
-	}
-
-	return query.Filter{
-		Field:    jfr.Field,
-		Operator: query.FilterOp(jfr.Operator),
-		Value:    jfr.Value,
-	}, nil
 }
 
 // Batch Operations
