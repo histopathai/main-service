@@ -27,7 +27,7 @@ type ProcessingInfo struct {
 	Version         ProcessingVersion
 	FailureReason   *string
 	RetryCount      int
-	LastProcessedAt *time.Time
+	LastProcessedAt time.Time
 }
 
 func (pi *ProcessingInfo) IsRetryable(maxRetries int) bool {
@@ -44,20 +44,20 @@ func (pi *ProcessingInfo) MarkForRetry() {
 	pi.Status = StatusProcessing
 	pi.RetryCount++
 	now := time.Now()
-	pi.LastProcessedAt = &now
+	pi.LastProcessedAt = now
 }
 
 func (pi *ProcessingInfo) MarkAsProcessing() {
 	pi.Status = StatusProcessing
 	now := time.Now()
-	pi.LastProcessedAt = &now
+	pi.LastProcessedAt = now
 }
 
 func (pi *ProcessingInfo) MarkAsProcessed(version ProcessingVersion) {
 	pi.Status = StatusProcessed
 	pi.Version = version
 	now := time.Now()
-	pi.LastProcessedAt = &now
+	pi.LastProcessedAt = now
 	pi.FailureReason = nil
 }
 
@@ -65,5 +65,5 @@ func (pi *ProcessingInfo) MarkAsFailed(reason string) {
 	pi.Status = StatusFailed
 	pi.FailureReason = &reason
 	now := time.Now()
-	pi.LastProcessedAt = &now
+	pi.LastProcessedAt = now
 }
