@@ -107,7 +107,7 @@ func (s *ImageService) Update(ctx context.Context, imageID string, cmd any) erro
 	}
 
 	updates := updateCmd.GetUpdates()
-	if updates == nil || len(updates) == 0 {
+	if len(updates) == 0 {
 		return errors.NewValidationError("no updates provided", nil)
 	}
 
