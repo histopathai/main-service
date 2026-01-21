@@ -1,5 +1,7 @@
 package vobj
 
+import "errors"
+
 type ContentType string
 
 const (
@@ -28,6 +30,17 @@ const (
 
 	// Generic fallback
 	ContentTypeApplicationOctetStream ContentType = "application/octet-stream"
+)
+
+type ContentProvider string
+
+const (
+	ContentProviderLocal ContentProvider = "local"
+	ContentProviderS3    ContentProvider = "s3"
+	ContentProviderGCS   ContentProvider = "gcs"
+	ContentProviderAzure ContentProvider = "azure"
+	ContentProviderMinIO ContentProvider = "minio"
+	ContentProviderHTTP  ContentProvider = "http"
 )
 
 func (ct ContentType) GetCategory() string {
@@ -60,20 +73,22 @@ func (ct ContentType) IsValid() bool {
 	}
 }
 
+func NewContentTypeFromString(s string) (ContentType, error) {
+
+	if s == "" {
+		return "", errors.New("content type string is empty")
+	}
+	value := ContentType(s)
+	if value.IsValid() {
+		return value, nil
+	} else {
+		return "", errors.New("invalid content type: " + s)
+	}
+}
+
 func (ct ContentType) String() string {
 	return string(ct)
 }
-
-type ContentProvider string
-
-const (
-	ContentProviderLocal ContentProvider = "local"
-	ContentProviderS3    ContentProvider = "s3"
-	ContentProviderGCS   ContentProvider = "gcs"
-	ContentProviderAzure ContentProvider = "azure"
-	ContentProviderMinIO ContentProvider = "minio"
-	ContentProviderHTTP  ContentProvider = "http"
-)
 
 func (cp ContentProvider) IsValid() bool {
 	switch cp {
@@ -103,7 +118,6 @@ type Content struct {
 	Path        string
 	ContentType ContentType
 	Size        int64
-	Metadata    map[string]string
 }
 
 func GetContentTypeFromExtension(ext string) ContentType {
