@@ -3,6 +3,8 @@ package port
 import (
 	"context"
 	"time"
+
+	"github.com/histopathai/main-service/internal/domain/vobj"
 )
 
 type SignedURLMethod string
@@ -24,17 +26,8 @@ type StoragePayload struct {
 	Headers   map[string]string `json:"headers,omitempty"`
 }
 
-type StorageProvider string
-
-const (
-	ProviderS3    StorageProvider = "S3"
-	ProviderGCS   StorageProvider = "GCS"
-	ProviderAzure StorageProvider = "AZURE"
-	ProviderMinIO StorageProvider = "MINIO"
-)
-
 type Storage interface {
-	Provider() StorageProvider
+	Provider() vobj.ContentProvider
 
 	Exists(ctx context.Context, path string) (bool, error)
 
