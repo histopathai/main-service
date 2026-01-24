@@ -20,8 +20,7 @@ func CheckParentExists(ctx context.Context, parent *vobj.ParentRef, uow port.Uni
 
 	switch parent.Type {
 	case vobj.ParentTypeWorkspace:
-		repo := uow.GetWorkspaceRepo()
-		_, err = repo.Read(ctx, parent.ID)
+		return nil
 	case vobj.ParentTypePatient:
 		repo := uow.GetPatientRepo()
 		_, err = repo.Read(ctx, parent.ID)
@@ -34,6 +33,8 @@ func CheckParentExists(ctx context.Context, parent *vobj.ParentRef, uow port.Uni
 	case vobj.ParentTypeAnnotationType:
 		repo := uow.GetAnnotationTypeRepo()
 		_, err = repo.Read(ctx, parent.ID)
+	case vobj.ParentTypeContent:
+		return nil
 	default:
 		return fmt.Errorf("unknown parent type: %s", parent.Type)
 	}
