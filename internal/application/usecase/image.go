@@ -54,11 +54,6 @@ func (uc *ImageUseCase) Create(ctx context.Context, entity *model.Image) (*model
 			entity.WsID = parentPatient.Parent.ID
 		}
 
-		// Validate origin content
-		if entity.OriginContent == nil {
-			return errors.NewValidationError("origin content is required", nil)
-		}
-
 		// Ensure processing status is set
 		if entity.Processing.Status == "" {
 			// Default to PENDING for web uploads
@@ -80,67 +75,6 @@ func (uc *ImageUseCase) Create(ctx context.Context, entity *model.Image) (*model
 	}
 
 	return createdImage, nil
-}
-
-func (uc *ImageUseCase) Update(ctx context.Context, imageID string, updates map[string]interface{}) error {
-	err := uc.uow.WithTx(ctx, func(txCtx context.Context, repos map[vobj.EntityType]any) error {
-		// Read current image
-		currentImage, err := uc.repo.Read(txCtx, imageID)
-		if err != nil {
-			return errors.NewInternalError("failed to read image", err)
-		}
-
-		// Validate processing status transitions if status is being updated
-		if status, ok := updates[constants.ImageProcessingStatusField]; ok {
-			newStatus, err := vobj.NewImageStatusFromString(status.(string))
-			if err != nil {
-				return errors.NewValidationError("invalid status value", map[string]interface{}{
-					"status": status,
-				})
-			}
-
-			// Validate status transition
-			if err := uc.validateStatusTransition(currentImage.Processing.Status, newStatus); err != nil {
-				return err
-			}
-
-			// If transitioning to PROCESSED, processed content is required
-			if newStatus == vobj.StatusProcessed {
-				// Check if processed content is being set in this update
-				if processedContent, ok := updates[constants.ImageProcessedContentField]; ok {
-					if processedContent == nil {
-						return errors.NewValidationError("processed content cannot be nil when status is PROCESSED", nil)
-					}
-				} else if currentImage.ProcessedContent == nil {
-					// Neither in update nor in current state
-					return errors.NewValidationError("processed content is required when status is PROCESSED", map[string]interface{}{
-						"status": newStatus,
-					})
-				}
-			}
-		}
-
-		// Validate processing version if being updated
-		if version, ok := updates[constants.ImageProcessingVersionField]; ok {
-			versionStr := version.(string)
-			processingVersion := vobj.ProcessingVersion(versionStr)
-			if !processingVersion.IsValid() {
-				return errors.NewValidationError("invalid processing version", map[string]interface{}{
-					"version": versionStr,
-				})
-			}
-		}
-
-		// Perform update
-		err = uc.repo.Update(txCtx, imageID, updates)
-		if err != nil {
-			return errors.NewInternalError("failed to update image", err)
-		}
-
-		return nil
-	})
-
-	return err
 }
 
 func (uc *ImageUseCase) Transfer(ctx context.Context, imageID string, newParent vobj.ParentRef) error {
@@ -206,6 +140,34 @@ func (uc *ImageUseCase) Transfer(ctx context.Context, imageID string, newParent 
 			if err != nil {
 				return errors.NewInternalError("failed to transfer annotations to new workspace", err)
 			}
+		}
+
+		return nil
+	})
+
+	return err
+}
+
+func (uc *ImageUseCase) UpdateStatus(ctx context.Context, imageID string, newStatus vobj.ImageStatus) error {
+	err := uc.uow.WithTx(ctx, func(txCtx context.Context, repos map[vobj.EntityType]any) error {
+		// Read current image
+		currentImage, err := uc.repo.Read(txCtx, imageID)
+		if err != nil {
+			return errors.NewInternalError("failed to read image", err)
+		}
+
+		// Validate status transition
+		if err := uc.validateStatusTransition(currentImage.Processing.Status, newStatus); err != nil {
+			return err
+		}
+
+		// Update status
+		updates := map[string]interface{}{
+			constants.ImageProcessingStatusField: newStatus.String(),
+		}
+		err = uc.repo.Update(txCtx, imageID, updates)
+		if err != nil {
+			return errors.NewInternalError("failed to update image status", err)
 		}
 
 		return nil
@@ -308,81 +270,4 @@ func (uc *ImageUseCase) getAnnotationIDsUnderImage(ctx context.Context, imageID 
 	}
 
 	return allAnnotationIDs, nil
-}
-
-// RetryProcessing retries a failed image processing
-func (uc *ImageUseCase) RetryProcessing(ctx context.Context, imageID string, maxRetries int) error {
-	err := uc.uow.WithTx(ctx, func(txCtx context.Context, repos map[vobj.EntityType]any) error {
-		// Read current image
-		currentImage, err := uc.repo.Read(txCtx, imageID)
-		if err != nil {
-			return errors.NewInternalError("failed to read image", err)
-		}
-
-		// Check if retryable
-		if !currentImage.IsRetryable(maxRetries) {
-			return errors.NewValidationError("image is not retryable", map[string]interface{}{
-				"status":      currentImage.Processing.Status,
-				"retry_count": currentImage.Processing.RetryCount,
-				"max_retries": maxRetries,
-			})
-		}
-
-		// Mark for retry
-		currentImage.MarkForRetry()
-
-		// Update in repository
-		updates := map[string]interface{}{
-			constants.ImageProcessingStatusField:          currentImage.Processing.Status.String(),
-			constants.ImageProcessingRetryCountField:      currentImage.Processing.RetryCount,
-			constants.ImageProcessingLastProcessedAtField: currentImage.Processing.LastProcessedAt,
-		}
-
-		err = uc.repo.Update(txCtx, imageID, updates)
-		if err != nil {
-			return errors.NewInternalError("failed to update image for retry", err)
-		}
-
-		return nil
-	})
-
-	return err
-}
-
-// MigrateToV2 migrates an image from V1 to V2 processing
-func (uc *ImageUseCase) MigrateToV2(ctx context.Context, imageID string) error {
-	err := uc.uow.WithTx(ctx, func(txCtx context.Context, repos map[vobj.EntityType]any) error {
-		// Read current image
-		currentImage, err := uc.repo.Read(txCtx, imageID)
-		if err != nil {
-			return errors.NewInternalError("failed to read image", err)
-		}
-
-		// Validate current state
-		if !currentImage.IsProcessed() {
-			return errors.NewValidationError("image must be processed before migration", map[string]interface{}{
-				"status": currentImage.Processing.Status,
-			})
-		}
-
-		if currentImage.IsV2Processing() {
-			return errors.NewValidationError("image is already V2", map[string]interface{}{
-				"version": currentImage.Processing.Version,
-			})
-		}
-
-		// Mark as processing for V2 migration
-		updates := map[string]interface{}{
-			constants.ImageProcessingStatusField: vobj.StatusProcessing.String(),
-		}
-
-		err = uc.repo.Update(txCtx, imageID, updates)
-		if err != nil {
-			return errors.NewInternalError("failed to mark image for V2 migration", err)
-		}
-
-		return nil
-	})
-
-	return err
 }
