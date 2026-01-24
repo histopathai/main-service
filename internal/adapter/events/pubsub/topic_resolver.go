@@ -9,14 +9,9 @@ type TopicResolver struct {
 	topicMapping map[domainevent.EventType]string
 }
 
-func NewTopicResolver(projectID string) *TopicResolver {
+func NewTopicResolver(topicMapping map[domainevent.EventType]string) *TopicResolver {
 	return &TopicResolver{
-		topicMapping: map[domainevent.EventType]string{
-			domainevent.UploadedEventType:                 "image-uploaded",
-			domainevent.DeleteEventType:                   "image-deleted",
-			domainevent.ImageProcessingRequestedEventType: "image-processing-requested",
-			domainevent.ImageProcessingCompletedEventType: "image-processing-completed",
-		},
+		topicMapping: topicMapping,
 	}
 }
 

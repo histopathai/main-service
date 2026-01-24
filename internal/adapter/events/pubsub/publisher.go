@@ -16,7 +16,7 @@ type PubSubPublisher struct {
 	topicResolver portevent.TopicResolver
 }
 
-func NewPubSubPublisher(ctx context.Context, projectID string) (*PubSubPublisher, error) {
+func NewPubSubPublisher(ctx context.Context, projectID string, topicMapping map[domainevent.EventType]string) (*PubSubPublisher, error) {
 	client, err := pubsub.NewClient(ctx, projectID)
 	if err != nil {
 		return nil, err
@@ -25,7 +25,7 @@ func NewPubSubPublisher(ctx context.Context, projectID string) (*PubSubPublisher
 	return &PubSubPublisher{
 		client:        client,
 		serializer:    NewEventSerializer(),
-		topicResolver: NewTopicResolver(projectID),
+		topicResolver: NewTopicResolver(topicMapping),
 	}, nil
 }
 
