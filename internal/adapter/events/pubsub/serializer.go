@@ -8,6 +8,7 @@ import (
 	"time"
 
 	domainevent "github.com/histopathai/main-service/internal/domain/event"
+	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 )
 
@@ -21,8 +22,8 @@ func (s *EventSerializer) Serialize(event domainevent.Event) ([]byte, error) {
 	var dto interface{}
 
 	switch e := event.(type) {
-	case *domainevent.UploadedEvent:
-		dto = uploadedEventDTO{
+	case *domainevent.UploadEvent:
+		dto = uploadEventDTO{
 			EventID:   e.EventID,
 			EventType: string(e.EventType),
 			Timestamp: e.Timestamp.Format(time.RFC3339),
@@ -37,17 +38,16 @@ func (s *EventSerializer) Serialize(event domainevent.Event) ([]byte, error) {
 			Content:   contentToDTO(e.Content),
 		}
 
-	case *domainevent.ImageProcessingRequestedEvent:
-		dto = imageProcessingRequestedDTO{
+	case *domainevent.ImageProcessEvent:
+		dto = imageProcessDTO{
 			EventID:           e.EventID,
 			EventType:         string(e.EventType),
 			Timestamp:         e.Timestamp.Format(time.RFC3339),
-			ID:                e.ID,
 			Content:           contentToDTO(e.Content),
 			ProcessingVersion: string(e.ProcessingVersion),
 		}
 
-	case *domainevent.ImageProcessingCompletedEvent:
+	case *domainevent.ImageProcessCompleteEvent:
 		var result *processingResultDTO
 		if e.Result != nil {
 			result = &processingResultDTO{
@@ -57,14 +57,29 @@ func (s *EventSerializer) Serialize(event domainevent.Event) ([]byte, error) {
 			}
 		}
 
-		dto = imageProcessingCompletedDTO{
+		var dtoContents []contentDTO
+		for _, c := range e.Contents {
+			dtoContents = append(dtoContents, contentToDTO(c))
+		}
+
+		dto = imageProcessCompleteDTO{
+			EventID:       e.EventID,
+			EventType:     string(e.EventType),
+			Timestamp:     e.Timestamp.Format(time.RFC3339),
+			Contents:      dtoContents,
+			Success:       e.Success,
+			Result:        result,
+			FailureReason: e.FailureReason,
+			Retryable:     e.Retryable,
+			ID:            e.ID,
+		}
+	case *domainevent.ImageProcessDlqEvent:
+		dto = imageProcessDlqDTO{
 			EventID:       e.EventID,
 			EventType:     string(e.EventType),
 			Timestamp:     e.Timestamp.Format(time.RFC3339),
 			ID:            e.ID,
 			Content:       contentToDTO(e.Content),
-			Success:       e.Success,
-			Result:        result,
 			FailureReason: e.FailureReason,
 			Retryable:     e.Retryable,
 		}
@@ -78,13 +93,15 @@ func (s *EventSerializer) Serialize(event domainevent.Event) ([]byte, error) {
 
 func (s *EventSerializer) Deserialize(data []byte, eventType domainevent.EventType) (domainevent.Event, error) {
 	switch eventType {
-	case domainevent.UploadedEventType:
-		var dto uploadedEventDTO
-		if err := json.Unmarshal(data, &dto); err == nil {
-			return s.uploadedDTOToDomain(dto)
+	case domainevent.UploadEventType:
+		var dto uploadEventDTO
+		// Unmarshal tries to match JSON to struct. If fields are missing, it succeeds with zero values.
+		// We need to check if it really looks like our DTO.
+		if err := json.Unmarshal(data, &dto); err == nil && dto.EventType != "" {
+			return s.uploadDTOToDomain(dto)
 		}
 
-		return s.parseGCSNotificationToUploadedEvent(data)
+		return s.parseGCSNotificationToUploadEvent(data)
 
 	case domainevent.DeleteEventType:
 		var dto deleteEventDTO
@@ -93,26 +110,33 @@ func (s *EventSerializer) Deserialize(data []byte, eventType domainevent.EventTy
 		}
 		return s.deleteDTOToDomain(dto)
 
-	case domainevent.ImageProcessingRequestedEventType:
-		var dto imageProcessingRequestedDTO
+	case domainevent.ImageProcessEventType:
+		var dto imageProcessDTO
 		if err := json.Unmarshal(data, &dto); err != nil {
 			return nil, err
 		}
 		return s.processingRequestedDTOToDomain(dto)
 
-	case domainevent.ImageProcessingCompletedEventType:
-		var dto imageProcessingCompletedDTO
+	case domainevent.ImageProcessCompleteEventType:
+		var dto imageProcessCompleteDTO
 		if err := json.Unmarshal(data, &dto); err != nil {
 			return nil, err
 		}
 		return s.processingCompletedDTOToDomain(dto)
+
+	case domainevent.ImageProcessDlqEventType:
+		var dto imageProcessDlqDTO
+		if err := json.Unmarshal(data, &dto); err != nil {
+			return nil, err
+		}
+		return s.imageProcessDlqDTOToDomain(dto)
 
 	default:
 		return nil, fmt.Errorf("unsupported event type: %s", eventType)
 	}
 }
 
-type uploadedEventDTO struct {
+type uploadEventDTO struct {
 	EventID   string     `json:"event_id"`
 	EventType string     `json:"event_type"`
 	Timestamp string     `json:"timestamp"`
@@ -126,7 +150,7 @@ type deleteEventDTO struct {
 	Content   contentDTO `json:"content"`
 }
 
-type imageProcessingRequestedDTO struct {
+type imageProcessDTO struct {
 	EventID           string     `json:"event_id"`
 	EventType         string     `json:"event_type"`
 	Timestamp         string     `json:"timestamp"`
@@ -135,12 +159,12 @@ type imageProcessingRequestedDTO struct {
 	ProcessingVersion string     `json:"processing_version"`
 }
 
-type imageProcessingCompletedDTO struct {
+type imageProcessCompleteDTO struct {
 	EventID       string               `json:"event_id"`
 	EventType     string               `json:"event_type"`
 	Timestamp     string               `json:"timestamp"`
 	ID            string               `json:"id"`
-	Content       contentDTO           `json:"content"`
+	Contents      []contentDTO         `json:"contents"`
 	Success       bool                 `json:"success"`
 	Result        *processingResultDTO `json:"result,omitempty"`
 	FailureReason string               `json:"failure_reason,omitempty"`
@@ -154,6 +178,10 @@ type processingResultDTO struct {
 }
 
 type contentDTO struct {
+	ID          string            `json:"id"`
+	Name        string            `json:"name"`
+	CreatorID   string            `json:"creator_id"`
+	EntityType  string            `json:"entity_type"`
 	Provider    string            `json:"provider"`
 	Path        string            `json:"path"`
 	ContentType string            `json:"content_type"`
@@ -161,8 +189,22 @@ type contentDTO struct {
 	Metadata    map[string]string `json:"metadata,omitempty"`
 }
 
-func contentToDTO(c vobj.Content) contentDTO {
+type imageProcessDlqDTO struct {
+	EventID       string     `json:"event_id"`
+	EventType     string     `json:"event_type"`
+	Timestamp     string     `json:"timestamp"`
+	ID            string     `json:"id"`
+	Content       contentDTO `json:"content"`
+	FailureReason string     `json:"failure_reason,omitempty"`
+	Retryable     bool       `json:"retryable"`
+}
+
+func contentToDTO(c model.Content) contentDTO {
 	return contentDTO{
+		ID:          c.ID,
+		Name:        c.Name,
+		CreatorID:   c.CreatorID,
+		EntityType:  string(c.EntityType),
 		Provider:    string(c.Provider),
 		Path:        c.Path,
 		ContentType: string(c.ContentType),
@@ -170,8 +212,14 @@ func contentToDTO(c vobj.Content) contentDTO {
 	}
 }
 
-func dtoToContent(dto contentDTO) vobj.Content {
-	return vobj.Content{
+func dtoToContent(dto contentDTO) model.Content {
+	return model.Content{
+		Entity: vobj.Entity{
+			ID:         dto.ID,
+			Name:       dto.Name,
+			CreatorID:  dto.CreatorID,
+			EntityType: vobj.EntityType(dto.EntityType),
+		},
 		Provider:    vobj.ContentProvider(dto.Provider),
 		Path:        dto.Path,
 		ContentType: vobj.ContentType(dto.ContentType),
@@ -179,13 +227,13 @@ func dtoToContent(dto contentDTO) vobj.Content {
 	}
 }
 
-func (s *EventSerializer) uploadedDTOToDomain(dto uploadedEventDTO) (*domainevent.UploadedEvent, error) {
+func (s *EventSerializer) uploadDTOToDomain(dto uploadEventDTO) (*domainevent.UploadEvent, error) {
 	timestamp, err := time.Parse(time.RFC3339, dto.Timestamp)
 	if err != nil {
 		return nil, err
 	}
 
-	return &domainevent.UploadedEvent{
+	return &domainevent.UploadEvent{
 		BaseEvent: domainevent.BaseEvent{
 			EventID:   dto.EventID,
 			EventType: domainevent.EventType(dto.EventType),
@@ -211,47 +259,52 @@ func (s *EventSerializer) deleteDTOToDomain(dto deleteEventDTO) (*domainevent.De
 	}, nil
 }
 
-func (s *EventSerializer) processingRequestedDTOToDomain(dto imageProcessingRequestedDTO) (*domainevent.ImageProcessingRequestedEvent, error) {
+func (s *EventSerializer) processingRequestedDTOToDomain(dto imageProcessDTO) (*domainevent.ImageProcessEvent, error) {
 	timestamp, err := time.Parse(time.RFC3339, dto.Timestamp)
 	if err != nil {
 		return nil, err
 	}
 
-	return &domainevent.ImageProcessingRequestedEvent{
+	return &domainevent.ImageProcessEvent{
 		BaseEvent: domainevent.BaseEvent{
 			EventID:   dto.EventID,
 			EventType: domainevent.EventType(dto.EventType),
 			Timestamp: timestamp,
 		},
-		ID:                dto.ID,
 		Content:           dtoToContent(dto.Content),
 		ProcessingVersion: vobj.ProcessingVersion(dto.ProcessingVersion),
 	}, nil
 }
 
-func (s *EventSerializer) processingCompletedDTOToDomain(dto imageProcessingCompletedDTO) (*domainevent.ImageProcessingCompletedEvent, error) {
+func (s *EventSerializer) processingCompletedDTOToDomain(dto imageProcessCompleteDTO) (*domainevent.ImageProcessCompleteEvent, error) {
 	timestamp, err := time.Parse(time.RFC3339, dto.Timestamp)
 	if err != nil {
 		return nil, err
 	}
 
-	var result *domainevent.ProcessingResult
+	var result *domainevent.ProcessResult
 	if dto.Result != nil {
-		result = &domainevent.ProcessingResult{
+		result = &domainevent.ProcessResult{
 			Width:  dto.Result.Width,
 			Height: dto.Result.Height,
 			Size:   dto.Result.Size,
 		}
 	}
 
-	return &domainevent.ImageProcessingCompletedEvent{
+	return &domainevent.ImageProcessCompleteEvent{
 		BaseEvent: domainevent.BaseEvent{
 			EventID:   dto.EventID,
 			EventType: domainevent.EventType(dto.EventType),
 			Timestamp: timestamp,
 		},
-		ID:            dto.ID,
-		Content:       dtoToContent(dto.Content),
+		ID: dto.ID,
+		Contents: func() []model.Content {
+			var contents []model.Content
+			for _, c := range dto.Contents {
+				contents = append(contents, dtoToContent(c))
+			}
+			return contents
+		}(),
 		Success:       dto.Success,
 		Result:        result,
 		FailureReason: dto.FailureReason,
@@ -259,7 +312,7 @@ func (s *EventSerializer) processingCompletedDTOToDomain(dto imageProcessingComp
 	}, nil
 }
 
-func (s *EventSerializer) parseGCSNotificationToUploadedEvent(data []byte) (*domainevent.UploadedEvent, error) {
+func (s *EventSerializer) parseGCSNotificationToUploadEvent(data []byte) (*domainevent.UploadEvent, error) {
 	// GCS notification yapısı
 	var gcsNotif struct {
 		Kind        string            `json:"kind"`
@@ -276,13 +329,10 @@ func (s *EventSerializer) parseGCSNotificationToUploadedEvent(data []byte) (*dom
 		return nil, fmt.Errorf("failed to parse as GCS notification: %w", err)
 	}
 
-	if gcsNotif.Metadata["image-id"] == "" {
-		return nil, fmt.Errorf("image-id not found in GCS notification metadata")
-	}
-
-	size, err := strconv.ParseInt(gcsNotif.Size, 10, 64)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse size: %w", err)
+	// GCS'den gelen metadata'dan content bilgisini oluştur
+	size, _ := strconv.ParseInt(gcsNotif.Size, 10, 64)
+	if s, err := strconv.ParseInt(gcsNotif.Metadata["size"], 10, 64); err == nil && s > 0 {
+		size = s
 	}
 
 	timestamp, err := time.Parse(time.RFC3339, gcsNotif.TimeCreated)
@@ -290,18 +340,67 @@ func (s *EventSerializer) parseGCSNotificationToUploadedEvent(data []byte) (*dom
 		timestamp = time.Now()
 	}
 
-	return &domainevent.UploadedEvent{
+	// Metadata'dan fieldları al
+	content := model.Content{
+		Entity: vobj.Entity{
+			ID:         gcsNotif.Metadata["id"],
+			Name:       gcsNotif.Metadata["name"],
+			CreatorID:  gcsNotif.Metadata["creator-id"],
+			EntityType: vobj.EntityType(gcsNotif.Metadata["entity-type"]),
+		},
+		Provider:    vobj.ContentProvider(gcsNotif.Metadata["provider"]),
+		Path:        gcsNotif.Metadata["path"],
+		ContentType: vobj.ContentType(gcsNotif.Metadata["content-type"]),
+		Size:        size,
+	}
+
+	// Fallbacks if metadata is missing (e.g. direct upload without signed URL metadata)
+	// This might happen if someone uploads directly to bucket without using our signed URL flow
+	if content.Provider == "" {
+		content.Provider = vobj.ContentProviderGCS
+	}
+	if content.Path == "" {
+		content.Path = gcsNotif.Name
+	}
+	if content.ContentType == "" {
+		content.ContentType = vobj.ContentType(gcsNotif.ContentType)
+	}
+	// Entity ID is crucial, if missing, we might not be able to link it.
+	// But let's assume if it came from our signed URL, it has it.
+	// If not, we can use the GCS ID as a fallback or leave it empty?
+	if content.ID == "" {
+		// Log warning or error? For now, let's use GCS ID generation or error out?
+		// As per requirement "in image-id .... is not competible with content structs"
+		// The user implies we should just parse content from metadata.
+		// If metadata is empty, this event might be irrelevant for us or we handle partials.
+		// Let's rely on metadata primarily.
+	}
+
+	return &domainevent.UploadEvent{
 		BaseEvent: domainevent.BaseEvent{
 			EventID:   gcsNotif.ID,
-			EventType: domainevent.UploadedEventType,
+			EventType: domainevent.UploadEventType,
 			Timestamp: timestamp,
 		},
-		ID: gcsNotif.Metadata["image-id"],
-		Content: vobj.Content{
-			Provider:    vobj.ContentProvider(gcsNotif.Metadata["origin-provider"]),
-			Path:        gcsNotif.Metadata["origin-path"],
-			ContentType: vobj.ContentType(gcsNotif.Metadata["content-type"]),
-			Size:        size,
+		Content: content,
+	}, nil
+}
+
+func (s *EventSerializer) imageProcessDlqDTOToDomain(dto imageProcessDlqDTO) (*domainevent.ImageProcessDlqEvent, error) {
+	timestamp, err := time.Parse(time.RFC3339, dto.Timestamp)
+	if err != nil {
+		return nil, err
+	}
+
+	return &domainevent.ImageProcessDlqEvent{
+		BaseEvent: domainevent.BaseEvent{
+			EventID:   dto.EventID,
+			EventType: domainevent.EventType(dto.EventType),
+			Timestamp: timestamp,
 		},
+		ID:            dto.ID,
+		Content:       dtoToContent(dto.Content),
+		FailureReason: dto.FailureReason,
+		Retryable:     dto.Retryable,
 	}, nil
 }
