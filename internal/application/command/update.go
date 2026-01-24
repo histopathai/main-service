@@ -1,7 +1,6 @@
 package command
 
 import (
-	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/constants"
 )
@@ -317,6 +316,7 @@ func (c *UpdateAnnotationTypeCommand) Validate() (map[string]interface{}, bool) 
 	}
 	return nil, true
 }
+
 func (c *UpdateAnnotationTypeCommand) GetUpdates() map[string]interface{} {
 	if _, ok := c.Validate(); !ok {
 		return nil
@@ -349,175 +349,32 @@ func (c *UpdateAnnotationTypeCommand) GetUpdates() map[string]interface{} {
 	return updates
 }
 
-//===============================================================================
+// ================================================================================
 // Update Image Command
-//===============================================================================
-
-type ContentData struct {
-	Provider    string
-	Path        string
-	ContentType string
-	Size        int64
-}
+// ================================================================================
 
 type UpdateImageCommand struct {
 	UpdateEntityCommand
 
-	// Basic image fields
-	Width  *int
-	Height *int
-	Size   *int64
-	Format *string
-
-	// Magnification
-	Magnification *struct {
-		Objective         *float64
-		NativeLevel       *int
-		ScanMagnification *float64
-	}
-
-	// Origin content (usually not updated, but possible)
-	OriginContent *ContentData
-
-	// Processed content updates
-	ProcessedContent *struct {
-		DZI       *ContentData
-		Tiles     *ContentData
-		Thumbnail *ContentData
-		IndexMap  *ContentData
-	}
-
-	// Processing info updates
-	Processing *struct {
-		Status          *string
-		Version         *string
-		FailureReason   *string
-		RetryCount      *int
-		LastProcessedAt *string // ISO 8601 format
-	}
+	Width         *int
+	Height        *int
+	Size          *int64
+	Magnification *vobj.OpticalMagnification
 }
 
 func (c *UpdateImageCommand) Validate() (map[string]interface{}, bool) {
 	details, ok := c.UpdateEntityCommand.Validate()
-	if !ok {
-		return details, false
+	if ok {
+		details = make(map[string]interface{})
 	}
 
-	details = make(map[string]interface{})
-
-	// Basic field validations
-	if c.Size != nil && *c.Size < 0 {
-		details["size"] = "Size cannot be negative"
+	if c.Width != nil && *c.Width <= 0 {
+		details["width"] = "Width must be positive"
 	}
-	if c.Width != nil && *c.Width < 0 {
-		details["width"] = "Width cannot be negative"
+	if c.Height != nil && *c.Height <= 0 {
+		details["height"] = "Height must be positive"
 	}
-	if c.Height != nil && *c.Height < 0 {
-		details["height"] = "Height cannot be negative"
-	}
-	if c.Format != nil && *c.Format == "" {
-		details["format"] = "Format cannot be empty"
-	}
-
-	// Origin content validation
-	if c.OriginContent != nil {
-		if contentDetails, valid := c.validateContentData(c.OriginContent); !valid {
-			details["origin_content"] = contentDetails
-		}
-	}
-
-	// Processed content validation
-	if c.ProcessedContent != nil {
-		if c.ProcessedContent.DZI != nil {
-			if contentDetails, valid := c.validateContentData(c.ProcessedContent.DZI); !valid {
-				details["processed_content.dzi"] = contentDetails
-			}
-		}
-		if c.ProcessedContent.Tiles != nil {
-			if contentDetails, valid := c.validateContentData(c.ProcessedContent.Tiles); !valid {
-				details["processed_content.tiles"] = contentDetails
-			}
-		}
-		if c.ProcessedContent.Thumbnail != nil {
-			if contentDetails, valid := c.validateContentData(c.ProcessedContent.Thumbnail); !valid {
-				details["processed_content.thumbnail"] = contentDetails
-			}
-		}
-		if c.ProcessedContent.IndexMap != nil {
-			if contentDetails, valid := c.validateContentData(c.ProcessedContent.IndexMap); !valid {
-				details["processed_content.index_map"] = contentDetails
-			}
-		}
-	}
-
-	// Processing validations
-	if c.Processing != nil {
-		if c.Processing.Status != nil {
-			status, err := vobj.NewImageStatusFromString(*c.Processing.Status)
-			if err != nil {
-				details["processing.status"] = "Invalid processing status value"
-			} else if status == vobj.StatusDeleting {
-				details["processing.status"] = "Cannot set status to DELETING via update"
-			} else if status == vobj.StatusProcessed {
-				// If setting to PROCESSED, ensure processed content exists or is being set
-				if c.ProcessedContent == nil {
-					details["processing.status"] = "Cannot set status to PROCESSED without processed content"
-				}
-			}
-		}
-
-		if c.Processing.Version != nil {
-			version := vobj.ProcessingVersion(*c.Processing.Version)
-			if !version.IsValid() {
-				details["processing.version"] = "Invalid processing version"
-			}
-		}
-
-		if c.Processing.FailureReason != nil && *c.Processing.FailureReason == "" {
-			details["processing.failure_reason"] = "Failure reason cannot be empty"
-		}
-
-		if c.Processing.RetryCount != nil && *c.Processing.RetryCount < 0 {
-			details["processing.retry_count"] = "Retry count cannot be negative"
-		}
-	}
-
-	if len(details) > 0 {
-		return details, false
-	}
-	return nil, true
-}
-
-func (c *UpdateImageCommand) validateContentData(data *ContentData) (map[string]interface{}, bool) {
-	details := make(map[string]interface{})
-
-	if data == nil {
-		return nil, true
-	}
-
-	if data.Provider == "" {
-		details["provider"] = "Provider is required"
-	} else {
-		provider := vobj.ContentProvider(data.Provider)
-		if !provider.IsValid() {
-			details["provider"] = "Invalid provider"
-		}
-	}
-
-	if data.Path == "" {
-		details["path"] = "Path is required"
-	}
-
-	if data.ContentType == "" {
-		details["content_type"] = "Content type is required"
-	} else {
-		contentType := vobj.ContentType(data.ContentType)
-		if !contentType.IsValid() {
-			details["content_type"] = "Invalid content type"
-		}
-	}
-
-	if data.Size <= 0 {
+	if c.Size != nil && *c.Size <= 0 {
 		details["size"] = "Size must be positive"
 	}
 
@@ -532,13 +389,11 @@ func (c *UpdateImageCommand) GetUpdates() map[string]interface{} {
 		return nil
 	}
 
-	// Base updates
 	updates := c.UpdateEntityCommand.GetUpdates()
 	if updates == nil {
 		updates = make(map[string]interface{})
 	}
 
-	// Basic image field updates
 	if c.Width != nil {
 		updates[constants.ImageWidthField] = *c.Width
 	}
@@ -548,78 +403,60 @@ func (c *UpdateImageCommand) GetUpdates() map[string]interface{} {
 	if c.Size != nil {
 		updates[constants.ImageSizeField] = *c.Size
 	}
-	if c.Format != nil {
-		updates[constants.ImageFormatField] = *c.Format
-	}
-
-	// Magnification update
 	if c.Magnification != nil {
-		mag := &vobj.OpticalMagnification{
-			Objective:         c.Magnification.Objective,
-			NativeLevel:       c.Magnification.NativeLevel,
-			ScanMagnification: c.Magnification.ScanMagnification,
-		}
-		updates[constants.ImageMagnificationField] = mag
-	}
-
-	// Origin content update
-	if c.OriginContent != nil {
-		updates[constants.ImageOriginContentField] = c.contentDataToVobj(c.OriginContent)
-	}
-
-	// Processed content update
-	if c.ProcessedContent != nil {
-		procContent := &model.ProcessedContent{}
-
-		if c.ProcessedContent.DZI != nil {
-			procContent.DZI = c.contentDataToVobj(c.ProcessedContent.DZI)
-		}
-		if c.ProcessedContent.Tiles != nil {
-			procContent.Tiles = c.contentDataToVobj(c.ProcessedContent.Tiles)
-		}
-		if c.ProcessedContent.Thumbnail != nil {
-			procContent.Thumbnail = c.contentDataToVobj(c.ProcessedContent.Thumbnail)
-		}
-		if c.ProcessedContent.IndexMap != nil {
-			procContent.IndexMap = c.contentDataToVobj(c.ProcessedContent.IndexMap)
-		}
-
-		updates[constants.ImageProcessedContentField] = procContent
-	}
-
-	// Processing updates (individual fields)
-	if c.Processing != nil {
-		if c.Processing.Status != nil {
-			updates[constants.ImageProcessingStatusField] = *c.Processing.Status
-		}
-		if c.Processing.Version != nil {
-			updates[constants.ImageProcessingVersionField] = *c.Processing.Version
-		}
-		if c.Processing.FailureReason != nil {
-			updates[constants.ImageProcessingFailureReasonField] = *c.Processing.FailureReason
-		}
-		if c.Processing.RetryCount != nil {
-			updates[constants.ImageProcessingRetryCountField] = *c.Processing.RetryCount
-		}
-		if c.Processing.LastProcessedAt != nil {
-			// Parse ISO 8601 timestamp if needed
-			// For now we'll skip it, or you can parse and add
-			// updates[constants.ImageProcessingLastProcessedAtField] = parsedTime
-		}
+		updates[constants.ImageMagnificationField] = c.Magnification.GetMap()
 	}
 
 	return updates
 }
 
-func (c *UpdateImageCommand) contentDataToVobj(data *ContentData) *vobj.Content {
-	if data == nil {
+// ================================================================================
+// Update Content Command
+// ================================================================================
+
+type UpdateContentCommand struct {
+	UpdateEntityCommand
+
+	Provider *string
+	Path     *string
+}
+
+func (c *UpdateContentCommand) Validate() (map[string]interface{}, bool) {
+	details, ok := c.UpdateEntityCommand.Validate()
+	if ok {
+		details = make(map[string]interface{})
+	}
+
+	if c.Provider != nil {
+		_, err := vobj.NewContentProviderFromString(*c.Provider)
+		if err != nil {
+			details["provider"] = "Invalid ContentProvider value"
+		}
+	}
+
+	if len(details) > 0 {
+		return details, false
+	}
+	return nil, true
+}
+
+func (c *UpdateContentCommand) GetUpdates() map[string]interface{} {
+	if _, ok := c.Validate(); !ok {
 		return nil
 	}
 
-	return &vobj.Content{
-		Provider:    vobj.ContentProvider(data.Provider),
-		Path:        data.Path,
-		ContentType: vobj.ContentType(data.ContentType),
-		Size:        data.Size,
+	updates := c.UpdateEntityCommand.GetUpdates()
+	if updates == nil {
+		updates = make(map[string]interface{})
 	}
+
+	if c.Provider != nil {
+		provider, _ := vobj.NewContentProviderFromString(*c.Provider)
+		updates[constants.ContentProviderField] = provider
+	}
+	if c.Path != nil {
+		updates[constants.ContentPathField] = *c.Path
+	}
+
+	return updates
 }
