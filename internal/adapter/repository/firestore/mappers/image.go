@@ -53,27 +53,26 @@ func (im *ImageMapper) ToFirestoreMap(entity *model.Image) map[string]interface{
 		}
 	}
 
-	// Origin content
-	if entity.OriginContent != nil {
-		m["origin_content"] = im.contentToMap(entity.OriginContent)
+	// Origin Content ID
+	if entity.OriginContentID != nil {
+		m["origin_content_id"] = *entity.OriginContentID
 	}
 
-	// Processed content
-	if entity.ProcessedContent != nil {
-		procMap := make(map[string]interface{})
-		if entity.ProcessedContent.DZI != nil {
-			procMap["dzi"] = im.contentToMap(entity.ProcessedContent.DZI)
-		}
-		if entity.ProcessedContent.Tiles != nil {
-			procMap["tiles"] = im.contentToMap(entity.ProcessedContent.Tiles)
-		}
-		if entity.ProcessedContent.Thumbnail != nil {
-			procMap["thumbnail"] = im.contentToMap(entity.ProcessedContent.Thumbnail)
-		}
-		if entity.ProcessedContent.IndexMap != nil {
-			procMap["index_map"] = im.contentToMap(entity.ProcessedContent.IndexMap)
-		}
-		m["processed_content"] = procMap
+	// Processed Content IDs
+	if entity.ThumbnailContentID != nil {
+		m["thumbnail_content_id"] = *entity.ThumbnailContentID
+	}
+	if entity.DziContentID != nil {
+		m["dzi_content_id"] = *entity.DziContentID
+	}
+	if entity.IndexmapContentID != nil {
+		m["indexmap_content_id"] = *entity.IndexmapContentID
+	}
+	if entity.TilesContentID != nil {
+		m["tiles_content_id"] = *entity.TilesContentID
+	}
+	if entity.ZipTilesContentID != nil {
+		m["ziptiles_content_id"] = *entity.ZipTilesContentID
 	}
 
 	// Processing info
@@ -88,17 +87,6 @@ func (im *ImageMapper) ToFirestoreMap(entity *model.Image) map[string]interface{
 		processingMap["last_processed_at"] = entity.Processing.LastProcessedAt
 	}
 	m["processing"] = processingMap
-
-	return m
-}
-
-func (im *ImageMapper) contentToMap(content *vobj.Content) map[string]interface{} {
-	m := map[string]interface{}{
-		"provider":     content.Provider.String(),
-		"path":         content.Path,
-		"content_type": content.ContentType.String(),
-		"size":         content.Size,
-	}
 
 	return m
 }
@@ -146,56 +134,25 @@ func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model
 	}
 
 	// Origin content
-	if contentData, ok := data["origin_content"].(map[string]interface{}); ok {
-		image.OriginContent, err = im.mapToContent(contentData)
-		if err != nil {
-			return nil, errors.NewValidationError("invalid origin_content", map[string]interface{}{
-				"error": err.Error(),
-			})
-		}
+	if v, ok := data["origin_content_id"].(string); ok {
+		image.OriginContentID = &v
 	}
 
-	// Processed content
-	if procData, ok := data["processed_content"].(map[string]interface{}); ok {
-		procContent := &model.ProcessedContent{}
-
-		if dziData, ok := procData["dzi"].(map[string]interface{}); ok {
-			procContent.DZI, err = im.mapToContent(dziData)
-			if err != nil {
-				return nil, errors.NewValidationError("invalid dzi content", map[string]interface{}{
-					"error": err.Error(),
-				})
-			}
-		}
-
-		if tilesData, ok := procData["tiles"].(map[string]interface{}); ok {
-			procContent.Tiles, err = im.mapToContent(tilesData)
-			if err != nil {
-				return nil, errors.NewValidationError("invalid tiles content", map[string]interface{}{
-					"error": err.Error(),
-				})
-			}
-		}
-
-		if thumbData, ok := procData["thumbnail"].(map[string]interface{}); ok {
-			procContent.Thumbnail, err = im.mapToContent(thumbData)
-			if err != nil {
-				return nil, errors.NewValidationError("invalid thumbnail content", map[string]interface{}{
-					"error": err.Error(),
-				})
-			}
-		}
-
-		if indexData, ok := procData["index_map"].(map[string]interface{}); ok {
-			procContent.IndexMap, err = im.mapToContent(indexData)
-			if err != nil {
-				return nil, errors.NewValidationError("invalid index_map content", map[string]interface{}{
-					"error": err.Error(),
-				})
-			}
-		}
-
-		image.ProcessedContent = procContent
+	// Processed content IDs
+	if v, ok := data["thumbnail_content_id"].(string); ok {
+		image.ThumbnailContentID = &v
+	}
+	if v, ok := data["dzi_content_id"].(string); ok {
+		image.DziContentID = &v
+	}
+	if v, ok := data["indexmap_content_id"].(string); ok {
+		image.IndexmapContentID = &v
+	}
+	if v, ok := data["tiles_content_id"].(string); ok {
+		image.TilesContentID = &v
+	}
+	if v, ok := data["ziptiles_content_id"].(string); ok {
+		image.ZipTilesContentID = &v
 	}
 
 	// Processing info
@@ -225,34 +182,6 @@ func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model
 	}
 
 	return image, nil
-}
-
-func (im *ImageMapper) mapToContent(data map[string]interface{}) (*vobj.Content, error) {
-	content := &vobj.Content{}
-
-	if provider, ok := data["provider"].(string); ok {
-		content.Provider = vobj.ContentProvider(provider)
-		if !content.Provider.IsValid() {
-			return nil, errors.NewValidationError("invalid content provider: "+provider, nil)
-		}
-	}
-
-	if path, ok := data["path"].(string); ok {
-		content.Path = path
-	}
-
-	if contentType, ok := data["content_type"].(string); ok {
-		content.ContentType = vobj.ContentType(contentType)
-		if !content.ContentType.IsValid() {
-			return nil, errors.NewValidationError("invalid content type: "+contentType, nil)
-		}
-	}
-
-	if size, ok := data["size"].(int64); ok {
-		content.Size = size
-	}
-
-	return content, nil
 }
 
 func (im *ImageMapper) MapUpdates(updates map[string]interface{}) (map[string]interface{}, error) {
@@ -307,31 +236,48 @@ func (im *ImageMapper) MapUpdates(updates map[string]interface{}) (map[string]in
 				return nil, errors.NewValidationError("invalid type for magnification field", nil)
 			}
 
-		case constants.ImageOriginContentField:
-			if content, ok := v.(*vobj.Content); ok && content != nil {
-				mappedUpdates["origin_content"] = im.contentToMap(content)
+		case constants.ImageOriginContentIDField:
+			if id, ok := v.(*string); ok {
+				mappedUpdates["origin_content_id"] = *id
+			} else if idStr, ok := v.(string); ok {
+				mappedUpdates["origin_content_id"] = idStr
 			} else {
-				return nil, errors.NewValidationError("invalid type for origin_content field", nil)
+				return nil, errors.NewValidationError("invalid type for origin_content_id field", nil)
 			}
 
-		case constants.ImageProcessedContentField:
-			if procContent, ok := v.(*model.ProcessedContent); ok && procContent != nil {
-				procMap := make(map[string]interface{})
-				if procContent.DZI != nil {
-					procMap["dzi"] = im.contentToMap(procContent.DZI)
-				}
-				if procContent.Tiles != nil {
-					procMap["tiles"] = im.contentToMap(procContent.Tiles)
-				}
-				if procContent.Thumbnail != nil {
-					procMap["thumbnail"] = im.contentToMap(procContent.Thumbnail)
-				}
-				if procContent.IndexMap != nil {
-					procMap["index_map"] = im.contentToMap(procContent.IndexMap)
-				}
-				mappedUpdates["processed_content"] = procMap
+		case constants.ImageThumbnailContentIDField:
+			if id, ok := v.(*string); ok {
+				mappedUpdates["thumbnail_content_id"] = *id
+			} else if idStr, ok := v.(string); ok {
+				mappedUpdates["thumbnail_content_id"] = idStr
 			} else {
-				return nil, errors.NewValidationError("invalid type for processed_content field", nil)
+				return nil, errors.NewValidationError("invalid type for thumbnail_content_id field", nil)
+			}
+		case constants.ImageDziContentIDField:
+			if id, ok := v.(*string); ok {
+				mappedUpdates["dzi_content_id"] = *id
+			} else if idStr, ok := v.(string); ok {
+				mappedUpdates["dzi_content_id"] = idStr
+			} else {
+				return nil, errors.NewValidationError("invalid type for dzi_content_id field", nil)
+			}
+
+		case constants.ImageIndexmapContentIDField:
+			if id, ok := v.(*string); ok {
+				mappedUpdates["indexmap_content_id"] = *id
+			} else if idStr, ok := v.(string); ok {
+				mappedUpdates["indexmap_content_id"] = idStr
+			} else {
+				return nil, errors.NewValidationError("invalid type for indexmap_content_id field", nil)
+			}
+
+		case constants.ImageZipTilesContentIDField:
+			if id, ok := v.(*string); ok {
+				mappedUpdates["ziptiles_content_id"] = *id
+			} else if idStr, ok := v.(string); ok {
+				mappedUpdates["ziptiles_content_id"] = idStr
+			} else {
+				return nil, errors.NewValidationError("invalid type for ziptiles_content_id field", nil)
 			}
 
 		case constants.ImageProcessingStatusField:

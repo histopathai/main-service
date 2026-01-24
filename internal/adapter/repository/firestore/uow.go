@@ -28,6 +28,7 @@ type FirestoreUnitOfWorkFactory struct {
 	imageRepo          port.Repository[*model.Image]
 	annotationRepo     port.Repository[*model.Annotation]
 	annotationTypeRepo port.Repository[*model.AnnotationType]
+	contentRepo        port.Repository[*model.Content]
 }
 
 func NewFirestoreUnitOfWorkFactory(client *firestore.Client) *FirestoreUnitOfWorkFactory {
@@ -38,6 +39,7 @@ func NewFirestoreUnitOfWorkFactory(client *firestore.Client) *FirestoreUnitOfWor
 		imageRepo:          NewGenericRepositoryImpl(client, "images", mappers.NewImageMapper()),
 		annotationRepo:     NewGenericRepositoryImpl(client, "annotations", mappers.NewAnnotationMapper()),
 		annotationTypeRepo: NewGenericRepositoryImpl(client, "annotation_types", mappers.NewAnnotationTypeMapper()),
+		contentRepo:        NewGenericRepositoryImpl(client, "contents", mappers.NewContentMapper()),
 	}
 }
 
@@ -51,6 +53,7 @@ func (f *FirestoreUnitOfWorkFactory) WithTx(ctx context.Context, fn func(ctx con
 			vobj.EntityTypeImage:          f.imageRepo,
 			vobj.EntityTypeAnnotation:     f.annotationRepo,
 			vobj.EntityTypeAnnotationType: f.annotationTypeRepo,
+			vobj.EntityTypeContent:        f.contentRepo,
 		}
 
 		return fn(txCtx, repos)
@@ -75,4 +78,8 @@ func (f *FirestoreUnitOfWorkFactory) GetAnnotationRepo() port.Repository[*model.
 
 func (f *FirestoreUnitOfWorkFactory) GetAnnotationTypeRepo() port.Repository[*model.AnnotationType] {
 	return f.annotationTypeRepo
+}
+
+func (f *FirestoreUnitOfWorkFactory) GetContentRepo() port.Repository[*model.Content] {
+	return f.contentRepo
 }
