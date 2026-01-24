@@ -21,11 +21,16 @@ const (
 )
 
 const (
-	ImageContentTypeField               = "ContentType"
-	ImageFormatField                    = "Format"
-	ImageWidthField                     = "Width"
-	ImageHeightField                    = "Height"
-	ImageSizeField                      = "Size"
+	ImageContentTypeField        = "ContentType"
+	ImageFormatField             = "Format"
+	ImageWidthField              = "Width"
+	ImageHeightField             = "Height"
+	ImageSizeField               = "Size"
+	ImageThumbnailContentIDField = "ThumbnailContentID"
+	ImageZipTilesContentIDField  = "ZipTilesContentID"
+	ImageDziContentIDField       = "DziContentID"
+	ImageIndexmapContentIDField  = "IndexmapContentID"
+
 	ImageOriginPathField                = "OriginPath"
 	ImageProcessedPathField             = "ProcessedPath"
 	ImageProcessingStatusField          = "ProcessingStatus"
@@ -33,8 +38,8 @@ const (
 	ImageProcessingVersionField         = "ProcessingVersion"
 	ImageProcessingFailureReasonField   = "ProcessingFailureReason"
 	ImageProcessingRetryCountField      = "ProcessingRetryCount"
-	ImageProcessedContentField          = "ProcessedContent"
-	ImageOriginContentField             = "OriginContent"
+	ImageProcessedContentIDField        = "ProcessedContentID"
+	ImageOriginContentIDField           = "OriginContentID"
 	ImageMagnificationField             = "Magnification"
 	ImageProcessingLastProcessedAtField = "ProcessingLastProcessedAt"
 )
@@ -64,4 +69,11 @@ const (
 	EntityTypeField = "EntityType"
 	DeletedField    = "Deleted"
 	WsIDField       = "WsID"
+)
+
+const (
+	ContentProviderField = "Provider"
+	ContentPathField     = "Path"
+	ContentTypeField     = "ContentType"
+	ContentSizeField     = "Size"
 )
