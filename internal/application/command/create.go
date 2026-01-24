@@ -434,7 +434,6 @@ type CreateImageCommand struct {
 	Width  *int
 	Height *int
 	Size   int64
-
 	// Optional WSI fields
 	Magnification *struct {
 		Objective         *float64
@@ -458,6 +457,9 @@ func (c *CreateImageCommand) Validate() (map[string]interface{}, bool) {
 	}
 	if c.ContentType == "" {
 		details["content_type"] = "ContentType is required"
+	}
+	if c.Size <= 0 {
+		details["size"] = "Size is required and must be positive"
 	}
 
 	// Optional fields validation
@@ -486,16 +488,10 @@ func (c *CreateImageCommand) Validate() (map[string]interface{}, bool) {
 	}
 
 	// Logic validation
-
 	if c.ContentType != "" {
-		contentType, err := vobj.NewContentTypeFromString(c.ContentType)
+		_, err := vobj.NewContentTypeFromString(c.ContentType)
 		if err != nil {
-			if c.Format != "" {
-				contentType = vobj.GetContentTypeFromExtension(c.Format)
-				if contentType.GetCategory() != "image" {
-					details["content_type"] = "ContentType must be an image type"
-				}
-			}
+			details["content_type"] = "Invalid ContentType"
 		}
 
 	} else {
@@ -505,6 +501,7 @@ func (c *CreateImageCommand) Validate() (map[string]interface{}, bool) {
 	if len(details) > 0 {
 		return details, false
 	}
+
 	return nil, true
 }
 
@@ -537,20 +534,104 @@ func (c *CreateImageCommand) ToEntity() (*model.Image, error) {
 
 	}
 
-	contentType, err := vobj.NewContentTypeFromString(c.ContentType)
+	return image, nil
+}
+
+func (c *CreateImageCommand) GetSize() int64 {
+	return c.Size
+}
+
+func (c *CreateImageCommand) GetContent() *model.Content {
+	_, ok := c.Validate()
+	if !ok {
+		return nil
+	}
+
+	contentType, _ := vobj.NewContentTypeFromString(c.ContentType)
+
+	if contentType.GetCategory() != "image" {
+		return nil
+	}
+	baseEntity, err := c.CreateEntityCommand.ToEntity()
 	if err != nil {
-		if c.Format != "" {
-			contentType = vobj.GetContentTypeFromExtension(c.Format)
-			if contentType.GetCategory() != "image" {
-				return nil, errors.NewValidationError("ContentType must be an image type", nil)
-			}
+		return nil
+	}
+	baseEntity.SetParent(&vobj.ParentRef{
+		ID:   "",
+		Type: vobj.ParentTypeImage,
+	})
+
+	content := &model.Content{
+		Entity:      *baseEntity,
+		ContentType: contentType,
+		Size:        c.Size,
+	}
+	return content
+}
+
+// =============================================================================
+// Create Content Command
+// =============================================================================
+
+type CreateContentCommand struct {
+	CreateEntityCommand
+	ContentType string
+	Size        int64
+	Provider    *string
+	Path        *string
+}
+
+func (c *CreateContentCommand) Validate() (map[string]interface{}, bool) {
+	details, ok := c.CreateEntityCommand.Validate()
+	if ok {
+		details = make(map[string]interface{})
+	}
+
+	if c.ContentType == "" {
+		details["content_type"] = "ContentType is required"
+	} else {
+		_, err := vobj.NewContentTypeFromString(c.ContentType)
+		if err != nil {
+			details["content_type"] = "Invalid ContentType"
 		}
 	}
 
-	image.OriginContent = &vobj.Content{
+	if c.Size <= 0 {
+		details["size"] = "Size must be positive"
+	}
+
+	if len(details) > 0 {
+		return details, false
+	}
+	return nil, true
+}
+
+func (c *CreateContentCommand) ToEntity() (*model.Content, error) {
+	if details, ok := c.Validate(); !ok {
+		return nil, errors.NewValidationError("validation error", details)
+	}
+
+	baseEntity, err := c.CreateEntityCommand.ToEntity()
+	if err != nil {
+		return nil, err
+	}
+
+	contentType, _ := vobj.NewContentTypeFromString(c.ContentType)
+
+	contentEntity := model.Content{
+		Entity:      *baseEntity,
 		ContentType: contentType,
 		Size:        c.Size,
 	}
 
-	return image, nil
+	if c.Provider != nil {
+		provider := vobj.ContentProvider(*c.Provider)
+		contentEntity.Provider = provider
+	}
+
+	if c.Path != nil {
+		contentEntity.Path = *c.Path
+	}
+
+	return &contentEntity, nil
 }
