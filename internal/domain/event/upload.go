@@ -4,7 +4,7 @@ import (
 	"github.com/histopathai/main-service/internal/domain/model"
 )
 
-type DeleteEvent struct {
+type UploadEvent struct {
 	BaseEvent
 	model.Content
 }
