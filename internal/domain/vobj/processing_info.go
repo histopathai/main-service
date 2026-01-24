@@ -1,6 +1,10 @@
 package vobj
 
-import "time"
+import (
+	"time"
+
+	"github.com/histopathai/main-service/internal/shared/constants"
+)
 
 type ProcessingVersion string
 
@@ -66,4 +70,16 @@ func (pi *ProcessingInfo) MarkAsFailed(reason string) {
 	pi.FailureReason = &reason
 	now := time.Now()
 	pi.LastProcessedAt = now
+}
+
+func (pi *ProcessingInfo) GetMap() map[string]interface{} {
+	result := make(map[string]interface{})
+	result[constants.ImageProcessingStatusField] = pi.Status
+	result[constants.ImageProcessingVersionField] = pi.Version.String()
+	result[constants.ImageProcessingRetryCountField] = pi.RetryCount
+	result[constants.ImageProcessingLastProcessedAtField] = pi.LastProcessedAt
+	if pi.FailureReason != nil {
+		result[constants.ImageProcessingFailureReasonField] = *pi.FailureReason
+	}
+	return result
 }

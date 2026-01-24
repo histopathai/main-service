@@ -2,46 +2,9 @@ package vobj
 
 import (
 	"time"
-
-	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
 type EntityType string
-
-const (
-	EntityTypeImage          EntityType = "image"
-	EntityTypeAnnotation     EntityType = "annotation"
-	EntityTypePatient        EntityType = "patient"
-	EntityTypeWorkspace      EntityType = "workspace"
-	EntityTypeAnnotationType EntityType = "annotation_type"
-)
-
-func (e EntityType) IsValid() bool {
-	switch e {
-	case EntityTypeImage, EntityTypeAnnotation, EntityTypePatient, EntityTypeWorkspace, EntityTypeAnnotationType:
-		return true
-	default:
-		return false
-	}
-}
-
-func (e EntityType) String() string {
-	return string(e)
-}
-
-func NewEntityTypeFromString(s string) (EntityType, error) {
-	if s == "" {
-		details := map[string]any{"value": s}
-		return "", errors.NewValidationError("entity type cannot be empty", details)
-	}
-	value := EntityType(s)
-	if value.IsValid() {
-		return value, nil
-	} else {
-		details := map[string]any{"value": s}
-		return "", errors.NewValidationError("invalid entity type", details)
-	}
-}
 
 type Entity struct {
 	ID         string
@@ -54,24 +17,17 @@ type Entity struct {
 	UpdatedAt  time.Time
 }
 
-func NewEntity(entityType EntityType, name string, creatorID string, parent *ParentRef) (*Entity, error) {
-	if !entityType.IsValid() {
-		details := map[string]any{"entity_type": entityType}
-		return nil, errors.NewValidationError("invalid entity type", details)
+func (e EntityType) IsValid() bool {
+	switch e {
+	case EntityTypeImage, EntityTypeAnnotation, EntityTypePatient, EntityTypeWorkspace, EntityTypeAnnotationType:
+		return true
+	default:
+		return false
 	}
+}
 
-	if creatorID == "" {
-		return nil, errors.NewValidationError("creator ID is required", nil)
-	}
-
-	return &Entity{
-		EntityType: entityType,
-		Name:       name,
-		CreatorID:  creatorID,
-		Parent:     *parent,
-		CreatedAt:  time.Now(),
-		UpdatedAt:  time.Now(),
-	}, nil
+func (e EntityType) String() string {
+	return string(e)
 }
 
 // Getter metodları - value receiver (embedded struct'lar için çalışır)

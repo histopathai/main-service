@@ -1,17 +1,6 @@
 package vobj
 
-import "github.com/histopathai/main-service/internal/shared/errors"
-
 type ParentType string
-
-const (
-	ParentTypeNone           ParentType = ""
-	ParentTypeWorkspace      ParentType = "workspace"
-	ParentTypePatient        ParentType = "patient"
-	ParentTypeImage          ParentType = "image"
-	ParentTypeAnnotationType ParentType = "annotation_type"
-	ParentTypeAnnotation     ParentType = "annotation"
-)
 
 func (p ParentType) IsValid() bool {
 	switch p {
@@ -26,38 +15,9 @@ func (p ParentType) String() string {
 	return string(p)
 }
 
-func NewParentTypeFromString(s string) (ParentType, error) {
-	if s == "" {
-		return ParentTypeNone, nil
-	}
-	value := ParentType(s)
-	if value.IsValid() {
-		return value, nil
-	} else {
-		details := map[string]any{"value": s}
-		return "", errors.NewValidationError("invalid parent type", details)
-	}
-}
-
 type ParentRef struct {
 	ID   string
 	Type ParentType
-}
-
-func NewParentRef(id string, parentType ParentType) (*ParentRef, error) {
-	if id == "" {
-		return nil, errors.NewValidationError("parent ID is required", nil)
-	}
-
-	if !parentType.IsValid() {
-		details := map[string]any{"parent_type": parentType}
-		return nil, errors.NewValidationError("invalid parent type", details)
-	}
-
-	return &ParentRef{
-		ID:   id,
-		Type: parentType,
-	}, nil
 }
 
 func (p *ParentRef) IsValid() bool {
@@ -107,4 +67,11 @@ func (p *ParentRef) GetType() ParentType {
 		return ""
 	}
 	return p.Type
+}
+
+func (p *ParentRef) GetMap() map[string]interface{} {
+	return map[string]interface{}{
+		"ID":   p.ID,
+		"Type": p.Type.String(),
+	}
 }
