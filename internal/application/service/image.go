@@ -3,51 +3,46 @@ package service
 import (
 	"context"
 	"fmt"
-	"time"
+	"log/slog"
 
 	"github.com/google/uuid"
 	"github.com/histopathai/main-service/internal/application/command"
 	"github.com/histopathai/main-service/internal/application/usecase"
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
-	portevent "github.com/histopathai/main-service/internal/port/event"
 	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
 type ImageService struct {
 	*Service[*model.Image]
-	usecase          *usecase.ImageUseCase
-	originStorage    port.Storage
-	processedStorage port.Storage
-	eventPublisher   portevent.EventPublisher
+	imageUseCase  *usecase.ImageUseCase
+	objectStorage port.Storage
+	logger        slog.Logger
 }
 
 func NewImageService(
 	repo port.Repository[*model.Image],
 	uowFactory port.UnitOfWorkFactory,
 	originStorage port.Storage,
-	processedStorage port.Storage,
-	eventPublisher portevent.EventPublisher,
+	logger slog.Logger,
 ) *ImageService {
 	return &ImageService{
 		Service: &Service[*model.Image]{
 			repo:       repo,
 			uowFactory: uowFactory,
 		},
-		usecase:          usecase.NewImageUseCase(repo, uowFactory),
-		originStorage:    originStorage,
-		processedStorage: processedStorage,
-		eventPublisher:   eventPublisher,
+		imageUseCase:  usecase.NewImageUseCase(repo, uowFactory),
+		objectStorage: originStorage,
+		logger:        logger,
 	}
 }
 
-func (s *ImageService) UploadPresignedURL(ctx context.Context, cmd any) (*port.StoragePayload, error) {
+func (s *ImageService) Upload(ctx context.Context, cmd any) (*port.PresignedURLPayload, error) {
+
 	// Type assertion
 	uploadCmd, ok := cmd.(command.CreateImageCommand)
-
 	if !ok {
-		return nil, errors.NewInternalError("invalid command type for getting presigned URL", nil)
+		return nil, errors.NewInternalError("invalid command type for uploading image", nil)
 	}
 
 	entity, err := uploadCmd.ToEntity()
@@ -55,66 +50,66 @@ func (s *ImageService) UploadPresignedURL(ctx context.Context, cmd any) (*port.S
 		return nil, err
 	}
 
-	// Generate unique ID for the image
-	entity.ID = uuid.New().String()
+	contentEntity := uploadCmd.GetContent()
 
-	entity.OriginContent.Provider = s.originStorage.Provider()
-	entity.OriginContent.Path = fmt.Sprintf("%s-%s", entity.ID, entity.Name)
-
-	entity.Processing = &vobj.ProcessingInfo{
-		Status:          vobj.StatusPending,
-		Version:         vobj.ProcessingV2,
-		RetryCount:      0,
-		LastProcessedAt: time.Now(),
+	if contentEntity == nil {
+		return nil, errors.NewValidationError("content is required for image upload", nil)
 	}
 
-	createdEntity, err := s.usecase.Create(ctx, entity)
+	if contentEntity.ContentType.IsThumbnail() {
+		return nil, errors.NewValidationError("thumbnail content is not allowed for original image upload", nil)
+	}
+
+	newImageIdStr := uuid.New().String()
+	newContentIdStr := uuid.New().String()
+
+	entity.SetID(newImageIdStr)
+	entity.OriginContentID = &newContentIdStr
+
+	createdImageEntity, err := s.imageUseCase.Create(ctx, entity)
 	if err != nil {
 		return nil, err
 	}
 
-	// Metadata  is being set for UploadedEvent
-	metadata := map[string]string{
-		"origin-provider": createdEntity.OriginContent.Provider.String(),
-		"image-id":        createdEntity.ID,
-		"origin-path":     createdEntity.OriginContent.Path,
-		"size":            fmt.Sprintf("%d", createdEntity.OriginContent.Size),
-		"content-type":    createdEntity.OriginContent.ContentType.String(),
-	}
+	contentEntity.Parent.ID = createdImageEntity.ID
+	contentEntity.Path = fmt.Sprintf("%s/%s", createdImageEntity.ID, contentEntity.Name)
+	contentEntity.Provider = s.objectStorage.Provider()
+	contentEntity.SetID(newContentIdStr)
 
-	// Generate presigned URL for uploading the origin content
-	payload, err := s.originStorage.GenerateSignedURL(
-		ctx,
-		createdEntity.OriginContent.Path,
-		port.MethodPut,
-		createdEntity.OriginContent.ContentType.String(),
-		metadata,
-		time.Hour,
-	)
-
+	presignedURLPayload, err := s.objectStorage.GenerateSignedURL(ctx, port.MethodPut, *contentEntity, UPLOADEXPIRY_DURATION)
 	if err != nil {
-		return nil, err
+
+		// Rollback image creation
+		//TODO: Will need  Hard delete after
+		err = s.repo.SoftDelete(ctx, createdImageEntity.ID)
+		if err != nil {
+			s.logger.Error("failed to rollback image creation after signed URL generation failure", "image_id", createdImageEntity.ID, "error", err)
+		}
+
+		return nil, errors.NewInternalError("failed to generate signed URL for image upload", err)
 	}
 
-	return payload, nil
+	return presignedURLPayload, nil
+
 }
 
-// Update handles image updates
-func (s *ImageService) Update(ctx context.Context, imageID string, cmd any) error {
+func (s *ImageService) Update(ctx context.Context, cmd any) error {
+
+	// Type assertion
 	updateCmd, ok := cmd.(command.UpdateImageCommand)
 	if !ok {
 		return errors.NewInternalError("invalid command type for updating image", nil)
 	}
 
-	updates := updateCmd.GetUpdates()
-	if len(updates) == 0 {
-		return errors.NewValidationError("no updates provided", nil)
+	update := updateCmd.GetUpdates()
+
+	if update == nil {
+		return errors.NewValidationError("no updates provided for image update", nil)
 	}
 
-	return s.usecase.Update(ctx, imageID, updates)
-}
-
-// RetryProcessing retries failed image processing
-func (s *ImageService) RetryProcessing(ctx context.Context, imageID string, maxRetries int) error {
-	return s.usecase.RetryProcessing(ctx, imageID, maxRetries)
+	err := s.repo.Update(ctx, updateCmd.GetID(), update)
+	if err != nil {
+		return errors.NewInternalError("failed to update image", err)
+	}
+	return nil
 }
