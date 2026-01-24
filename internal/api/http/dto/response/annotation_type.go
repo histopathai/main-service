@@ -28,8 +28,8 @@ func NewAnnotationTypeResponse(at *model.AnnotationType) *AnnotationTypeResponse
 	return &AnnotationTypeResponse{
 		ID:         at.ID,
 		EntityType: at.EntityType.String(),
-		Name:       *at.Entity.Name,
-		CreatorID:  at.Entity.CreatorID,
+		Name:       at.Name,
+		CreatorID:  at.CreatorID,
 		Parent:     nil,
 		TagType:    at.TagType.String(),
 		IsGlobal:   at.IsGlobal,

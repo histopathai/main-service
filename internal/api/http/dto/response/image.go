@@ -8,25 +8,10 @@ import (
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
-type ContentResponse struct {
-	Provider    string            `json:"provider"`
-	Path        string            `json:"path"`
-	ContentType string            `json:"content_type"`
-	Size        int64             `json:"size"`
-	Metadata    map[string]string `json:"metadata,omitempty"`
-}
-
 type MagnificationResponse struct {
 	Objective         *float64 `json:"objective,omitempty"`
 	NativeLevel       *int     `json:"native_level,omitempty"`
 	ScanMagnification *float64 `json:"scan_magnification,omitempty"`
-}
-
-type ProcessedContentResponse struct {
-	DZI       *ContentResponse `json:"dzi,omitempty"`
-	Tiles     *ContentResponse `json:"tiles,omitempty"`
-	Thumbnail *ContentResponse `json:"thumbnail,omitempty"`
-	IndexMap  *ContentResponse `json:"index_map,omitempty"`
 }
 
 type ProcessingInfoResponse struct {
@@ -49,14 +34,17 @@ type ImageResponse struct {
 	Format string `json:"format"`
 	Width  *int   `json:"width,omitempty"`
 	Height *int   `json:"height,omitempty"`
-	Size   int64  `json:"size,omitempty"`
 
 	// WSI magnification
 	Magnification *MagnificationResponse `json:"magnification,omitempty"`
 
 	// Content references
-	OriginContent    *ContentResponse          `json:"origin_content,omitempty"`
-	ProcessedContent *ProcessedContentResponse `json:"processed_content,omitempty"`
+	OriginContentID    *string `json:"origin_content_id,omitempty"`
+	DziContentID       *string `json:"dzi_content_id,omitempty"`
+	ThumbnailContentID *string `json:"thumbnail_content_id,omitempty"`
+	IndexmapContentID  *string `json:"indexmap_content_id,omitempty"`
+	TilesContentID     *string `json:"tiles_content_id,omitempty"`
+	ZipTilesContentID  *string `json:"ziptiles_content_id,omitempty"`
 
 	// Processing info
 	Processing ProcessingInfoResponse `json:"processing"`
@@ -64,18 +52,6 @@ type ImageResponse struct {
 	// Timestamps
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
-}
-
-func newContentResponse(content *vobj.Content) *ContentResponse {
-	if content == nil {
-		return nil
-	}
-	return &ContentResponse{
-		Provider:    content.Provider.String(),
-		Path:        content.Path,
-		ContentType: content.ContentType.String(),
-		Size:        content.Size,
-	}
 }
 
 func newMagnificationResponse(mag *vobj.OpticalMagnification) *MagnificationResponse {
@@ -86,18 +62,6 @@ func newMagnificationResponse(mag *vobj.OpticalMagnification) *MagnificationResp
 		Objective:         mag.Objective,
 		NativeLevel:       mag.NativeLevel,
 		ScanMagnification: mag.ScanMagnification,
-	}
-}
-
-func newProcessedContentResponse(pc *model.ProcessedContent) *ProcessedContentResponse {
-	if pc == nil {
-		return nil
-	}
-	return &ProcessedContentResponse{
-		DZI:       newContentResponse(pc.DZI),
-		Tiles:     newContentResponse(pc.Tiles),
-		Thumbnail: newContentResponse(pc.Thumbnail),
-		IndexMap:  newContentResponse(pc.IndexMap),
 	}
 }
 
@@ -118,22 +82,25 @@ func NewImageResponse(img *model.Image) *ImageResponse {
 	}
 
 	return &ImageResponse{
-		ID:               img.ID,
-		EntityType:       img.EntityType.String(),
-		Parent:           parent,
-		CreatorID:        img.CreatorID,
-		Name:             img.Name,
-		WsID:             img.WsID,
-		Format:           img.Format,
-		Width:            img.Width,
-		Height:           img.Height,
-		Size:             img.OriginContent.Size,
-		Magnification:    newMagnificationResponse(img.Magnification),
-		OriginContent:    newContentResponse(img.OriginContent),
-		ProcessedContent: newProcessedContentResponse(img.ProcessedContent),
-		Processing:       newProcessingInfoResponse(*img.Processing),
-		CreatedAt:        img.CreatedAt,
-		UpdatedAt:        img.UpdatedAt,
+		ID:                 img.ID,
+		EntityType:         img.EntityType.String(),
+		Parent:             parent,
+		CreatorID:          img.CreatorID,
+		Name:               img.Name,
+		WsID:               img.WsID,
+		Format:             img.Format,
+		Width:              img.Width,
+		Height:             img.Height,
+		Magnification:      newMagnificationResponse(img.Magnification),
+		OriginContentID:    img.OriginContentID,
+		DziContentID:       img.DziContentID,
+		ThumbnailContentID: img.ThumbnailContentID,
+		IndexmapContentID:  img.IndexmapContentID,
+		TilesContentID:     img.TilesContentID,
+		ZipTilesContentID:  img.ZipTilesContentID,
+		Processing:         newProcessingInfoResponse(*img.Processing),
+		CreatedAt:          img.CreatedAt,
+		UpdatedAt:          img.UpdatedAt,
 	}
 }
 
