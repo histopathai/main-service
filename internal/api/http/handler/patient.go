@@ -9,6 +9,7 @@ import (
 	"github.com/histopathai/main-service/internal/api/http/dto/response"
 	"github.com/histopathai/main-service/internal/api/http/middleware"
 	"github.com/histopathai/main-service/internal/api/http/validator"
+	entityspecific "github.com/histopathai/main-service/internal/application/command/entity_specific"
 	"github.com/histopathai/main-service/internal/domain/port"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/errors"
@@ -75,29 +76,24 @@ func (ph *PatientHandler) CreateNewPatient(c *gin.Context) {
 		return
 	}
 
-	// DTO -> Service Input
-	entityInput := port.CreateEntityInput{
-		Name:      req.Name,
-		Type:      vobj.EntityTypePatient,
-		CreatorID: creator_id,
-		Parent: &vobj.ParentRef{
-			ID:   req.Parent.ID,
-			Type: vobj.ParentTypeWorkspace,
+	// DTO -> Command
+	cmd := entityspecific.CreatePatientCommand{
+		CreateEntityCommand: entityspecific.CreateEntityCommand{
+			Name:       req.Name,
+			EntityType: vobj.EntityTypePatient.String(),
+			CreatorID:  creator_id,
+			ParentID:   req.Parent.ID,
+			ParentType: vobj.ParentTypeWorkspace.String(),
 		},
+		Age:     req.Age,
+		Race:    req.Race,
+		Gender:  req.Gender,
+		Disease: req.Disease,
+		Subtype: req.Subtype,
+		Grade:   req.Grade,
+		History: req.History,
 	}
-
-	input := port.CreatePatientInput{
-		CreateEntityInput: entityInput,
-		Age:               req.Age,
-		Gender:            req.Gender,
-		Race:              req.Race,
-		Disease:           req.Disease,
-		Subtype:           req.Subtype,
-		Grade:             req.Grade,
-		History:           req.History,
-	}
-
-	patient, err := ph.patientService.CreateNewPatient(c.Request.Context(), input)
+	patient, err := ph.patientService.CreateNewPatient(c.Request.Context(), &cmd)
 	if err != nil {
 		ph.handleError(c, err)
 		return
