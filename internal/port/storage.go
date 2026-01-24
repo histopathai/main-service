@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 )
 
@@ -19,7 +20,7 @@ const (
 	MethodDelete SignedURLMethod = "DELETE"
 )
 
-type StoragePayload struct {
+type PresignedURLPayload struct {
 	URL       string            `json:"url"`
 	Method    SignedURLMethod   `json:"method"`
 	ExpiresAt time.Time         `json:"expires_at"`
@@ -29,12 +30,12 @@ type StoragePayload struct {
 type Storage interface {
 	Provider() vobj.ContentProvider
 
-	Exists(ctx context.Context, path string) (bool, error)
+	Exists(ctx context.Context, content model.Content) (bool, error)
 
-	GetAttributes(ctx context.Context, path string) (*FileAttributes, error)
+	GetAttributes(ctx context.Context, content model.Content) (*FileAttributes, error)
 
 	// metadata parametresi eklendi
-	GenerateSignedURL(ctx context.Context, path string, method SignedURLMethod, contentType string, metadata map[string]string, expiry time.Duration) (*StoragePayload, error)
+	GenerateSignedURL(ctx context.Context, method SignedURLMethod, content model.Content, expiry time.Duration) (*PresignedURLPayload, error)
 }
 
 type FileAttributes struct {
