@@ -235,12 +235,12 @@ func (gr *GenericRepositoryImpl[T]) TransferMany(ctx context.Context, ids []stri
 	return gr.transferManyWithBulkWriter(ctx, ids, updates)
 }
 
-func (gr *GenericRepositoryImpl[T]) Count(ctx context.Context, filters []query.Filter) (int64, error) {
+func (gr *GenericRepositoryImpl[T]) Count(ctx context.Context, spec query.Specification) (int64, error) {
 	var mappedFilters []query.Filter
 	var err error
 
-	if len(filters) > 0 {
-		mappedFilters, err = gr.mapper.MapFilters(filters)
+	if len(spec.Filters) > 0 {
+		mappedFilters, err = gr.mapper.MapFilters(spec.Filters)
 		if err != nil {
 			return 0, err
 		}
@@ -267,28 +267,32 @@ func (gr *GenericRepositoryImpl[T]) Count(ctx context.Context, filters []query.F
 	return 0, nil
 }
 
-func (gr *GenericRepositoryImpl[T]) FindByFilters(ctx context.Context, filters []query.Filter, paginationOpts *query.Pagination) (*query.Result[T], error) {
+func (gr *GenericRepositoryImpl[T]) Find(ctx context.Context, spec query.Specification) (*query.Result[T], error) {
 	var mappedFilters []query.Filter
 	var err error
 
-	if len(filters) > 0 {
-		mappedFilters, err = gr.mapper.MapFilters(filters)
+	if len(spec.Filters) > 0 {
+		mappedFilters, err = gr.mapper.MapFilters(spec.Filters)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if paginationOpts == nil {
-		paginationOpts = &query.Pagination{Limit: 10, Offset: 0}
+	// Create a copy of spec with mapped filters for internal use
+	mappedSpec := spec
+	mappedSpec.Filters = mappedFilters
+	// Normalize pagination if nil
+	if mappedSpec.Pagination == nil {
+		mappedSpec.Pagination = &query.Pagination{Limit: 10, Offset: 0}
 	}
 
 	hasFilters := len(mappedFilters) > 0
-	shouldSort := paginationOpts.SortBy != ""
+	shouldSort := len(spec.Sorts) > 0
 
-	result, err := gr.executeQuery(ctx, mappedFilters, paginationOpts, shouldSort)
+	result, err := gr.executeQuery(ctx, mappedSpec, shouldSort)
 	if err != nil {
 		if isIndexError(err) && hasFilters && shouldSort {
-			return gr.executeQuery(ctx, mappedFilters, paginationOpts, false)
+			return gr.executeQuery(ctx, mappedSpec, false)
 		}
 		return nil, mapFirestoreError(err)
 	}
@@ -296,24 +300,29 @@ func (gr *GenericRepositoryImpl[T]) FindByFilters(ctx context.Context, filters [
 	return result, nil
 }
 
-func (gr *GenericRepositoryImpl[T]) executeQuery(ctx context.Context, filters []query.Filter, paginationOpts *query.Pagination, withSort bool) (*query.Result[T], error) {
+func (gr *GenericRepositoryImpl[T]) executeQuery(ctx context.Context, spec query.Specification, withSort bool) (*query.Result[T], error) {
 	fQuery := gr.client.Collection(gr.collection).Query
 
-	for _, f := range filters {
+	for _, f := range spec.Filters {
 		fQuery = fQuery.Where(f.Field, string(f.Operator), f.Value)
 	}
 
-	if withSort && paginationOpts.SortBy != "" {
-		dir := firestore.Asc
-		if paginationOpts.SortDir == "desc" {
-			dir = firestore.Desc
+	if withSort {
+		for _, s := range spec.Sorts {
+			dir := firestore.Asc
+			if s.Direction == query.Desc {
+				dir = firestore.Desc
+			}
+			fQuery = fQuery.OrderBy(s.Field, dir)
 		}
-		fQuery = fQuery.OrderBy(paginationOpts.SortBy, dir)
 	}
 
-	isLimited := paginationOpts.Limit >= 0
+	limit := spec.Pagination.Limit
+	offset := spec.Pagination.Offset
+	isLimited := limit >= 0
+
 	if isLimited {
-		fQuery = fQuery.Limit(paginationOpts.Limit + 1).Offset(paginationOpts.Offset)
+		fQuery = fQuery.Limit(limit + 1).Offset(offset)
 	}
 
 	var iter *firestore.DocumentIterator
@@ -344,15 +353,15 @@ func (gr *GenericRepositoryImpl[T]) executeQuery(ctx context.Context, filters []
 	}
 
 	hasMore := false
-	if isLimited && len(results) > paginationOpts.Limit {
+	if isLimited && len(results) > limit {
 		hasMore = true
-		results = results[:paginationOpts.Limit]
+		results = results[:limit]
 	}
 
 	return &query.Result[T]{
 		Data:    results,
-		Limit:   paginationOpts.Limit,
-		Offset:  paginationOpts.Offset,
+		Limit:   limit,
+		Offset:  offset,
 		HasMore: hasMore,
 	}, nil
 }
