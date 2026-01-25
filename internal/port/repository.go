@@ -35,11 +35,11 @@ type Repository[T Entity] interface {
 	Update(ctx context.Context, id string, updates map[string]interface{}) error
 	SoftDelete(ctx context.Context, id string) error
 	Transfer(ctx context.Context, id string, newOwnerID string) error
-	FindByFilters(ctx context.Context, filters []query.Filter, paginationOpts *query.Pagination) (*query.Result[T], error)
+	Find(ctx context.Context, spec query.Specification) (*query.Result[T], error)
 	SoftDeleteMany(ctx context.Context, ids []string) error
 	UpdateMany(ctx context.Context, ids []string, updates map[string]interface{}) error
 	TransferMany(ctx context.Context, ids []string, newOwnerID string) error
-	Count(ctx context.Context, filters []query.Filter) (int64, error)
+	Count(ctx context.Context, spec query.Specification) (int64, error)
 }
 
 type UnitOfWorkFactory interface {
