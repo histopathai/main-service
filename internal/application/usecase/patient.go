@@ -3,10 +3,10 @@ package usecase
 import (
 	"context"
 
+	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
-	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -75,7 +75,7 @@ func (uc *PatientUseCase) Create(ctx context.Context, entity *model.Patient) (*m
 
 func (uc *PatientUseCase) Update(ctx context.Context, patientID string, updates map[string]interface{}) error {
 	err := uc.uow.WithTx(ctx, func(txCtx context.Context, repos map[vobj.EntityType]any) error {
-		if name, ok := updates[constants.NameField]; ok {
+		if name, ok := updates[fields.EntityName.DomainName()]; ok {
 			currentPatient, err := uc.repo.Read(txCtx, patientID)
 			if err != nil {
 				return errors.NewInternalError("failed to read patient", err)
@@ -197,7 +197,7 @@ func (uc *PatientUseCase) Transfer(ctx context.Context, patientID string, newPar
 			// Transfer images
 			imageRepo := uc.uow.GetImageRepo()
 			err = imageRepo.UpdateMany(txCtx, imageIDs, map[string]interface{}{
-				constants.WsIDField: newParent.ID,
+				fields.ImageWsID.DomainName(): newParent.ID,
 			})
 			if err != nil {
 				return errors.NewInternalError("failed to transfer images to new workspace", err)
@@ -207,7 +207,7 @@ func (uc *PatientUseCase) Transfer(ctx context.Context, patientID string, newPar
 			if len(annotationIDs) > 0 {
 				annotationRepo := uc.uow.GetAnnotationRepo()
 				err = annotationRepo.UpdateMany(txCtx, annotationIDs, map[string]interface{}{
-					constants.WsIDField: newParent.ID,
+					fields.ImageWsID.DomainName(): newParent.ID,
 				})
 				if err != nil {
 					return errors.NewInternalError("failed to transfer annotations to new workspace", err)
@@ -225,9 +225,9 @@ func (uc *PatientUseCase) getImageIDsUnderPatient(ctx context.Context, patientID
 	imageRepo := uc.uow.GetImageRepo()
 
 	builder := query.NewBuilder()
-	builder.Where(constants.ParentIDField, query.OpEqual, patientID)
-	builder.Where(constants.WsIDField, query.OpEqual, oldWsID)
-	builder.Where("is_deleted", query.OpEqual, false)
+	builder.Where(fields.EntityParentID.DomainName(), query.OpEqual, patientID)
+	builder.Where(fields.ImageWsID.DomainName(), query.OpEqual, oldWsID)
+	builder.Where(fields.EntityIsDeleted.DomainName(), query.OpEqual, false)
 
 	const limit = 1000
 	offset := 0
@@ -264,9 +264,9 @@ func (uc *PatientUseCase) getAnnotationIDsUnderImages(ctx context.Context, image
 	annotationRepo := uc.uow.GetAnnotationRepo()
 
 	builder := query.NewBuilder()
-	builder.Where(constants.ParentIDField, query.OpIn, imageIDs)
-	builder.Where(constants.WsIDField, query.OpEqual, oldWsID)
-	builder.Where("is_deleted", query.OpEqual, false)
+	builder.Where(fields.EntityParentID.DomainName(), query.OpIn, imageIDs)
+	builder.Where(fields.ImageWsID.DomainName(), query.OpEqual, oldWsID)
+	builder.Where(fields.EntityIsDeleted.DomainName(), query.OpEqual, false)
 
 	const limit = 1000
 	offset := 0

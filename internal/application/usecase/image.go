@@ -3,10 +3,10 @@ package usecase
 import (
 	"context"
 
+	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
-	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -135,7 +135,7 @@ func (uc *ImageUseCase) Transfer(ctx context.Context, imageID string, newParent 
 
 			annotationRepo := uc.uow.GetAnnotationRepo()
 			err = annotationRepo.UpdateMany(txCtx, annotationIDs, map[string]interface{}{
-				constants.WsIDField: newParentPatient.Parent.ID,
+				fields.ImageWsID.DomainName(): newParentPatient.Parent.ID,
 			})
 			if err != nil {
 				return errors.NewInternalError("failed to transfer annotations to new workspace", err)
@@ -163,7 +163,7 @@ func (uc *ImageUseCase) UpdateStatus(ctx context.Context, imageID string, newSta
 
 		// Update status
 		updates := map[string]interface{}{
-			constants.ImageProcessingStatusField: newStatus.String(),
+			fields.ImageProcessingStatus.DomainName(): newStatus.String(),
 		}
 		err = uc.repo.Update(txCtx, imageID, updates)
 		if err != nil {
@@ -226,9 +226,9 @@ func (uc *ImageUseCase) getAnnotationIDsUnderImage(ctx context.Context, imageID 
 	annotationRepo := uc.uow.GetAnnotationRepo()
 
 	builder := query.NewBuilder()
-	builder.Where(constants.ParentIDField, query.OpEqual, imageID)
-	builder.Where(constants.WsIDField, query.OpEqual, wsID)
-	builder.Where("is_deleted", query.OpEqual, false)
+	builder.Where(fields.EntityParentID.DomainName(), query.OpEqual, imageID)
+	builder.Where(fields.ImageWsID.DomainName(), query.OpEqual, wsID)
+	builder.Where(fields.EntityIsDeleted.DomainName(), query.OpEqual, false)
 
 	const limit = 1000
 	offset := 0

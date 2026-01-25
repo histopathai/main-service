@@ -3,10 +3,10 @@ package usecase
 import (
 	"context"
 
+	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
-	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -65,7 +65,11 @@ func (uc *AnnotationTypeUseCase) Create(ctx context.Context, entity *model.Annot
 func (uc *AnnotationTypeUseCase) Update(ctx context.Context, annotationTypeID string, updates map[string]interface{}) error {
 	// AnnotationType has restricted updates
 	// Immutable fields: tag_type, is_global, is_required
-	immutableFields := []string{constants.TagTypeField, constants.TagGlobalField, constants.TagRequiredField}
+	immutableFields := []string{
+		fields.AnnotationTypeTagType.DomainName(),
+		fields.AnnotationTypeIsGlobal.DomainName(),
+		fields.AnnotationTypeIsRequired.DomainName(),
+	}
 	for _, field := range immutableFields {
 		if _, ok := updates[field]; ok {
 			return errors.NewValidationError("field is immutable and cannot be updated", map[string]interface{}{
@@ -81,7 +85,7 @@ func (uc *AnnotationTypeUseCase) Update(ctx context.Context, annotationTypeID st
 	}
 
 	// Check if options are being updated
-	if options, ok := updates[constants.TagOptionsField]; ok {
+	if options, ok := updates[fields.AnnotationTypeOptions.DomainName()]; ok {
 		// Options can only be updated for SELECT and MULTI_SELECT types
 		if currentAnnotationType.TagType != vobj.MultiSelectTag && currentAnnotationType.TagType != vobj.SelectTag {
 			return errors.NewValidationError("options can only be updated for SELECT or MULTI_SELECT types", map[string]interface{}{
@@ -124,7 +128,7 @@ func (uc *AnnotationTypeUseCase) Update(ctx context.Context, annotationTypeID st
 UPDATE:
 	err = uc.uow.WithTx(ctx, func(txCtx context.Context, repos map[vobj.EntityType]any) error {
 		// Name update requires updating all annotations
-		if name, ok := updates[constants.NameField]; ok {
+		if name, ok := updates[fields.EntityName.DomainName()]; ok {
 			newName := name.(string)
 
 			// Check uniqueness
@@ -162,8 +166,8 @@ func (uc *AnnotationTypeUseCase) updateAnnotationNames(ctx context.Context, oldN
 	annotationRepo := uc.uow.GetAnnotationRepo()
 
 	builder := query.NewBuilder()
-	builder.Where(constants.NameField, query.OpEqual, oldName)
-	builder.Where(constants.DeletedField, query.OpEqual, false)
+	builder.Where(fields.EntityName.DomainName(), query.OpEqual, oldName)
+	builder.Where(fields.EntityIsDeleted.DomainName(), query.OpEqual, false)
 
 	// Use pagination to handle large datasets
 	const limit = 100
@@ -183,7 +187,7 @@ func (uc *AnnotationTypeUseCase) updateAnnotationNames(ctx context.Context, oldN
 		// Update batch
 		for _, annotation := range result.Data {
 			err := annotationRepo.Update(ctx, annotation.GetID(), map[string]interface{}{
-				constants.NameField: newName,
+				fields.EntityName.DomainName(): newName,
 			})
 			if err != nil {
 				return errors.NewInternalError("failed to update annotation name", err)
@@ -222,8 +226,8 @@ func (uc *AnnotationTypeUseCase) checkRemovedOptionsInUse(ctx context.Context, a
 	annotationRepo := uc.uow.GetAnnotationRepo()
 
 	builder := query.NewBuilder()
-	builder.Where(constants.NameField, query.OpEqual, annotationType.Name)
-	builder.Where(constants.DeletedField, query.OpEqual, false)
+	builder.Where(fields.EntityName.DomainName(), query.OpEqual, annotationType.Name)
+	builder.Where(fields.EntityIsDeleted.DomainName(), query.OpEqual, false)
 
 	removedOptionsMap := make(map[string]bool)
 	for _, opt := range removedOptions {
@@ -289,8 +293,8 @@ func (uc *AnnotationTypeUseCase) isAnnotationTypeInUseByAnyAnnotation(ctx contex
 	annotationRepo := uc.uow.GetAnnotationRepo()
 
 	builder := query.NewBuilder()
-	builder.Where(constants.NameField, query.OpEqual, annotationTypeName)
-	builder.Where(constants.DeletedField, query.OpEqual, false)
+	builder.Where(fields.EntityName.DomainName(), query.OpEqual, annotationTypeName)
+	builder.Where(fields.EntityIsDeleted.DomainName(), query.OpEqual, false)
 
 	count, err := annotationRepo.Count(ctx, builder.Build())
 

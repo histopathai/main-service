@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"slices"
 
+	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
-	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -50,8 +50,8 @@ func (uc *AnnotationUseCase) Create(ctx context.Context, entity *model.Annotatio
 		annotationTypeRepo := uc.uow.GetAnnotationTypeRepo()
 
 		annotationTypeFilters := query.NewBuilder()
-		annotationTypeFilters.Where(constants.NameField, query.OpEqual, entity.Name)
-		annotationTypeFilters.Where(constants.DeletedField, query.OpEqual, false)
+		annotationTypeFilters.Where(fields.EntityName.DomainName(), query.OpEqual, entity.Name)
+		annotationTypeFilters.Where(fields.EntityIsDeleted.DomainName(), query.OpEqual, false)
 		annotationTypeFilters.Limit(1)
 
 		annotationTypeResult, err := annotationTypeRepo.Find(txCtx, annotationTypeFilters.Build())
@@ -109,7 +109,7 @@ func (uc *AnnotationUseCase) Create(ctx context.Context, entity *model.Annotatio
 
 func (uc *AnnotationUseCase) Update(ctx context.Context, annotationID string, updates map[string]interface{}) error {
 	// Annotation name cannot be updated (it references annotation type)
-	if _, ok := updates[constants.NameField]; ok {
+	if _, ok := updates[fields.EntityName.DomainName()]; ok {
 		return errors.NewValidationError("annotation name cannot be updated", map[string]interface{}{
 			"field":   "name",
 			"message": "name field references annotation type and is immutable",
@@ -124,13 +124,13 @@ func (uc *AnnotationUseCase) Update(ctx context.Context, annotationID string, up
 		}
 
 		// If value is being updated, validate it
-		if value, ok := updates[constants.TagValueField]; ok {
+		if value, ok := updates[fields.AnnotationTagValue.DomainName()]; ok {
 			// Find annotation type
 			annotationTypeRepo := uc.uow.GetAnnotationTypeRepo()
 
 			annotationTypeFilters := query.NewBuilder()
-			annotationTypeFilters.Where(constants.NameField, query.OpEqual, currentAnnotation.Name)
-			annotationTypeFilters.Where(constants.DeletedField, query.OpEqual, false)
+			annotationTypeFilters.Where(fields.EntityName.DomainName(), query.OpEqual, currentAnnotation.Name)
+			annotationTypeFilters.Where(fields.EntityIsDeleted.DomainName(), query.OpEqual, false)
 			annotationTypeFilters.Limit(1)
 
 			annotationTypeResult, err := annotationTypeRepo.Find(txCtx, annotationTypeFilters.Build())

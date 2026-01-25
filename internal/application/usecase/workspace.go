@@ -3,10 +3,10 @@ package usecase
 import (
 	"context"
 
+	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
-	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -56,7 +56,7 @@ func (uc *WorkspaceUseCase) Create(ctx context.Context, entity *model.Workspace)
 }
 
 func (uc *WorkspaceUseCase) Update(ctx context.Context, id string, updates map[string]interface{}) error {
-	if annotationTypes, ok := updates["annotation_types"]; ok {
+	if annotationTypes, ok := updates[fields.WorkspaceAnnotationTypes.DomainName()]; ok {
 		newATList, ok := annotationTypes.([]string)
 		if !ok {
 			return errors.NewValidationError("invalid annotation_types format", map[string]interface{}{
@@ -108,7 +108,7 @@ func (uc *WorkspaceUseCase) Update(ctx context.Context, id string, updates map[s
 
 UPDATE:
 	err := uc.uow.WithTx(ctx, func(txCtx context.Context, repos map[vobj.EntityType]any) error {
-		if name, ok := updates[constants.NameField]; ok {
+		if name, ok := updates[fields.EntityName.DomainName()]; ok {
 			isUnique, err := CheckNameUniqueInCollection(txCtx, uc.repo, name.(string), id)
 			if err != nil {
 				return errors.NewInternalError("failed to check name uniqueness", err)
@@ -135,8 +135,8 @@ func (uc *WorkspaceUseCase) hasAnyPatients(ctx context.Context, workspaceID stri
 	patientRepo := uc.uow.GetPatientRepo()
 
 	builder := query.NewBuilder()
-	builder.Where(constants.ParentIDField, query.OpEqual, workspaceID)
-	builder.Where(constants.DeletedField, query.OpEqual, false)
+	builder.Where(fields.EntityParentID.DomainName(), query.OpEqual, workspaceID)
+	builder.Where(fields.EntityIsDeleted.DomainName(), query.OpEqual, false)
 
 	count, err := patientRepo.Count(ctx, builder.Build())
 	if err != nil {
@@ -150,8 +150,8 @@ func (uc *WorkspaceUseCase) hasAnyAnnotations(ctx context.Context, workspaceID s
 	annotationRepo := uc.uow.GetAnnotationRepo()
 
 	builder := query.NewBuilder()
-	builder.Where(constants.WsIDField, query.OpEqual, workspaceID)
-	builder.Where(constants.DeletedField, query.OpEqual, false)
+	builder.Where(fields.ImageWsID.DomainName(), query.OpEqual, workspaceID)
+	builder.Where(fields.EntityIsDeleted.DomainName(), query.OpEqual, false)
 
 	count, err := annotationRepo.Count(ctx, builder.Build())
 	if err != nil {
@@ -191,9 +191,9 @@ func (uc *WorkspaceUseCase) validateRemovedAnnotationTypesNotInUse(ctx context.C
 
 		// Count annotations using this annotation type name in this workspace
 		builder := query.NewBuilder()
-		builder.Where(constants.WsIDField, query.OpEqual, workspaceID)
-		builder.Where(constants.NameField, query.OpEqual, annotationType.Name)
-		builder.Where(constants.DeletedField, query.OpEqual, false)
+		builder.Where(fields.ImageWsID.DomainName(), query.OpEqual, workspaceID)
+		builder.Where(fields.EntityName.DomainName(), query.OpEqual, annotationType.Name)
+		builder.Where(fields.EntityIsDeleted.DomainName(), query.OpEqual, false)
 
 		count, err := annotationRepo.Count(ctx, builder.Build())
 		if err != nil {

@@ -4,9 +4,10 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
-	"github.com/histopathai/main-service/internal/shared/constants"
+
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
@@ -48,12 +49,12 @@ func CheckParentExists(ctx context.Context, parent *vobj.ParentRef, uow port.Uni
 
 func CheckNameUniqueUnderParent[T port.Entity](ctx context.Context, repo port.Repository[T], name string, parentID string, excludeID ...string) (bool, error) {
 	builder := query.NewBuilder()
-	builder.Where(constants.NameField, query.OpEqual, name)
-	builder.Where(constants.ParentIDField, query.OpEqual, parentID)
-	builder.Where(constants.DeletedField, query.OpEqual, false)
+	builder.Where(fields.EntityName.DomainName(), query.OpEqual, name)
+	builder.Where(fields.EntityParentID.DomainName(), query.OpEqual, parentID)
+	builder.Where(fields.EntityIsDeleted.DomainName(), query.OpEqual, false)
 
 	if len(excludeID) > 0 && excludeID[0] != "" {
-		builder.Where(constants.IDField, query.OpNotEqual, excludeID[0])
+		builder.Where(fields.EntityID.DomainName(), query.OpNotEqual, excludeID[0])
 	}
 
 	count, err := repo.Count(ctx, builder.Build())
@@ -66,11 +67,11 @@ func CheckNameUniqueUnderParent[T port.Entity](ctx context.Context, repo port.Re
 
 func CheckNameUniqueInCollection[T port.Entity](ctx context.Context, repo port.Repository[T], name string, excludeID ...string) (bool, error) {
 	builder := query.NewBuilder()
-	builder.Where(constants.NameField, query.OpEqual, name)
-	builder.Where(constants.DeletedField, query.OpEqual, false)
+	builder.Where(fields.EntityName.DomainName(), query.OpEqual, name)
+	builder.Where(fields.EntityIsDeleted.DomainName(), query.OpEqual, false)
 
 	if len(excludeID) > 0 && excludeID[0] != "" {
-		builder.Where(constants.IDField, query.OpNotEqual, excludeID[0])
+		builder.Where(fields.EntityID.DomainName(), query.OpNotEqual, excludeID[0])
 	}
 
 	count, err := repo.Count(ctx, builder.Build())

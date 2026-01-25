@@ -3,10 +3,10 @@ package usecase
 import (
 	"context"
 
+	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
-	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
@@ -51,13 +51,13 @@ func (uc *ContentUseCase) Create(ctx context.Context, content *model.Content) (*
 
 		updates := map[string]interface{}{}
 		if created.ContentType.IsThumbnail() {
-			updates[constants.ImageThumbnailContentIDField] = created.ID
+			updates[fields.ImageThumbnailContentID.DomainName()] = created.ID
 		} else if created.ContentType.IsIndexMap() {
-			updates[constants.ImageIndexmapContentIDField] = created.ID
+			updates[fields.ImageIndexmapContentID.DomainName()] = created.ID
 		} else if created.ContentType.IsArchive() {
-			updates[constants.ImageZipTilesContentIDField] = created.ID
+			updates[fields.ImageZipTilesContentID.DomainName()] = created.ID
 		} else if created.ContentType.IsDZI() {
-			updates[constants.ImageDziContentIDField] = created.ID
+			updates[fields.ImageDziContentID.DomainName()] = created.ID
 		} else {
 			return errors.NewInternalError("failed to define content in parent", nil)
 		}
