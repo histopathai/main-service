@@ -13,7 +13,7 @@ type Service[T Entity] interface {
 	Update(ctx context.Context, cmd command.UpdateCommand) error
 	Delete(ctx context.Context, cmd command.DeleteCommand) error
 	DeleteMany(ctx context.Context, cmd command.DeleteCommands) error
-	List(ctx context.Context, cmd command.ListCommand) (*[]query.Result[T], error)
-	Count(ctx context.Context, cmd command.CountCommand) (int64, error)
-	GetByParentID(ctx context.Context, cmd command.ReadByParentIDCommand) (*[]query.Result[T], error)
+	List(ctx context.Context, spec query.Specification) (*query.Result[T], error)
+	Count(ctx context.Context, spec query.Specification) (int64, error)
+	GetByParentID(ctx context.Context, cmd command.ReadByParentIDCommand) (*query.Result[T], error)
 }
