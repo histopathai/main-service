@@ -1,63 +1,72 @@
 package request
 
 import (
+	"fmt"
+
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
+// ============================================================================
+// Parent Reference
+// ============================================================================
+
 type ParentRefRequest struct {
 	ID   string `json:"id" binding:"required" example:"550e8400-e29b-41d4-a716-446655440000"`
-	Type string `json:"type" binding:"required" example:"workspace"` // Valid types: workspace, patient, image, annotation_type
+	Type string `json:"type" binding:"required" example:"workspace"` // workspace, patient, image, annotation_type
 }
 
-// QueryPaginationRequest - Query parameter binding with validation
-type QueryPaginationRequest struct {
-	Limit   int    `form:"limit" binding:"omitempty,gt=0,lte=100" example:"20"`
-	Offset  int    `form:"offset" binding:"omitempty,gte=0" example:"0"`
-	SortBy  string `form:"sort_by" example:"created_at"`
-	SortDir string `form:"sort_dir" binding:"omitempty,oneof=asc desc" example:"desc"`
-}
+// ============================================================================
+// Query Components
+// ============================================================================
 
-// JSONPaginationRequest - JSON body binding with validation
-type JSONPaginationRequest struct {
-	Limit   int    `json:"limit" binding:"omitempty,gt=0,lte=100" example:"20"`
-	Offset  int    `json:"offset" binding:"omitempty,gte=0" example:"0"`
-	SortBy  string `json:"sort_by" example:"created_at"`
-	SortDir string `json:"sort_dir" binding:"omitempty,oneof=asc desc" example:"desc"`
-}
-
-// ToPagination - Mapper for QueryPaginationRequest
-func (qpr *QueryPaginationRequest) ToPagination() *query.Pagination {
-	return &query.Pagination{
-		Limit:   qpr.Limit,
-		Offset:  qpr.Offset,
-		SortBy:  qpr.SortBy,
-		SortDir: qpr.SortDir,
-	}
-}
-
-// ToPagination - Mapper for JSONPaginationRequest
-func (jpr *JSONPaginationRequest) ToPagination() *query.Pagination {
-	return &query.Pagination{
-		Limit:   jpr.Limit,
-		Offset:  jpr.Offset,
-		SortBy:  jpr.SortBy,
-		SortDir: jpr.SortDir,
-	}
-}
-
-// Filter Request
-type JSONFilterRequest struct {
+type FilterRequest struct {
 	Field    string      `json:"field" binding:"required" example:"disease"`
 	Operator string      `json:"operator" binding:"required" example:"=="`
-	Value    interface{} `json:"value" binding:"required" example:"Breast Cancer"`
+	Value    interface{} `json:"value" binding:"required" swaggertype:"string" example:"Cancer"`
 }
 
-// Batch Operations
-type BatchDeleteRequest struct {
-	IDs []string `json:"ids" binding:"required,min=1,dive,required" example:"['id1', 'id2']"`
+type SortRequest struct {
+	Field     string `json:"field" binding:"required" example:"created_at"`
+	Direction string `json:"direction" binding:"required,oneof=asc desc" example:"desc"`
 }
 
-type BatchTransferRequest struct {
-	IDs    []string `json:"ids" binding:"required,min=1,dive,required" example:"['id1', 'id2']"`
-	Target string   `json:"target" binding:"required" example:"workspace-123"`
+type PaginationRequest struct {
+	Limit  int `json:"limit" binding:"omitempty,gt=0,lte=100" example:"20"`
+	Offset int `json:"offset" binding:"omitempty,gte=0" example:"0"`
+}
+
+// ============================================================================
+// Generic List Request
+// ============================================================================
+
+type ListRequest struct {
+	Filters    []FilterRequest    `json:"filters,omitempty" binding:"omitempty,dive"`
+	Sorts      []SortRequest      `json:"sorts,omitempty" binding:"omitempty,dive"`
+	Pagination *PaginationRequest `json:"pagination,omitempty"`
+}
+
+func (r *ListRequest) ToSpecification() (query.Specification, error) {
+	builder := query.NewBuilder()
+
+	for _, f := range r.Filters {
+		op := query.Operator(f.Operator)
+		if !op.IsValid() {
+			return query.Specification{}, fmt.Errorf("invalid operator: %s", f.Operator)
+		}
+		builder.Where(f.Field, op, f.Value)
+	}
+
+	for _, s := range r.Sorts {
+		dir := query.SortDirection(s.Direction)
+		if !dir.IsValid() {
+			return query.Specification{}, fmt.Errorf("invalid direction: %s", s.Direction)
+		}
+		builder.OrderBy(s.Field, dir)
+	}
+
+	if r.Pagination != nil {
+		builder.Paginate(r.Pagination.Limit, r.Pagination.Offset)
+	}
+
+	return builder.Build(), nil
 }
