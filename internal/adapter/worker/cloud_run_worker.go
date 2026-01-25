@@ -7,7 +7,8 @@ import (
 
 	run "cloud.google.com/go/run/apiv2"
 	runpb "cloud.google.com/go/run/apiv2/runpb"
-	"github.com/histopathai/main-service/internal/port"
+	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/pkg/config"
 )
 
@@ -17,31 +18,38 @@ const (
 )
 
 type CloudRunWorker struct {
-	client *run.JobsClient
-	config config.WorkerConfig
-	logger *slog.Logger
+	client    *run.JobsClient
+	config    config.WorkerConfig
+	gcpConfig config.GCPConfig
+	logger    *slog.Logger
 }
 
-func NewCloudRunWorker(ctx context.Context, cfg config.WorkerConfig, logger *slog.Logger) (*CloudRunWorker, error) {
+func NewCloudRunWorker(ctx context.Context, cfg config.WorkerConfig, gcpCfg config.GCPConfig, logger *slog.Logger) (*CloudRunWorker, error) {
 	client, err := run.NewJobsClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create Cloud Run Jobs client: %w", err)
 	}
 
 	return &CloudRunWorker{
-		client: client,
-		config: cfg,
-		logger: logger,
+		client:    client,
+		config:    cfg,
+		gcpConfig: gcpCfg,
+		logger:    logger,
 	}, nil
 }
 
-func (w *CloudRunWorker) ProcessImage(ctx context.Context, input *port.ProcessingInput) error {
-	jobName := w.determineJobName(input.Size)
+func (w *CloudRunWorker) ProcessImage(ctx context.Context, content model.Content, processingVersion vobj.ProcessingVersion) error {
+	jobName := w.determineJobName(content.Size)
+
+	// Determine image ID from content parent
+	// Assuming content parent is the image
+	imageID := content.Parent.ID
 
 	w.logger.Info("Selected Cloud Run Job based on size",
-		slog.String("image_id", input.ImageID),
-		slog.Int64("size_bytes", input.Size),
+		slog.String("image_id", imageID),
+		slog.Int64("size_bytes", content.Size),
 		slog.String("job_name", jobName),
+		slog.String("version", processingVersion.String()),
 	)
 
 	req := &runpb.RunJobRequest{
@@ -52,19 +60,23 @@ func (w *CloudRunWorker) ProcessImage(ctx context.Context, input *port.Processin
 					Env: []*runpb.EnvVar{
 						{
 							Name:   "INPUT_IMAGE_ID",
-							Values: &runpb.EnvVar_Value{Value: input.ImageID},
+							Values: &runpb.EnvVar_Value{Value: imageID},
 						},
 						{
 							Name:   "INPUT_ORIGIN_PATH",
-							Values: &runpb.EnvVar_Value{Value: input.OriginPath},
+							Values: &runpb.EnvVar_Value{Value: content.Path},
 						},
 						{
 							Name:   "INPUT_BUCKET_NAME",
-							Values: &runpb.EnvVar_Value{Value: input.BucketName},
+							Values: &runpb.EnvVar_Value{Value: w.gcpConfig.OriginalBucketName},
+						},
+						{
+							Name:   "INPUT_PROCESSING_VERSION",
+							Values: &runpb.EnvVar_Value{Value: processingVersion.String()},
 						},
 						{
 							Name:   "WORKER_TYPE_OVERRIDE",
-							Values: &runpb.EnvVar_Value{Value: w.getWorkerTypeLabel(input.Size)},
+							Values: &runpb.EnvVar_Value{Value: w.getWorkerTypeLabel(content.Size)},
 						},
 					},
 				},
@@ -96,7 +108,6 @@ func (w *CloudRunWorker) determineJobName(size int64) string {
 	case size < Size1GB:
 		return w.config.JobMedium
 	default:
-
 		return w.config.JobLarge
 	}
 }
