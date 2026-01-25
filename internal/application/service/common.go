@@ -46,27 +46,45 @@ func (s *Service[T]) DeleteMany(ctx context.Context, cmd command.DeleteCommands)
 	return s.repo.SoftDeleteMany(ctx, ids)
 }
 
-func (s *Service[T]) List(ctx context.Context, cmd command.ListCommand) (*query.Result[T], error) {
-	filters := cmd.ToQueryFilters(false)
-
-	if filters == nil {
-		filters = []query.Filter{}
+func (s *Service[T]) List(ctx context.Context, spec query.Specification) (*query.Result[T], error) {
+	// Add is_deleted filter if not present
+	hasDeletedFilter := false
+	for _, f := range spec.Filters {
+		if f.Field == "is_deleted" {
+			hasDeletedFilter = true
+			break
+		}
 	}
 
-	pagination := cmd.ToPagination()
+	if !hasDeletedFilter {
+		spec.Filters = append(spec.Filters, query.Filter{
+			Field:    "is_deleted",
+			Operator: query.OpEqual,
+			Value:    false,
+		})
+	}
 
-	return s.repo.FindByFilters(ctx, filters, pagination)
+	return s.repo.Find(ctx, spec)
 }
 
-func (s *Service[T]) Count(ctx context.Context, cmd command.CountCommand) (int64, error) {
-
-	filters := cmd.ToQueryFilters(false)
-
-	if filters == nil {
-		filters = []query.Filter{}
+func (s *Service[T]) Count(ctx context.Context, spec query.Specification) (int64, error) {
+	hasDeletedFilter := false
+	for _, f := range spec.Filters {
+		if f.Field == "is_deleted" {
+			hasDeletedFilter = true
+			break
+		}
 	}
 
-	return s.repo.Count(ctx, filters)
+	if !hasDeletedFilter {
+		spec.Filters = append(spec.Filters, query.Filter{
+			Field:    "is_deleted",
+			Operator: query.OpEqual,
+			Value:    false,
+		})
+	}
+
+	return s.repo.Count(ctx, spec)
 }
 
 func (s *Service[T]) GetByParentID(ctx context.Context, cmd command.ReadByParentIDCommand) (*query.Result[T], error) {
@@ -78,7 +96,6 @@ func (s *Service[T]) GetByParentID(ctx context.Context, cmd command.ReadByParent
 	}
 
 	parentType, err := vobj.NewParentTypeFromString(parentTypeStr)
-
 	if err != nil {
 		return nil, errors.NewValidationError("invalid parent type", map[string]interface{}{
 			"parent_type": parentTypeStr,
@@ -90,18 +107,12 @@ func (s *Service[T]) GetByParentID(ctx context.Context, cmd command.ReadByParent
 			"parent_type": parentTypeStr,
 		})
 	}
-	filters := []query.Filter{
-		{
-			Field:    constants.ParentIDField,
-			Operator: query.OpEqual,
-			Value:    id,
-		},
-		{
-			Field:    "parent.type",
-			Operator: query.OpEqual,
-			Value:    parentType,
-		},
-	}
 
-	return s.repo.FindByFilters(ctx, filters, nil)
+	builder := query.NewBuilder()
+	builder.Where(constants.ParentIDField, query.OpEqual, id)
+	builder.Where("parent.type", query.OpEqual, parentType)
+	// Also exclude deleted? Default logic usually applies.
+	builder.Where("is_deleted", query.OpEqual, false)
+
+	return s.repo.Find(ctx, builder.Build())
 }

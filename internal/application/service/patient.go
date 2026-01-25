@@ -6,6 +6,7 @@ import (
 	"github.com/histopathai/main-service/internal/application/command"
 	"github.com/histopathai/main-service/internal/application/usecase"
 	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/errors"
 )
@@ -57,5 +58,33 @@ func (s *PatientService) Update(ctx context.Context, cmd any) error {
 		})
 	}
 
+	// ... existing methods override ?
+	// The view showed Create and Update. Be careful not to remove them.
+	// I will append new methods.
 	return s.usecase.Update(ctx, id, updates)
+}
+
+func (s *PatientService) Transfer(ctx context.Context, cmd command.TransferCommand) error {
+	// Validate command if needed
+	if _, ok := cmd.Validate(); !ok {
+		// details handling?
+		return errors.NewValidationError("invalid transfer command", nil)
+	}
+
+	newParentType, err := vobj.NewParentTypeFromString(cmd.ParentType)
+	if err != nil {
+		return err
+	}
+	parentRef := vobj.ParentRef{
+		ID:   cmd.NewParent,
+		Type: newParentType,
+	}
+
+	for _, id := range cmd.IDs {
+		err := s.usecase.Transfer(ctx, id, parentRef)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
