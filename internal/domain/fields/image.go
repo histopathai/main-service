@@ -23,6 +23,9 @@ const (
 	ImageIndexmapContentID  ImageField = "indexmap_content_id"
 	ImageTilesContentID     ImageField = "tiles_content_id"
 	ImageZipTilesContentID  ImageField = "ziptiles_content_id"
+
+	ImageSize          ImageField = "size"
+	ImageMagnification ImageField = "magnification"
 )
 
 func (f ImageField) APIName() string {
@@ -79,6 +82,10 @@ func (f ImageField) DomainName() string {
 		return "TilesContentID"
 	case ImageZipTilesContentID:
 		return "ZipTilesContentID"
+	case ImageSize:
+		return "Size"
+	case ImageMagnification:
+		return "Magnification"
 	default:
 		return ""
 	}
@@ -90,7 +97,8 @@ func (f ImageField) IsValid() bool {
 		ImageProcessingStatus, ImageProcessingVersion, ImageProcessingFailureReason,
 		ImageProcessingRetryCount, ImageProcessingLastProcessedAt,
 		ImageOriginContentID, ImageThumbnailContentID, ImageDziContentID,
-		ImageIndexmapContentID, ImageTilesContentID, ImageZipTilesContentID:
+		ImageIndexmapContentID, ImageTilesContentID, ImageZipTilesContentID,
+		ImageSize, ImageMagnification:
 		return true
 	default:
 		return false
@@ -103,4 +111,5 @@ var ImageFields = []ImageField{
 	ImageProcessingRetryCount, ImageProcessingLastProcessedAt,
 	ImageOriginContentID, ImageThumbnailContentID, ImageDziContentID,
 	ImageIndexmapContentID, ImageTilesContentID, ImageZipTilesContentID,
+	ImageSize, ImageMagnification,
 }
