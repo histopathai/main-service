@@ -134,11 +134,11 @@ UPDATE:
 func (uc *WorkspaceUseCase) hasAnyPatients(ctx context.Context, workspaceID string) (bool, error) {
 	patientRepo := uc.uow.GetPatientRepo()
 
-	count, err := patientRepo.Count(ctx, []query.Filter{
-		{Field: constants.ParentIDField, Operator: query.OpEqual, Value: workspaceID},
-		{Field: constants.DeletedField, Operator: query.OpEqual, Value: false},
-	})
+	builder := query.NewBuilder()
+	builder.Where(constants.ParentIDField, query.OpEqual, workspaceID)
+	builder.Where(constants.DeletedField, query.OpEqual, false)
 
+	count, err := patientRepo.Count(ctx, builder.Build())
 	if err != nil {
 		return false, err
 	}
@@ -149,11 +149,11 @@ func (uc *WorkspaceUseCase) hasAnyPatients(ctx context.Context, workspaceID stri
 func (uc *WorkspaceUseCase) hasAnyAnnotations(ctx context.Context, workspaceID string) (bool, error) {
 	annotationRepo := uc.uow.GetAnnotationRepo()
 
-	count, err := annotationRepo.Count(ctx, []query.Filter{
-		{Field: constants.WsIDField, Operator: query.OpEqual, Value: workspaceID},
-		{Field: constants.DeletedField, Operator: query.OpEqual, Value: false},
-	})
+	builder := query.NewBuilder()
+	builder.Where(constants.WsIDField, query.OpEqual, workspaceID)
+	builder.Where(constants.DeletedField, query.OpEqual, false)
 
+	count, err := annotationRepo.Count(ctx, builder.Build())
 	if err != nil {
 		return false, err
 	}
@@ -190,12 +190,12 @@ func (uc *WorkspaceUseCase) validateRemovedAnnotationTypesNotInUse(ctx context.C
 		}
 
 		// Count annotations using this annotation type name in this workspace
-		count, err := annotationRepo.Count(ctx, []query.Filter{
-			{Field: constants.WsIDField, Operator: query.OpEqual, Value: workspaceID},
-			{Field: constants.NameField, Operator: query.OpEqual, Value: annotationType.Name},
-			{Field: constants.DeletedField, Operator: query.OpEqual, Value: false},
-		})
+		builder := query.NewBuilder()
+		builder.Where(constants.WsIDField, query.OpEqual, workspaceID)
+		builder.Where(constants.NameField, query.OpEqual, annotationType.Name)
+		builder.Where(constants.DeletedField, query.OpEqual, false)
 
+		count, err := annotationRepo.Count(ctx, builder.Build())
 		if err != nil {
 			return errors.NewInternalError("failed to check annotation usage", err)
 		}
