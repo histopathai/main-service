@@ -49,20 +49,12 @@ func (uc *AnnotationUseCase) Create(ctx context.Context, entity *model.Annotatio
 		// 2. Check if AnnotationType with this name exists
 		annotationTypeRepo := uc.uow.GetAnnotationTypeRepo()
 
-		annotationTypeFilters := []query.Filter{
-			{
-				Field:    constants.NameField,
-				Operator: query.OpEqual,
-				Value:    entity.Name,
-			},
-			{
-				Field:    constants.DeletedField,
-				Operator: query.OpEqual,
-				Value:    false,
-			},
-		}
+		annotationTypeFilters := query.NewBuilder()
+		annotationTypeFilters.Where(constants.NameField, query.OpEqual, entity.Name)
+		annotationTypeFilters.Where(constants.DeletedField, query.OpEqual, false)
+		annotationTypeFilters.Limit(1)
 
-		annotationTypeResult, err := annotationTypeRepo.FindByFilters(txCtx, annotationTypeFilters, &query.Pagination{Limit: 1})
+		annotationTypeResult, err := annotationTypeRepo.Find(txCtx, annotationTypeFilters.Build())
 		if err != nil {
 			return errors.NewInternalError("failed to fetch annotation type", err)
 		}
@@ -136,20 +128,12 @@ func (uc *AnnotationUseCase) Update(ctx context.Context, annotationID string, up
 			// Find annotation type
 			annotationTypeRepo := uc.uow.GetAnnotationTypeRepo()
 
-			annotationTypeFilters := []query.Filter{
-				{
-					Field:    constants.NameField,
-					Operator: query.OpEqual,
-					Value:    currentAnnotation.Name,
-				},
-				{
-					Field:    constants.DeletedField,
-					Operator: query.OpEqual,
-					Value:    false,
-				},
-			}
+			annotationTypeFilters := query.NewBuilder()
+			annotationTypeFilters.Where(constants.NameField, query.OpEqual, currentAnnotation.Name)
+			annotationTypeFilters.Where(constants.DeletedField, query.OpEqual, false)
+			annotationTypeFilters.Limit(1)
 
-			annotationTypeResult, err := annotationTypeRepo.FindByFilters(txCtx, annotationTypeFilters, &query.Pagination{Limit: 1})
+			annotationTypeResult, err := annotationTypeRepo.Find(txCtx, annotationTypeFilters.Build())
 			if err != nil {
 				return errors.NewInternalError("failed to fetch annotation type", err)
 			}

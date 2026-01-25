@@ -161,28 +161,17 @@ UPDATE:
 func (uc *AnnotationTypeUseCase) updateAnnotationNames(ctx context.Context, oldName, newName string) error {
 	annotationRepo := uc.uow.GetAnnotationRepo()
 
-	filters := []query.Filter{
-		{
-			Field:    constants.NameField,
-			Operator: query.OpEqual,
-			Value:    oldName,
-		},
-		{
-			Field:    constants.DeletedField,
-			Operator: query.OpEqual,
-			Value:    false,
-		},
-	}
+	builder := query.NewBuilder()
+	builder.Where(constants.NameField, query.OpEqual, oldName)
+	builder.Where(constants.DeletedField, query.OpEqual, false)
 
 	// Use pagination to handle large datasets
 	const limit = 100
 	offset := 0
 
 	for {
-		result, err := annotationRepo.FindByFilters(ctx, filters, &query.Pagination{
-			Limit:  limit,
-			Offset: offset,
-		})
+		builder.Paginate(limit, offset)
+		result, err := annotationRepo.Find(ctx, builder.Build())
 		if err != nil {
 			return errors.NewInternalError("failed to fetch annotations", err)
 		}
@@ -232,18 +221,9 @@ func (uc *AnnotationTypeUseCase) checkRemovedOptionsInUse(ctx context.Context, a
 	// Fetch annotations using this annotation type
 	annotationRepo := uc.uow.GetAnnotationRepo()
 
-	filters := []query.Filter{
-		{
-			Field:    constants.NameField,
-			Operator: query.OpEqual,
-			Value:    annotationType.Name,
-		},
-		{
-			Field:    constants.DeletedField,
-			Operator: query.OpEqual,
-			Value:    false,
-		},
-	}
+	builder := query.NewBuilder()
+	builder.Where(constants.NameField, query.OpEqual, annotationType.Name)
+	builder.Where(constants.DeletedField, query.OpEqual, false)
 
 	removedOptionsMap := make(map[string]bool)
 	for _, opt := range removedOptions {
@@ -254,10 +234,8 @@ func (uc *AnnotationTypeUseCase) checkRemovedOptionsInUse(ctx context.Context, a
 	offset := 0
 
 	for {
-		result, err := annotationRepo.FindByFilters(ctx, filters, &query.Pagination{
-			Limit:  limit,
-			Offset: offset,
-		})
+		builder.Paginate(limit, offset)
+		result, err := annotationRepo.Find(ctx, builder.Build())
 		if err != nil {
 			return false, "", err
 		}
@@ -310,10 +288,11 @@ func (uc *AnnotationTypeUseCase) checkRemovedOptionsInUse(ctx context.Context, a
 func (uc *AnnotationTypeUseCase) isAnnotationTypeInUseByAnyAnnotation(ctx context.Context, annotationTypeName string) (bool, error) {
 	annotationRepo := uc.uow.GetAnnotationRepo()
 
-	count, err := annotationRepo.Count(ctx, []query.Filter{
-		{Field: constants.NameField, Operator: query.OpEqual, Value: annotationTypeName},
-		{Field: constants.DeletedField, Operator: query.OpEqual, Value: false},
-	})
+	builder := query.NewBuilder()
+	builder.Where(constants.NameField, query.OpEqual, annotationTypeName)
+	builder.Where(constants.DeletedField, query.OpEqual, false)
+
+	count, err := annotationRepo.Count(ctx, builder.Build())
 
 	if err != nil {
 		return false, err

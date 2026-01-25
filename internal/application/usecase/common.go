@@ -47,33 +47,16 @@ func CheckParentExists(ctx context.Context, parent *vobj.ParentRef, uow port.Uni
 }
 
 func CheckNameUniqueUnderParent[T port.Entity](ctx context.Context, repo port.Repository[T], name string, parentID string, excludeID ...string) (bool, error) {
-	filters := []query.Filter{
-		{
-			Field:    constants.NameField,
-			Operator: query.OpEqual,
-			Value:    name,
-		},
-		{
-			Field:    constants.ParentIDField,
-			Operator: query.OpEqual,
-			Value:    parentID,
-		},
-		{
-			Field:    constants.DeletedField,
-			Operator: query.OpEqual,
-			Value:    false,
-		},
-	}
+	builder := query.NewBuilder()
+	builder.Where(constants.NameField, query.OpEqual, name)
+	builder.Where(constants.ParentIDField, query.OpEqual, parentID)
+	builder.Where(constants.DeletedField, query.OpEqual, false)
 
 	if len(excludeID) > 0 && excludeID[0] != "" {
-		filters = append(filters, query.Filter{
-			Field:    constants.IDField,
-			Operator: query.OpNotEqual,
-			Value:    excludeID[0],
-		})
+		builder.Where(constants.IDField, query.OpNotEqual, excludeID[0])
 	}
 
-	count, err := repo.Count(ctx, filters)
+	count, err := repo.Count(ctx, builder.Build())
 	if err != nil {
 		return false, fmt.Errorf("failed to check name uniqueness: %w", err)
 	}
@@ -82,28 +65,15 @@ func CheckNameUniqueUnderParent[T port.Entity](ctx context.Context, repo port.Re
 }
 
 func CheckNameUniqueInCollection[T port.Entity](ctx context.Context, repo port.Repository[T], name string, excludeID ...string) (bool, error) {
-	filters := []query.Filter{
-		{
-			Field:    constants.NameField,
-			Operator: query.OpEqual,
-			Value:    name,
-		},
-		{
-			Field:    constants.DeletedField,
-			Operator: query.OpEqual,
-			Value:    false,
-		},
-	}
+	builder := query.NewBuilder()
+	builder.Where(constants.NameField, query.OpEqual, name)
+	builder.Where(constants.DeletedField, query.OpEqual, false)
 
 	if len(excludeID) > 0 && excludeID[0] != "" {
-		filters = append(filters, query.Filter{
-			Field:    constants.IDField,
-			Operator: query.OpNotEqual,
-			Value:    excludeID[0],
-		})
+		builder.Where(constants.IDField, query.OpNotEqual, excludeID[0])
 	}
 
-	count, err := repo.Count(ctx, filters)
+	count, err := repo.Count(ctx, builder.Build())
 	if err != nil {
 		return false, fmt.Errorf("failed to check name uniqueness in collection: %w", err)
 	}

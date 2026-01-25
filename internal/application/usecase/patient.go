@@ -224,35 +224,20 @@ func (uc *PatientUseCase) Transfer(ctx context.Context, patientID string, newPar
 func (uc *PatientUseCase) getImageIDsUnderPatient(ctx context.Context, patientID string, oldWsID string) ([]string, error) {
 	imageRepo := uc.uow.GetImageRepo()
 
-	filters := []query.Filter{
-		{
-			Field:    constants.ParentIDField,
-			Operator: query.OpEqual,
-			Value:    patientID,
-		},
-		{
-			Field:    constants.WsIDField,
-			Operator: query.OpEqual,
-			Value:    oldWsID,
-		},
-		{
-			Field:    constants.DeletedField,
-			Operator: query.OpEqual,
-			Value:    false,
-		},
-	}
+	builder := query.NewBuilder()
+	builder.Where(constants.ParentIDField, query.OpEqual, patientID)
+	builder.Where(constants.WsIDField, query.OpEqual, oldWsID)
+	builder.Where("is_deleted", query.OpEqual, false)
 
 	const limit = 1000
 	offset := 0
 	var allImageIDs []string
 
 	for {
-		pagination := &query.Pagination{
-			Limit:  limit,
-			Offset: offset,
-		}
+		builder.Paginate(limit, offset)
+		spec := builder.Build()
 
-		result, err := imageRepo.FindByFilters(ctx, filters, pagination)
+		result, err := imageRepo.Find(ctx, spec)
 		if err != nil {
 			return nil, errors.NewInternalError("failed to fetch images", err)
 		}
@@ -278,36 +263,20 @@ func (uc *PatientUseCase) getAnnotationIDsUnderImages(ctx context.Context, image
 
 	annotationRepo := uc.uow.GetAnnotationRepo()
 
-	// Use OpIn to fetch all annotations for all images in a single query batch
-	filters := []query.Filter{
-		{
-			Field:    constants.ParentIDField,
-			Operator: query.OpIn,
-			Value:    imageIDs,
-		},
-		{
-			Field:    constants.WsIDField,
-			Operator: query.OpEqual,
-			Value:    oldWsID,
-		},
-		{
-			Field:    constants.DeletedField,
-			Operator: query.OpEqual,
-			Value:    false,
-		},
-	}
+	builder := query.NewBuilder()
+	builder.Where(constants.ParentIDField, query.OpIn, imageIDs)
+	builder.Where(constants.WsIDField, query.OpEqual, oldWsID)
+	builder.Where("is_deleted", query.OpEqual, false)
 
 	const limit = 1000
 	offset := 0
 	var allAnnotationIDs []string
 
 	for {
-		pagination := &query.Pagination{
-			Limit:  limit,
-			Offset: offset,
-		}
+		builder.Paginate(limit, offset)
+		spec := builder.Build()
 
-		result, err := annotationRepo.FindByFilters(ctx, filters, pagination)
+		result, err := annotationRepo.Find(ctx, spec)
 		if err != nil {
 			return nil, errors.NewInternalError("failed to fetch annotations", err)
 		}

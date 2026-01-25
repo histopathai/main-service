@@ -225,35 +225,20 @@ func (uc *ImageUseCase) validateStatusTransition(currentStatus, newStatus vobj.I
 func (uc *ImageUseCase) getAnnotationIDsUnderImage(ctx context.Context, imageID string, wsID string) ([]string, error) {
 	annotationRepo := uc.uow.GetAnnotationRepo()
 
-	filters := []query.Filter{
-		{
-			Field:    constants.ParentIDField,
-			Operator: query.OpEqual,
-			Value:    imageID,
-		},
-		{
-			Field:    constants.WsIDField,
-			Operator: query.OpEqual,
-			Value:    wsID,
-		},
-		{
-			Field:    constants.DeletedField,
-			Operator: query.OpEqual,
-			Value:    false,
-		},
-	}
+	builder := query.NewBuilder()
+	builder.Where(constants.ParentIDField, query.OpEqual, imageID)
+	builder.Where(constants.WsIDField, query.OpEqual, wsID)
+	builder.Where("is_deleted", query.OpEqual, false)
 
 	const limit = 1000
 	offset := 0
 	var allAnnotationIDs []string
 
 	for {
-		pagination := &query.Pagination{
-			Limit:  limit,
-			Offset: offset,
-		}
+		builder.Paginate(limit, offset)
+		spec := builder.Build()
 
-		result, err := annotationRepo.FindByFilters(ctx, filters, pagination)
+		result, err := annotationRepo.Find(ctx, spec)
 		if err != nil {
 			return nil, errors.NewInternalError("failed to fetch annotations", err)
 		}
