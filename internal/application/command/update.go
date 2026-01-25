@@ -1,8 +1,8 @@
 package command
 
 import (
+	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/vobj"
-	"github.com/histopathai/main-service/internal/shared/constants"
 )
 
 // ============================================================================
@@ -52,10 +52,10 @@ func (c *UpdateEntityCommand) GetUpdates() map[string]interface{} {
 	}
 
 	if c.CreatorID != nil {
-		updates["creator_id"] = *c.CreatorID
+		updates[fields.EntityCreatorID.DomainName()] = *c.CreatorID
 	}
 	if c.Name != nil {
-		updates["name"] = *c.Name
+		updates[fields.EntityName.DomainName()] = *c.Name
 	}
 	return updates
 }
@@ -120,25 +120,25 @@ func (c *UpdateWorkspaceCommand) GetUpdates() map[string]interface{} {
 	// Workspace-specific updates
 	if c.OrganType != nil {
 		organType, _ := vobj.NewOrganTypeFromString(*c.OrganType)
-		updates[constants.WorkspaceOrganTypeField] = organType
+		updates[fields.WorkspaceOrganType.DomainName()] = organType
 	}
 	if c.Organization != nil {
-		updates[constants.WorkspaceOrganizationField] = *c.Organization
+		updates[fields.WorkspaceOrganization.DomainName()] = *c.Organization
 	}
 	if c.Description != nil {
-		updates[constants.WorkspaceDescField] = *c.Description
+		updates[fields.WorkspaceDescription.DomainName()] = *c.Description
 	}
 	if c.License != nil {
-		updates[constants.WorkspaceLicenseField] = *c.License
+		updates[fields.WorkspaceLicense.DomainName()] = *c.License
 	}
 	if c.ResourceURL != nil {
-		updates[constants.WorkspaceResourceURLField] = *c.ResourceURL
+		updates[fields.WorkspaceResourceURL.DomainName()] = *c.ResourceURL
 	}
 	if c.ReleaseYear != nil {
-		updates[constants.WorkspaceReleaseYearField] = *c.ReleaseYear
+		updates[fields.WorkspaceReleaseYear.DomainName()] = *c.ReleaseYear
 	}
 	if len(c.AnnotationTypes) != 0 {
-		updates[constants.WorkspaceAnnotationTypes] = c.AnnotationTypes
+		updates[fields.WorkspaceAnnotationTypes.DomainName()] = c.AnnotationTypes
 	}
 
 	return updates
@@ -189,25 +189,25 @@ func (c *UpdatePatientCommand) GetUpdates() map[string]interface{} {
 
 	// Patient-specific updates
 	if c.Age != nil {
-		updates[constants.PatientAgeField] = *c.Age
+		updates[fields.PatientAge.DomainName()] = *c.Age
 	}
 	if c.Gender != nil {
-		updates[constants.PatientGenderField] = *c.Gender
+		updates[fields.PatientGender.DomainName()] = *c.Gender
 	}
 	if c.Race != nil {
-		updates[constants.PatientRaceField] = *c.Race
+		updates[fields.PatientRace.DomainName()] = *c.Race
 	}
 	if c.Disease != nil {
-		updates[constants.PatientDiseaseField] = *c.Disease
+		updates[fields.PatientDisease.DomainName()] = *c.Disease
 	}
 	if c.Subtype != nil {
-		updates[constants.PatientSubtypeField] = *c.Subtype
+		updates[fields.PatientSubtype.DomainName()] = *c.Subtype
 	}
 	if c.Grade != nil {
-		updates[constants.PatientGradeField] = *c.Grade
+		updates[fields.PatientGrade.DomainName()] = *c.Grade
 	}
 	if c.History != nil {
-		updates[constants.PatientHistoryField] = *c.History
+		updates[fields.PatientHistory.DomainName()] = *c.History
 	}
 
 	return updates
@@ -256,20 +256,20 @@ func (c *UpdateAnnotationCommand) GetUpdates() map[string]interface{} {
 	}
 
 	if c.Value != nil {
-		updates[constants.TagValueField] = c.Value
+		updates[fields.AnnotationTagValue.DomainName()] = c.Value
 	}
 	if c.Color != nil {
-		updates[constants.TagColorField] = *c.Color
+		updates[fields.AnnotationColor.DomainName()] = *c.Color
 	}
 	if c.IsGlobal != nil {
-		updates[constants.TagGlobalField] = *c.IsGlobal
+		updates[fields.AnnotationIsGlobal.DomainName()] = *c.IsGlobal
 	}
 	if c.Points != nil {
 		points := make([]vobj.Point, len(c.Points))
 		for i, p := range c.Points {
 			points[i] = vobj.Point{X: p.X, Y: p.Y}
 		}
-		updates[constants.PolygonField] = points
+		updates[fields.AnnotationPolygon.DomainName()] = points
 	}
 
 	return updates
@@ -328,22 +328,22 @@ func (c *UpdateAnnotationTypeCommand) GetUpdates() map[string]interface{} {
 	}
 
 	if c.IsGlobal != nil {
-		updates[constants.TagGlobalField] = *c.IsGlobal
+		updates[fields.AnnotationTypeIsGlobal.DomainName()] = *c.IsGlobal
 	}
 	if c.IsRequired != nil {
-		updates[constants.TagRequiredField] = *c.IsRequired
+		updates[fields.AnnotationTypeIsRequired.DomainName()] = *c.IsRequired
 	}
 	if c.Options != nil {
-		updates[constants.TagOptionsField] = c.Options
+		updates[fields.AnnotationTypeOptions.DomainName()] = c.Options
 	}
 	if c.Min != nil {
-		updates[constants.TagMinField] = *c.Min
+		updates[fields.AnnotationTypeMin.DomainName()] = *c.Min
 	}
 	if c.Max != nil {
-		updates[constants.TagMaxField] = *c.Max
+		updates[fields.AnnotationTypeMax.DomainName()] = *c.Max
 	}
 	if c.Color != nil {
-		updates[constants.TagColorsField] = *c.Color
+		updates[fields.AnnotationTypeColor.DomainName()] = *c.Color
 	}
 
 	return updates
@@ -395,16 +395,16 @@ func (c *UpdateImageCommand) GetUpdates() map[string]interface{} {
 	}
 
 	if c.Width != nil {
-		updates[constants.ImageWidthField] = *c.Width
+		updates[fields.ImageWidth.DomainName()] = *c.Width
 	}
 	if c.Height != nil {
-		updates[constants.ImageHeightField] = *c.Height
+		updates[fields.ImageHeight.DomainName()] = *c.Height
 	}
 	if c.Size != nil {
-		updates[constants.ImageSizeField] = *c.Size
+		updates[fields.ImageSize.DomainName()] = *c.Size
 	}
 	if c.Magnification != nil {
-		updates[constants.ImageMagnificationField] = c.Magnification.GetMap()
+		updates[fields.ImageMagnification.DomainName()] = c.Magnification.GetMap()
 	}
 
 	return updates
@@ -452,10 +452,10 @@ func (c *UpdateContentCommand) GetUpdates() map[string]interface{} {
 
 	if c.Provider != nil {
 		provider, _ := vobj.NewContentProviderFromString(*c.Provider)
-		updates[constants.ContentProviderField] = provider
+		updates[fields.ContentProvider.DomainName()] = provider
 	}
 	if c.Path != nil {
-		updates[constants.ContentPathField] = *c.Path
+		updates[fields.ContentPath.DomainName()] = *c.Path
 	}
 
 	return updates
