@@ -9,49 +9,9 @@ import (
 )
 
 type MagnificationResponse struct {
-	Objective         *float64 `json:"objective,omitempty"`
-	NativeLevel       *int     `json:"native_level,omitempty"`
-	ScanMagnification *float64 `json:"scan_magnification,omitempty"`
-}
-
-type ProcessingInfoResponse struct {
-	Status          string    `json:"status"`
-	Version         string    `json:"version,omitempty"`
-	FailureReason   *string   `json:"failure_reason,omitempty"`
-	RetryCount      int       `json:"retry_count"`
-	LastProcessedAt time.Time `json:"last_processed_at,omitempty"`
-}
-
-type ImageResponse struct {
-	ID         string            `json:"id"`
-	EntityType string            `json:"entity_type"`
-	Parent     ParentRefResponse `json:"parent"`
-	CreatorID  string            `json:"creator_id"`
-	Name       string            `json:"name"`
-	WsID       string            `json:"ws_id"`
-
-	// Basic image properties
-	Format string `json:"format"`
-	Width  *int   `json:"width,omitempty"`
-	Height *int   `json:"height,omitempty"`
-
-	// WSI magnification
-	Magnification *MagnificationResponse `json:"magnification,omitempty"`
-
-	// Content references
-	OriginContentID    *string `json:"origin_content_id,omitempty"`
-	DziContentID       *string `json:"dzi_content_id,omitempty"`
-	ThumbnailContentID *string `json:"thumbnail_content_id,omitempty"`
-	IndexmapContentID  *string `json:"indexmap_content_id,omitempty"`
-	TilesContentID     *string `json:"tiles_content_id,omitempty"`
-	ZipTilesContentID  *string `json:"ziptiles_content_id,omitempty"`
-
-	// Processing info
-	Processing ProcessingInfoResponse `json:"processing"`
-
-	// Timestamps
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	Objective         *float64 `json:"objective,omitempty" example:"40"`
+	NativeLevel       *int     `json:"native_level,omitempty" example:"0"`
+	ScanMagnification *float64 `json:"scan_magnification,omitempty" example:"40"`
 }
 
 func newMagnificationResponse(mag *vobj.OpticalMagnification) *MagnificationResponse {
@@ -65,29 +25,69 @@ func newMagnificationResponse(mag *vobj.OpticalMagnification) *MagnificationResp
 	}
 }
 
-func newProcessingInfoResponse(pi vobj.ProcessingInfo) ProcessingInfoResponse {
+type ProcessingInfoResponse struct {
+	Status          string     `json:"status" example:"processed"`
+	Version         string     `json:"version" example:"v1"`
+	FailureReason   *string    `json:"failure_reason,omitempty"`
+	RetryCount      int        `json:"retry_count" example:"0"`
+	LastProcessedAt *time.Time `json:"last_processed_at,omitempty" example:"2024-01-01T12:00:00Z"`
+}
+
+func newProcessingInfoResponse(pi *vobj.ProcessingInfo) ProcessingInfoResponse {
+	var lastProcessedAt *time.Time
+	if !pi.LastProcessedAt.IsZero() {
+		lastProcessedAt = &pi.LastProcessedAt
+	}
+
 	return ProcessingInfoResponse{
 		Status:          pi.Status.String(),
 		Version:         pi.Version.String(),
 		FailureReason:   pi.FailureReason,
 		RetryCount:      pi.RetryCount,
-		LastProcessedAt: pi.LastProcessedAt,
+		LastProcessedAt: lastProcessedAt,
 	}
 }
 
-func NewImageResponse(img *model.Image) *ImageResponse {
-	parent := ParentRefResponse{
-		ID:   img.Parent.ID,
-		Type: img.Parent.Type.String(),
-	}
+type ImageResponse struct {
+	ID         string             `json:"id" example:"img-123"`
+	EntityType string             `json:"entity_type" example:"image"`
+	CreatorID  string             `json:"creator_id" example:"user-123"`
+	Parent     *ParentRefResponse `json:"parent,omitempty"`
+	WsID       string             `json:"ws_id" example:"ws-123"`
+	Name       string             `json:"name" example:"slide1.svs"`
 
+	// Basic properties
+	Format string `json:"format" example:"svs"`
+	Width  *int   `json:"width,omitempty" example:"40000"`
+	Height *int   `json:"height,omitempty" example:"30000"`
+
+	// Magnification
+	Magnification *MagnificationResponse `json:"magnification,omitempty"`
+
+	// Content references
+	OriginContentID    *string `json:"origin_content_id,omitempty" example:"content-123"`
+	DziContentID       *string `json:"dzi_content_id,omitempty" example:"content-124"`
+	ThumbnailContentID *string `json:"thumbnail_content_id,omitempty" example:"content-125"`
+	IndexmapContentID  *string `json:"indexmap_content_id,omitempty" example:"content-126"`
+	TilesContentID     *string `json:"tiles_content_id,omitempty" example:"content-127"`
+	ZipTilesContentID  *string `json:"ziptiles_content_id,omitempty" example:"content-128"`
+
+	// Processing
+	Processing ProcessingInfoResponse `json:"processing"`
+
+	// Timestamps
+	CreatedAt time.Time `json:"created_at" example:"2024-01-01T12:00:00Z"`
+	UpdatedAt time.Time `json:"updated_at" example:"2024-01-02T12:00:00Z"`
+}
+
+func NewImageResponse(img *model.Image) *ImageResponse {
 	return &ImageResponse{
 		ID:                 img.ID,
 		EntityType:         img.EntityType.String(),
-		Parent:             parent,
 		CreatorID:          img.CreatorID,
-		Name:               img.Name,
+		Parent:             NewParentRefResponse(&img.Parent),
 		WsID:               img.WsID,
+		Name:               img.Name,
 		Format:             img.Format,
 		Width:              img.Width,
 		Height:             img.Height,
@@ -98,7 +98,7 @@ func NewImageResponse(img *model.Image) *ImageResponse {
 		IndexmapContentID:  img.IndexmapContentID,
 		TilesContentID:     img.TilesContentID,
 		ZipTilesContentID:  img.ZipTilesContentID,
-		Processing:         newProcessingInfoResponse(*img.Processing),
+		Processing:         newProcessingInfoResponse(img.Processing),
 		CreatedAt:          img.CreatedAt,
 		UpdatedAt:          img.UpdatedAt,
 	}
@@ -107,39 +107,37 @@ func NewImageResponse(img *model.Image) *ImageResponse {
 func NewImageListResponse(result *query.Result[*model.Image]) *ListResponse[ImageResponse] {
 	data := make([]ImageResponse, len(result.Data))
 	for i, img := range result.Data {
-		dto := NewImageResponse(img)
-		data[i] = *dto
-	}
-
-	pagination := PaginationResponse{
-		Limit:   result.Limit,
-		Offset:  result.Offset,
-		HasMore: result.HasMore,
+		data[i] = *NewImageResponse(img)
 	}
 
 	return &ListResponse[ImageResponse]{
-		Data:       data,
-		Pagination: &pagination,
+		Data: data,
+		Pagination: &PaginationResponse{
+			Limit:   result.Limit,
+			Offset:  result.Offset,
+			HasMore: result.HasMore,
+		},
 	}
 }
 
+// Special responses for image upload
 type UploadImagePayload struct {
-	ImageID   string            `json:"image_id"`
-	UploadURL string            `json:"upload_url"`
-	Headers   map[string]string `json:"headers"`
-	Message   string            `json:"message"`
+	ImageID   string            `json:"image_id" example:"img-123"`
+	UploadURL string            `json:"upload_url" example:"https://storage.googleapis.com/..."`
+	Headers   map[string]string `json:"headers,omitempty"`
+	Message   string            `json:"message" example:"Upload the image to this URL"`
 }
 
 type UploadImageResponse struct {
 	Data UploadImagePayload `json:"data"`
 }
 
-// Swagger response DTOs
+// Swagger docs
 type ImageDataResponse struct {
 	Data ImageResponse `json:"data"`
 }
 
-type ImageListResponse struct {
+type ImageListResponseDoc struct {
 	Data       []ImageResponse     `json:"data"`
 	Pagination *PaginationResponse `json:"pagination,omitempty"`
 }
