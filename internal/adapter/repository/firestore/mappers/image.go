@@ -7,7 +7,6 @@ import (
 	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
-	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -217,16 +216,16 @@ func (im *ImageMapper) MapUpdates(updates map[string]interface{}) (map[string]in
 				return nil, errors.NewValidationError("invalid type for height field", nil)
 			}
 
-		case constants.ImageSizeField: // Not in ImageField?
+		case fields.ImageSize.DomainName(): // Not in ImageField?
 			if size, ok := v.(*int64); ok {
-				mappedUpdates["size"] = *size
+				mappedUpdates[firestoreField] = *size
 			} else if sizeInt64, ok := v.(int64); ok {
-				mappedUpdates["size"] = sizeInt64
+				mappedUpdates[firestoreField] = sizeInt64
 			} else {
 				return nil, errors.NewValidationError("invalid type for size field", nil)
 			}
 
-		case constants.ImageMagnificationField: // Magnification not in ImageField enum
+		case fields.ImageMagnification.DomainName():
 			if mag, ok := v.(*vobj.OpticalMagnification); ok && mag != nil {
 				magMap := make(map[string]interface{})
 				if mag.Objective != nil {
@@ -238,7 +237,7 @@ func (im *ImageMapper) MapUpdates(updates map[string]interface{}) (map[string]in
 				if mag.ScanMagnification != nil {
 					magMap["scan_magnification"] = *mag.ScanMagnification
 				}
-				mappedUpdates["magnification"] = magMap
+				mappedUpdates[firestoreField] = magMap
 			} else {
 				return nil, errors.NewValidationError("invalid type for magnification field", nil)
 			}
