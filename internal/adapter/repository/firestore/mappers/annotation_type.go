@@ -2,9 +2,9 @@ package mappers
 
 import (
 	"cloud.google.com/go/firestore"
+	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
-	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -22,21 +22,21 @@ func NewAnnotationTypeMapper() *AnnotationTypeMapper {
 func (atm *AnnotationTypeMapper) ToFirestoreMap(entity *model.AnnotationType) map[string]interface{} {
 	m := atm.EntityMapper.ToFirestoreMap(entity)
 
-	m["tag_type"] = entity.TagType.String()
-	m["is_global"] = entity.IsGlobal
-	m["is_required"] = entity.IsRequired
+	m[fields.AnnotationTypeTagType.FirestoreName()] = entity.TagType.String()
+	m[fields.AnnotationTypeIsGlobal.FirestoreName()] = entity.IsGlobal
+	m[fields.AnnotationTypeIsRequired.FirestoreName()] = entity.IsRequired
 
 	if len(entity.Options) > 0 {
-		m["options"] = entity.Options
+		m[fields.AnnotationTypeOptions.FirestoreName()] = entity.Options
 	}
 	if entity.Min != nil {
-		m["min"] = *entity.Min
+		m[fields.AnnotationTypeMin.FirestoreName()] = *entity.Min
 	}
 	if entity.Max != nil {
-		m["max"] = *entity.Max
+		m[fields.AnnotationTypeMax.FirestoreName()] = *entity.Max
 	}
 	if entity.Color != nil {
-		m["color"] = *entity.Color
+		m[fields.AnnotationTypeColor.FirestoreName()] = *entity.Color
 	}
 
 	return m
@@ -54,22 +54,22 @@ func (atm *AnnotationTypeMapper) FromFirestoreDoc(doc *firestore.DocumentSnapsho
 
 	data := doc.Data()
 
-	if tagTypeStr, ok := data["tag_type"].(string); ok {
+	if tagTypeStr, ok := data[fields.AnnotationTypeTagType.FirestoreName()].(string); ok {
 		annotationType.TagType, err = vobj.NewTagTypeFromString(tagTypeStr)
 		if err != nil {
 			return nil, err
 		}
 	}
 
-	if isGlobal, ok := data["is_global"].(bool); ok {
+	if isGlobal, ok := data[fields.AnnotationTypeIsGlobal.FirestoreName()].(bool); ok {
 		annotationType.IsGlobal = isGlobal
 	}
 
-	if isRequired, ok := data["is_required"].(bool); ok {
+	if isRequired, ok := data[fields.AnnotationTypeIsRequired.FirestoreName()].(bool); ok {
 		annotationType.IsRequired = isRequired
 	}
 
-	if optionsRaw, ok := data["options"].([]interface{}); ok {
+	if optionsRaw, ok := data[fields.AnnotationTypeOptions.FirestoreName()].([]interface{}); ok {
 		options := make([]string, 0, len(optionsRaw))
 		for _, opt := range optionsRaw {
 			if optStr, ok := opt.(string); ok {
@@ -79,15 +79,15 @@ func (atm *AnnotationTypeMapper) FromFirestoreDoc(doc *firestore.DocumentSnapsho
 		annotationType.Options = options
 	}
 
-	if min, ok := data["min"].(float64); ok {
+	if min, ok := data[fields.AnnotationTypeMin.FirestoreName()].(float64); ok {
 		annotationType.Min = &min
 	}
 
-	if max, ok := data["max"].(float64); ok {
+	if max, ok := data[fields.AnnotationTypeMax.FirestoreName()].(float64); ok {
 		annotationType.Max = &max
 	}
 
-	if color, ok := data["color"].(string); ok {
+	if color, ok := data[fields.AnnotationTypeColor.FirestoreName()].(string); ok {
 		annotationType.Color = &color
 	}
 
@@ -101,60 +101,62 @@ func (atm *AnnotationTypeMapper) MapUpdates(updates map[string]interface{}) (map
 	}
 
 	for k, v := range updates {
+		firestoreField := fields.MapToFirestore(k)
+
 		switch k {
-		case constants.TagTypeField:
+		case fields.AnnotationTypeTagType.DomainName():
 			if tagType, ok := v.(vobj.TagType); ok {
-				mappedUpdates["tag_type"] = tagType.String()
+				mappedUpdates[firestoreField] = tagType.String()
 			} else if tagTypeStr, ok := v.(string); ok {
-				mappedUpdates["tag_type"] = tagTypeStr
+				mappedUpdates[firestoreField] = tagTypeStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for tag_type field", nil)
 			}
 
-		case constants.TagGlobalField:
+		case fields.AnnotationTypeIsGlobal.DomainName():
 			if isGlobal, ok := v.(bool); ok {
-				mappedUpdates["is_global"] = isGlobal
+				mappedUpdates[firestoreField] = isGlobal
 			} else {
 				return nil, errors.NewValidationError("invalid type for is_global field", nil)
 			}
 
-		case constants.TagRequiredField:
+		case fields.AnnotationTypeIsRequired.DomainName():
 			if isRequired, ok := v.(bool); ok {
-				mappedUpdates["is_required"] = isRequired
+				mappedUpdates[firestoreField] = isRequired
 			} else {
 				return nil, errors.NewValidationError("invalid type for is_required field", nil)
 			}
 
-		case constants.TagOptionsField:
+		case fields.AnnotationTypeOptions.DomainName():
 			if options, ok := v.([]string); ok {
-				mappedUpdates["options"] = options
+				mappedUpdates[firestoreField] = options
 			} else {
 				return nil, errors.NewValidationError("invalid type for options field", nil)
 			}
 
-		case constants.TagMinField:
+		case fields.AnnotationTypeMin.DomainName():
 			if min, ok := v.(*float64); ok {
-				mappedUpdates["min"] = *min
+				mappedUpdates[firestoreField] = *min
 			} else if minFloat, ok := v.(float64); ok {
-				mappedUpdates["min"] = minFloat
+				mappedUpdates[firestoreField] = minFloat
 			} else {
 				return nil, errors.NewValidationError("invalid type for min field", nil)
 			}
 
-		case constants.TagMaxField:
+		case fields.AnnotationTypeMax.DomainName():
 			if max, ok := v.(*float64); ok {
-				mappedUpdates["max"] = *max
+				mappedUpdates[firestoreField] = *max
 			} else if maxFloat, ok := v.(float64); ok {
-				mappedUpdates["max"] = maxFloat
+				mappedUpdates[firestoreField] = maxFloat
 			} else {
 				return nil, errors.NewValidationError("invalid type for max field", nil)
 			}
 
-		case constants.TagColorField:
+		case fields.AnnotationTypeColor.DomainName():
 			if color, ok := v.(*string); ok {
-				mappedUpdates["color"] = *color
+				mappedUpdates[firestoreField] = *color
 			} else if colorStr, ok := v.(string); ok {
-				mappedUpdates["color"] = colorStr
+				mappedUpdates[firestoreField] = colorStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for color field", nil)
 			}
@@ -171,46 +173,10 @@ func (atm *AnnotationTypeMapper) MapFilters(filters []query.Filter) ([]query.Fil
 	}
 
 	for _, f := range filters {
-		switch f.Field {
-		case constants.TagTypeField:
+		firestoreField := fields.MapToFirestore(f.Field)
+		if fields.AnnotationTypeField(f.Field).IsValid() {
 			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "tag_type",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.TagGlobalField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "is_global",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.TagRequiredField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "is_required",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.TagOptionsField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "options",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.TagMinField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "min",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.TagMaxField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "max",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.TagColorField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "color",
+				Field:    firestoreField,
 				Operator: f.Operator,
 				Value:    f.Value,
 			})

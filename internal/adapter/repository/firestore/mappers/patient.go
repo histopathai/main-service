@@ -2,8 +2,8 @@ package mappers
 
 import (
 	"cloud.google.com/go/firestore"
+	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -24,25 +24,25 @@ func (pm *PatientMapper) ToFirestoreMap(entity *model.Patient) map[string]interf
 
 	// Patient specific fields
 	if entity.Age != nil {
-		m["age"] = *entity.Age
+		m[fields.PatientAge.FirestoreName()] = *entity.Age
 	}
 	if entity.Gender != nil {
-		m["gender"] = *entity.Gender
+		m[fields.PatientGender.FirestoreName()] = *entity.Gender
 	}
 	if entity.Race != nil {
-		m["race"] = *entity.Race
+		m[fields.PatientRace.FirestoreName()] = *entity.Race
 	}
 	if entity.Disease != nil {
-		m["disease"] = *entity.Disease
+		m[fields.PatientDisease.FirestoreName()] = *entity.Disease
 	}
 	if entity.Subtype != nil {
-		m["subtype"] = *entity.Subtype
+		m[fields.PatientSubtype.FirestoreName()] = *entity.Subtype
 	}
 	if entity.Grade != nil {
-		m["grade"] = *entity.Grade
+		m[fields.PatientGrade.FirestoreName()] = *entity.Grade
 	}
 	if entity.History != nil {
-		m["history"] = *entity.History
+		m[fields.PatientHistory.FirestoreName()] = *entity.History
 	}
 
 	return m
@@ -61,25 +61,25 @@ func (pm *PatientMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*mod
 
 	data := doc.Data()
 
-	if age, ok := data["age"].(int); ok {
+	if age, ok := data[fields.PatientAge.FirestoreName()].(int); ok {
 		patient.Age = &age
 	}
-	if gender, ok := data["gender"].(string); ok {
+	if gender, ok := data[fields.PatientGender.FirestoreName()].(string); ok {
 		patient.Gender = &gender
 	}
-	if race, ok := data["race"].(string); ok {
+	if race, ok := data[fields.PatientRace.FirestoreName()].(string); ok {
 		patient.Race = &race
 	}
-	if disease, ok := data["disease"].(string); ok {
+	if disease, ok := data[fields.PatientDisease.FirestoreName()].(string); ok {
 		patient.Disease = &disease
 	}
-	if subtype, ok := data["subtype"].(string); ok {
+	if subtype, ok := data[fields.PatientSubtype.FirestoreName()].(string); ok {
 		patient.Subtype = &subtype
 	}
-	if grade, ok := data["grade"].(int); ok {
+	if grade, ok := data[fields.PatientGrade.FirestoreName()].(int); ok {
 		patient.Grade = &grade
 	}
-	if history, ok := data["history"].(string); ok {
+	if history, ok := data[fields.PatientHistory.FirestoreName()].(string); ok {
 		patient.History = &history
 	}
 
@@ -95,66 +95,68 @@ func (pm *PatientMapper) MapUpdates(updates map[string]interface{}) (map[string]
 
 	// Patient specific updates
 	for k, v := range updates {
+		firestoreField := fields.MapToFirestore(k)
+
 		switch k {
-		case constants.PatientAgeField:
+		case fields.PatientAge.DomainName():
 			if age, ok := v.(*int); ok {
-				mappedUpdates["age"] = *age
+				mappedUpdates[firestoreField] = *age
 			} else if ageInt, ok := v.(int); ok {
-				mappedUpdates["age"] = ageInt
+				mappedUpdates[firestoreField] = ageInt
 			} else {
 				return nil, errors.NewValidationError("invalid type for age field", nil)
 			}
 
-		case constants.PatientGenderField:
+		case fields.PatientGender.DomainName():
 			if gender, ok := v.(*string); ok {
-				mappedUpdates["gender"] = *gender
+				mappedUpdates[firestoreField] = *gender
 			} else if genderStr, ok := v.(string); ok {
-				mappedUpdates["gender"] = genderStr
+				mappedUpdates[firestoreField] = genderStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for gender field", nil)
 			}
 
-		case constants.PatientRaceField:
+		case fields.PatientRace.DomainName():
 			if race, ok := v.(*string); ok {
-				mappedUpdates["race"] = *race
+				mappedUpdates[firestoreField] = *race
 			} else if raceStr, ok := v.(string); ok {
-				mappedUpdates["race"] = raceStr
+				mappedUpdates[firestoreField] = raceStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for race field", nil)
 			}
 
-		case constants.PatientDiseaseField:
+		case fields.PatientDisease.DomainName():
 			if disease, ok := v.(*string); ok {
-				mappedUpdates["disease"] = *disease
+				mappedUpdates[firestoreField] = *disease
 			} else if diseaseStr, ok := v.(string); ok {
-				mappedUpdates["disease"] = diseaseStr
+				mappedUpdates[firestoreField] = diseaseStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for disease field", nil)
 			}
 
-		case constants.PatientSubtypeField:
+		case fields.PatientSubtype.DomainName():
 			if subtype, ok := v.(*string); ok {
-				mappedUpdates["subtype"] = *subtype
+				mappedUpdates[firestoreField] = *subtype
 			} else if subtypeStr, ok := v.(string); ok {
-				mappedUpdates["subtype"] = subtypeStr
+				mappedUpdates[firestoreField] = subtypeStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for subtype field", nil)
 			}
 
-		case constants.PatientGradeField:
+		case fields.PatientGrade.DomainName():
 			if grade, ok := v.(*int); ok {
-				mappedUpdates["grade"] = *grade
+				mappedUpdates[firestoreField] = *grade
 			} else if gradeInt, ok := v.(int); ok {
-				mappedUpdates["grade"] = gradeInt
+				mappedUpdates[firestoreField] = gradeInt
 			} else {
 				return nil, errors.NewValidationError("invalid type for grade field", nil)
 			}
 
-		case constants.PatientHistoryField:
+		case fields.PatientHistory.DomainName():
 			if history, ok := v.(*string); ok {
-				mappedUpdates["history"] = *history
+				mappedUpdates[firestoreField] = *history
 			} else if historyStr, ok := v.(string); ok {
-				mappedUpdates["history"] = historyStr
+				mappedUpdates[firestoreField] = historyStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for history field", nil)
 			}
@@ -173,46 +175,15 @@ func (pm *PatientMapper) MapFilters(filters []query.Filter) ([]query.Filter, err
 
 	// Patient specific filters
 	for _, f := range filters {
-		switch f.Field {
-		case constants.PatientAgeField:
+		firestoreField := fields.MapToFirestore(f.Field)
+
+		if fields.EntityField(f.Field).IsValid() {
+			continue
+		}
+
+		if fields.PatientField(f.Field).IsValid() {
 			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "age",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.PatientGenderField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "gender",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.PatientRaceField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "race",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.PatientDiseaseField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "disease",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.PatientSubtypeField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "subtype",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.PatientGradeField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "grade",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.PatientHistoryField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "history",
+				Field:    firestoreField,
 				Operator: f.Operator,
 				Value:    f.Value,
 			})

@@ -4,6 +4,7 @@ import (
 	"time"
 
 	"cloud.google.com/go/firestore"
+	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/constants"
@@ -25,15 +26,15 @@ func (im *ImageMapper) ToFirestoreMap(entity *model.Image) map[string]interface{
 	m := im.EntityMapper.ToFirestoreMap(entity)
 
 	// Basic fields
-	m["ws_id"] = entity.WsID
-	m["format"] = entity.Format
+	m[fields.ImageWsID.FirestoreName()] = entity.WsID
+	m[fields.ImageFormat.FirestoreName()] = entity.Format
 
 	// Optional basic fields
 	if entity.Width != nil {
-		m["width"] = *entity.Width
+		m[fields.ImageWidth.FirestoreName()] = *entity.Width
 	}
 	if entity.Height != nil {
-		m["height"] = *entity.Height
+		m[fields.ImageHeight.FirestoreName()] = *entity.Height
 	}
 
 	// Magnification (nested object or null)
@@ -55,24 +56,24 @@ func (im *ImageMapper) ToFirestoreMap(entity *model.Image) map[string]interface{
 
 	// Origin Content ID
 	if entity.OriginContentID != nil {
-		m["origin_content_id"] = *entity.OriginContentID
+		m[fields.ImageOriginContentID.FirestoreName()] = *entity.OriginContentID
 	}
 
 	// Processed Content IDs
 	if entity.ThumbnailContentID != nil {
-		m["thumbnail_content_id"] = *entity.ThumbnailContentID
+		m[fields.ImageThumbnailContentID.FirestoreName()] = *entity.ThumbnailContentID
 	}
 	if entity.DziContentID != nil {
-		m["dzi_content_id"] = *entity.DziContentID
+		m[fields.ImageDziContentID.FirestoreName()] = *entity.DziContentID
 	}
 	if entity.IndexmapContentID != nil {
-		m["indexmap_content_id"] = *entity.IndexmapContentID
+		m[fields.ImageIndexmapContentID.FirestoreName()] = *entity.IndexmapContentID
 	}
 	if entity.TilesContentID != nil {
-		m["tiles_content_id"] = *entity.TilesContentID
+		m[fields.ImageTilesContentID.FirestoreName()] = *entity.TilesContentID
 	}
 	if entity.ZipTilesContentID != nil {
-		m["ziptiles_content_id"] = *entity.ZipTilesContentID
+		m[fields.ImageZipTilesContentID.FirestoreName()] = *entity.ZipTilesContentID
 	}
 
 	// Processing info
@@ -104,15 +105,19 @@ func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model
 	data := doc.Data()
 
 	// Basic fields
-	image.WsID = data["ws_id"].(string)
-	image.Format = data["format"].(string)
+	if v, ok := data[fields.ImageWsID.FirestoreName()].(string); ok {
+		image.WsID = v
+	}
+	if v, ok := data[fields.ImageFormat.FirestoreName()].(string); ok {
+		image.Format = v
+	}
 
 	// Optional basic fields
-	if v, ok := data["width"].(int64); ok {
+	if v, ok := data[fields.ImageWidth.FirestoreName()].(int64); ok {
 		width := int(v)
 		image.Width = &width
 	}
-	if v, ok := data["height"].(int64); ok {
+	if v, ok := data[fields.ImageHeight.FirestoreName()].(int64); ok {
 		height := int(v)
 		image.Height = &height
 	}
@@ -134,24 +139,24 @@ func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model
 	}
 
 	// Origin content
-	if v, ok := data["origin_content_id"].(string); ok {
+	if v, ok := data[fields.ImageOriginContentID.FirestoreName()].(string); ok {
 		image.OriginContentID = &v
 	}
 
 	// Processed content IDs
-	if v, ok := data["thumbnail_content_id"].(string); ok {
+	if v, ok := data[fields.ImageThumbnailContentID.FirestoreName()].(string); ok {
 		image.ThumbnailContentID = &v
 	}
-	if v, ok := data["dzi_content_id"].(string); ok {
+	if v, ok := data[fields.ImageDziContentID.FirestoreName()].(string); ok {
 		image.DziContentID = &v
 	}
-	if v, ok := data["indexmap_content_id"].(string); ok {
+	if v, ok := data[fields.ImageIndexmapContentID.FirestoreName()].(string); ok {
 		image.IndexmapContentID = &v
 	}
-	if v, ok := data["tiles_content_id"].(string); ok {
+	if v, ok := data[fields.ImageTilesContentID.FirestoreName()].(string); ok {
 		image.TilesContentID = &v
 	}
-	if v, ok := data["ziptiles_content_id"].(string); ok {
+	if v, ok := data[fields.ImageZipTilesContentID.FirestoreName()].(string); ok {
 		image.ZipTilesContentID = &v
 	}
 
@@ -191,26 +196,28 @@ func (im *ImageMapper) MapUpdates(updates map[string]interface{}) (map[string]in
 	}
 
 	for k, v := range updates {
+		firestoreField := fields.MapToFirestore(k)
+
 		switch k {
-		case constants.ImageWidthField:
+		case fields.ImageWidth.DomainName():
 			if width, ok := v.(*int); ok {
-				mappedUpdates["width"] = *width
+				mappedUpdates[firestoreField] = *width
 			} else if widthInt, ok := v.(int); ok {
-				mappedUpdates["width"] = widthInt
+				mappedUpdates[firestoreField] = widthInt
 			} else {
 				return nil, errors.NewValidationError("invalid type for width field", nil)
 			}
 
-		case constants.ImageHeightField:
+		case fields.ImageHeight.DomainName():
 			if height, ok := v.(*int); ok {
-				mappedUpdates["height"] = *height
+				mappedUpdates[firestoreField] = *height
 			} else if heightInt, ok := v.(int); ok {
-				mappedUpdates["height"] = heightInt
+				mappedUpdates[firestoreField] = heightInt
 			} else {
 				return nil, errors.NewValidationError("invalid type for height field", nil)
 			}
 
-		case constants.ImageSizeField:
+		case constants.ImageSizeField: // Not in ImageField?
 			if size, ok := v.(*int64); ok {
 				mappedUpdates["size"] = *size
 			} else if sizeInt64, ok := v.(int64); ok {
@@ -219,7 +226,7 @@ func (im *ImageMapper) MapUpdates(updates map[string]interface{}) (map[string]in
 				return nil, errors.NewValidationError("invalid type for size field", nil)
 			}
 
-		case constants.ImageMagnificationField:
+		case constants.ImageMagnificationField: // Magnification not in ImageField enum
 			if mag, ok := v.(*vobj.OpticalMagnification); ok && mag != nil {
 				magMap := make(map[string]interface{})
 				if mag.Objective != nil {
@@ -236,98 +243,107 @@ func (im *ImageMapper) MapUpdates(updates map[string]interface{}) (map[string]in
 				return nil, errors.NewValidationError("invalid type for magnification field", nil)
 			}
 
-		case constants.ImageOriginContentIDField:
+		case fields.ImageOriginContentID.DomainName():
 			if id, ok := v.(*string); ok {
-				mappedUpdates["origin_content_id"] = *id
+				mappedUpdates[firestoreField] = *id
 			} else if idStr, ok := v.(string); ok {
-				mappedUpdates["origin_content_id"] = idStr
+				mappedUpdates[firestoreField] = idStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for origin_content_id field", nil)
 			}
 
-		case constants.ImageThumbnailContentIDField:
+		case fields.ImageThumbnailContentID.DomainName():
 			if id, ok := v.(*string); ok {
-				mappedUpdates["thumbnail_content_id"] = *id
+				mappedUpdates[firestoreField] = *id
 			} else if idStr, ok := v.(string); ok {
-				mappedUpdates["thumbnail_content_id"] = idStr
+				mappedUpdates[firestoreField] = idStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for thumbnail_content_id field", nil)
 			}
-		case constants.ImageDziContentIDField:
+		case fields.ImageDziContentID.DomainName():
 			if id, ok := v.(*string); ok {
-				mappedUpdates["dzi_content_id"] = *id
+				mappedUpdates[firestoreField] = *id
 			} else if idStr, ok := v.(string); ok {
-				mappedUpdates["dzi_content_id"] = idStr
+				mappedUpdates[firestoreField] = idStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for dzi_content_id field", nil)
 			}
 
-		case constants.ImageIndexmapContentIDField:
+		case fields.ImageIndexmapContentID.DomainName():
 			if id, ok := v.(*string); ok {
-				mappedUpdates["indexmap_content_id"] = *id
+				mappedUpdates[firestoreField] = *id
 			} else if idStr, ok := v.(string); ok {
-				mappedUpdates["indexmap_content_id"] = idStr
+				mappedUpdates[firestoreField] = idStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for indexmap_content_id field", nil)
 			}
 
-		case constants.ImageZipTilesContentIDField:
+		case fields.ImageTilesContentID.DomainName(): // Typo fix: previous code had ImageZipTilesContentIDField separately
 			if id, ok := v.(*string); ok {
-				mappedUpdates["ziptiles_content_id"] = *id
+				mappedUpdates[firestoreField] = *id
 			} else if idStr, ok := v.(string); ok {
-				mappedUpdates["ziptiles_content_id"] = idStr
+				mappedUpdates[firestoreField] = idStr
+			} else {
+				return nil, errors.NewValidationError("invalid type for tiles_content_id field", nil)
+			}
+
+		case fields.ImageZipTilesContentID.DomainName():
+			if id, ok := v.(*string); ok {
+				mappedUpdates[firestoreField] = *id
+			} else if idStr, ok := v.(string); ok {
+				mappedUpdates[firestoreField] = idStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for ziptiles_content_id field", nil)
 			}
 
-		case constants.ImageProcessingStatusField:
+		case fields.ImageProcessingStatus.DomainName():
 			if status, ok := v.(vobj.ImageStatus); ok {
-				mappedUpdates["processing.status"] = status.String()
+				mappedUpdates[firestoreField] = status.String()
 			} else if statusStr, ok := v.(string); ok {
-				mappedUpdates["processing.status"] = statusStr
+				mappedUpdates[firestoreField] = statusStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for processing.status field", nil)
 			}
 
-		case constants.ImageProcessingVersionField:
+		case fields.ImageProcessingVersion.DomainName():
 			if version, ok := v.(vobj.ProcessingVersion); ok {
-				mappedUpdates["processing.version"] = version.String()
+				mappedUpdates[firestoreField] = version.String()
 			} else if versionStr, ok := v.(string); ok {
-				mappedUpdates["processing.version"] = versionStr
+				mappedUpdates[firestoreField] = versionStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for processing.version field", nil)
 			}
 
-		case constants.ImageProcessingFailureReasonField:
+		case fields.ImageProcessingFailureReason.DomainName():
 			if reason, ok := v.(*string); ok {
-				mappedUpdates["processing.failure_reason"] = *reason
+				mappedUpdates[firestoreField] = *reason
 			} else if reasonStr, ok := v.(string); ok {
-				mappedUpdates["processing.failure_reason"] = reasonStr
+				mappedUpdates[firestoreField] = reasonStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for processing.failure_reason field", nil)
 			}
 
-		case constants.ImageProcessingRetryCountField:
+		case fields.ImageProcessingRetryCount.DomainName():
 			if retryCount, ok := v.(*int); ok {
-				mappedUpdates["processing.retry_count"] = *retryCount
+				mappedUpdates[firestoreField] = *retryCount
 			} else if retryCountInt, ok := v.(int); ok {
-				mappedUpdates["processing.retry_count"] = retryCountInt
+				mappedUpdates[firestoreField] = retryCountInt
 			} else {
 				return nil, errors.NewValidationError("invalid type for processing.retry_count field", nil)
 			}
 
-		case constants.ImageProcessingLastProcessedAtField:
+		case fields.ImageProcessingLastProcessedAt.DomainName():
 			if lastProcessedAt, ok := v.(*time.Time); ok {
-				mappedUpdates["processing.last_processed_at"] = *lastProcessedAt
+				mappedUpdates[firestoreField] = *lastProcessedAt
 			} else if lastProcessedAtTime, ok := v.(time.Time); ok {
-				mappedUpdates["processing.last_processed_at"] = lastProcessedAtTime
+				mappedUpdates[firestoreField] = lastProcessedAtTime
 			} else {
 				return nil, errors.NewValidationError("invalid type for processing.last_processed_at field", nil)
 			}
 
-		case constants.WsIDField:
+		case fields.ImageWsID.DomainName():
 			if wsID, ok := v.(string); ok {
-				mappedUpdates["ws_id"] = wsID
+				mappedUpdates[firestoreField] = wsID
 			} else {
 				return nil, errors.NewValidationError("invalid type for ws_id field", nil)
 			}
@@ -344,52 +360,10 @@ func (im *ImageMapper) MapFilters(filters []query.Filter) ([]query.Filter, error
 	}
 
 	for _, f := range filters {
-		switch f.Field {
-		case constants.ImageProcessingStatusField:
+		firestoreField := fields.MapToFirestore(f.Field)
+		if fields.ImageField(f.Field).IsValid() {
 			firestoreFilters = append(firestoreFilters, query.Filter{
-				Field:    "processing.status",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-
-		case constants.ImageProcessingVersionField:
-			firestoreFilters = append(firestoreFilters, query.Filter{
-				Field:    "processing.version",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-
-		case constants.ImageFormatField:
-			firestoreFilters = append(firestoreFilters, query.Filter{
-				Field:    "format",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-
-		case constants.ImageWidthField:
-			firestoreFilters = append(firestoreFilters, query.Filter{
-				Field:    "width",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-
-		case constants.ImageHeightField:
-			firestoreFilters = append(firestoreFilters, query.Filter{
-				Field:    "height",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-
-		case constants.ImageSizeField:
-			firestoreFilters = append(firestoreFilters, query.Filter{
-				Field:    "size",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-
-		case constants.WsIDField:
-			firestoreFilters = append(firestoreFilters, query.Filter{
-				Field:    "ws_id",
+				Field:    firestoreField,
 				Operator: f.Operator,
 				Value:    f.Value,
 			})

@@ -2,9 +2,9 @@ package mappers
 
 import (
 	"cloud.google.com/go/firestore"
+	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
-	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -22,10 +22,10 @@ func NewContentMapper() *ContentMapper {
 func (cm *ContentMapper) ToFirestoreMap(entity *model.Content) map[string]interface{} {
 	m := cm.EntityMapper.ToFirestoreMap(entity)
 
-	m["provider"] = entity.Provider.String()
-	m["path"] = entity.Path
-	m["content_type"] = entity.ContentType.String()
-	m["size"] = entity.Size
+	m[fields.ContentProvider.FirestoreName()] = entity.Provider.String()
+	m[fields.ContentPath.FirestoreName()] = entity.Path
+	m[fields.ContentType.FirestoreName()] = entity.ContentType.String()
+	m[fields.ContentSize.FirestoreName()] = entity.Size
 
 	return m
 }
@@ -42,19 +42,19 @@ func (cm *ContentMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*mod
 
 	data := doc.Data()
 
-	if v, ok := data["provider"].(string); ok {
+	if v, ok := data[fields.ContentProvider.FirestoreName()].(string); ok {
 		content.Provider = vobj.ContentProvider(v)
 	}
 
-	if v, ok := data["path"].(string); ok {
+	if v, ok := data[fields.ContentPath.FirestoreName()].(string); ok {
 		content.Path = v
 	}
 
-	if v, ok := data["content_type"].(string); ok {
+	if v, ok := data[fields.ContentType.FirestoreName()].(string); ok {
 		content.ContentType = vobj.ContentType(v)
 	}
 
-	if v, ok := data["size"].(int64); ok {
+	if v, ok := data[fields.ContentSize.FirestoreName()].(int64); ok {
 		content.Size = v
 	}
 
@@ -68,39 +68,41 @@ func (cm *ContentMapper) MapUpdates(updates map[string]interface{}) (map[string]
 	}
 
 	for k, v := range updates {
+		firestoreField := fields.MapToFirestore(k)
+
 		switch k {
-		case constants.ContentProviderField:
+		case fields.ContentProvider.DomainName():
 			if provider, ok := v.(vobj.ContentProvider); ok {
-				mappedUpdates["provider"] = provider.String()
+				mappedUpdates[firestoreField] = provider.String()
 			} else if providerStr, ok := v.(string); ok {
-				mappedUpdates["provider"] = providerStr
+				mappedUpdates[firestoreField] = providerStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for provider field", nil)
 			}
 
-		case constants.ContentPathField:
+		case fields.ContentPath.DomainName():
 			if path, ok := v.(*string); ok {
-				mappedUpdates["path"] = *path
+				mappedUpdates[firestoreField] = *path
 			} else if pathStr, ok := v.(string); ok {
-				mappedUpdates["path"] = pathStr
+				mappedUpdates[firestoreField] = pathStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for path field", nil)
 			}
 
-		case constants.ContentTypeField:
+		case fields.ContentType.DomainName():
 			if contentType, ok := v.(vobj.ContentType); ok {
-				mappedUpdates["content_type"] = contentType.String()
+				mappedUpdates[firestoreField] = contentType.String()
 			} else if contentTypeStr, ok := v.(string); ok {
-				mappedUpdates["content_type"] = contentTypeStr
+				mappedUpdates[firestoreField] = contentTypeStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for content_type field", nil)
 			}
 
-		case constants.ContentSizeField:
+		case fields.ContentSize.DomainName():
 			if size, ok := v.(*int64); ok {
-				mappedUpdates["size"] = *size
+				mappedUpdates[firestoreField] = *size
 			} else if sizeInt, ok := v.(int64); ok {
-				mappedUpdates["size"] = sizeInt
+				mappedUpdates[firestoreField] = sizeInt
 			} else {
 				return nil, errors.NewValidationError("invalid type for size field", nil)
 			}
@@ -117,24 +119,10 @@ func (cm *ContentMapper) MapFilters(filters []query.Filter) ([]query.Filter, err
 	}
 
 	for _, f := range filters {
-		switch f.Field {
-		case constants.ContentProviderField:
+		firestoreField := fields.MapToFirestore(f.Field)
+		if fields.ContentField(f.Field).IsValid() {
 			firestoreFilters = append(firestoreFilters, query.Filter{
-				Field:    "provider",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-
-		case constants.ContentTypeField:
-			firestoreFilters = append(firestoreFilters, query.Filter{
-				Field:    "content_type",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-
-		case constants.ContentSizeField:
-			firestoreFilters = append(firestoreFilters, query.Filter{
-				Field:    "size",
+				Field:    firestoreField,
 				Operator: f.Operator,
 				Value:    f.Value,
 			})

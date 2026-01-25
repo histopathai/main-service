@@ -1,10 +1,11 @@
+// internal/adapter/repository/firestore/mappers/workspace.go
 package mappers
 
 import (
 	"cloud.google.com/go/firestore"
+	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
-	"github.com/histopathai/main-service/internal/shared/constants"
 	"github.com/histopathai/main-service/internal/shared/errors"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
@@ -20,29 +21,28 @@ func NewWorkspaceMapper() *WorkspaceMapper {
 }
 
 func (wm *WorkspaceMapper) ToFirestoreMap(entity *model.Workspace) map[string]interface{} {
-
 	m := wm.EntityMapper.ToFirestoreMap(entity)
 
 	// Workspace specific fields
-	m["organ_type"] = entity.OrganType.String()
-	m["organization"] = entity.Organization
-	m["description"] = entity.Description
-	m["license"] = entity.License
+	m[fields.WorkspaceOrganType.FirestoreName()] = entity.OrganType.String()
+	m[fields.WorkspaceOrganization.FirestoreName()] = entity.Organization
+	m[fields.WorkspaceDescription.FirestoreName()] = entity.Description
+	m[fields.WorkspaceLicense.FirestoreName()] = entity.License
+
 	if entity.ResourceURL != nil {
-		m["resource_url"] = *entity.ResourceURL
+		m[fields.WorkspaceResourceURL.FirestoreName()] = *entity.ResourceURL
 	}
 	if entity.ReleaseYear != nil {
-		m["release_year"] = *entity.ReleaseYear
+		m[fields.WorkspaceReleaseYear.FirestoreName()] = *entity.ReleaseYear
 	}
 	if len(entity.AnnotationTypes) > 0 {
-		m["annotation_types"] = entity.AnnotationTypes
+		m[fields.WorkspaceAnnotationTypes.FirestoreName()] = entity.AnnotationTypes
 	}
 
 	return m
 }
 
 func (wm *WorkspaceMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model.Workspace, error) {
-
 	entity, err := wm.EntityMapper.ParseEntity(doc)
 	if err != nil {
 		return nil, err
@@ -54,28 +54,28 @@ func (wm *WorkspaceMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*m
 
 	data := doc.Data()
 
-	if organTypeStr, ok := data["organ_type"].(string); ok {
+	if organTypeStr, ok := data[fields.WorkspaceOrganType.FirestoreName()].(string); ok {
 		workspace.OrganType, err = vobj.NewOrganTypeFromString(organTypeStr)
 		if err != nil {
 			return nil, err
 		}
 	}
-	if organization, ok := data["organization"].(string); ok {
+	if organization, ok := data[fields.WorkspaceOrganization.FirestoreName()].(string); ok {
 		workspace.Organization = organization
 	}
-	if description, ok := data["description"].(string); ok {
+	if description, ok := data[fields.WorkspaceDescription.FirestoreName()].(string); ok {
 		workspace.Description = description
 	}
-	if license, ok := data["license"].(string); ok {
+	if license, ok := data[fields.WorkspaceLicense.FirestoreName()].(string); ok {
 		workspace.License = license
 	}
-	if resourceURL, ok := data["resource_url"].(string); ok {
+	if resourceURL, ok := data[fields.WorkspaceResourceURL.FirestoreName()].(string); ok {
 		workspace.ResourceURL = &resourceURL
 	}
-	if releaseYear, ok := data["release_year"].(int); ok {
+	if releaseYear, ok := data[fields.WorkspaceReleaseYear.FirestoreName()].(int); ok {
 		workspace.ReleaseYear = &releaseYear
 	}
-	if annotationTypesRaw, ok := data["annotation_types"].([]interface{}); ok {
+	if annotationTypesRaw, ok := data[fields.WorkspaceAnnotationTypes.FirestoreName()].([]interface{}); ok {
 		annotationTypes := make([]string, 0, len(annotationTypesRaw))
 		for _, at := range annotationTypesRaw {
 			if atStr, ok := at.(string); ok {
@@ -89,66 +89,66 @@ func (wm *WorkspaceMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*m
 }
 
 func (wm *WorkspaceMapper) MapUpdates(updates map[string]interface{}) (map[string]interface{}, error) {
-	// Base entity updates
 	mappedUpdates, err := wm.EntityMapper.MapUpdates(updates)
 	if err != nil {
 		return nil, err
 	}
 
-	// Workspace specific updates
 	for k, v := range updates {
+		firestoreField := fields.MapToFirestore(k)
+
 		switch k {
-		case constants.WorkspaceOrganTypeField:
+		case fields.WorkspaceOrganType.DomainName():
 			if organType, ok := v.(vobj.OrganType); ok {
-				mappedUpdates["organ_type"] = organType.String()
+				mappedUpdates[firestoreField] = organType.String()
 			} else if organTypeStr, ok := v.(string); ok {
-				mappedUpdates["organ_type"] = organTypeStr
+				mappedUpdates[firestoreField] = organTypeStr
 			} else {
 				return nil, errors.NewValidationError("invalid organ_type field", nil)
 			}
 
-		case constants.WorkspaceOrganizationField:
+		case fields.WorkspaceOrganization.DomainName():
 			if organization, ok := v.(string); ok {
-				mappedUpdates["organization"] = organization
+				mappedUpdates[firestoreField] = organization
 			} else {
 				return nil, errors.NewValidationError("invalid organization field", nil)
 			}
 
-		case constants.WorkspaceDescField:
+		case fields.WorkspaceDescription.DomainName():
 			if description, ok := v.(string); ok {
-				mappedUpdates["description"] = description
+				mappedUpdates[firestoreField] = description
 			} else {
 				return nil, errors.NewValidationError("invalid description field", nil)
 			}
 
-		case constants.WorkspaceLicenseField:
+		case fields.WorkspaceLicense.DomainName():
 			if license, ok := v.(string); ok {
-				mappedUpdates["license"] = license
+				mappedUpdates[firestoreField] = license
 			} else {
 				return nil, errors.NewValidationError("invalid license field", nil)
 			}
 
-		case constants.WorkspaceResourceURLField:
+		case fields.WorkspaceResourceURL.DomainName():
 			if resourceURL, ok := v.(*string); ok {
-				mappedUpdates["resource_url"] = *resourceURL
+				mappedUpdates[firestoreField] = *resourceURL
 			} else if resourceURLStr, ok := v.(string); ok {
-				mappedUpdates["resource_url"] = resourceURLStr
+				mappedUpdates[firestoreField] = resourceURLStr
 			} else {
 				return nil, errors.NewValidationError("invalid resource_url field", nil)
 			}
 
-		case constants.WorkspaceReleaseYearField:
+		case fields.WorkspaceReleaseYear.DomainName():
 			if releaseYear, ok := v.(*int); ok {
-				mappedUpdates["release_year"] = *releaseYear
+				mappedUpdates[firestoreField] = *releaseYear
 			} else if releaseYearInt, ok := v.(int); ok {
-				mappedUpdates["release_year"] = releaseYearInt
+				mappedUpdates[firestoreField] = releaseYearInt
 			} else {
 				return nil, errors.NewValidationError("invalid release_year field", nil)
 			}
 
-		case constants.WorkspaceAnnotationTypes:
+		case fields.WorkspaceAnnotationTypes.DomainName():
 			if annotationTypes, ok := v.([]string); ok {
-				mappedUpdates["annotation_types"] = annotationTypes
+				mappedUpdates[firestoreField] = annotationTypes
 			} else {
 				return nil, errors.NewValidationError("invalid annotation_types field", nil)
 			}
@@ -159,60 +159,24 @@ func (wm *WorkspaceMapper) MapUpdates(updates map[string]interface{}) (map[strin
 }
 
 func (wm *WorkspaceMapper) MapFilters(filters []query.Filter) ([]query.Filter, error) {
-	// Base entity filters
 	mappedFilters, err := wm.EntityMapper.MapFilters(filters)
 	if err != nil {
 		return nil, err
 	}
 
-	// Workspace specific filters
 	for _, f := range filters {
-		switch f.Field {
-		case constants.WorkspaceOrganTypeField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "organ_type",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.WorkspaceOrganizationField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "organization",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.WorkspaceLicenseField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "license",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.WorkspaceReleaseYearField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "release_year",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.WorkspaceAnnotationTypes:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "annotation_types",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
+		firestoreField := fields.MapToFirestore(f.Field)
 
-		case constants.WorkspaceResourceURLField:
+		if fields.EntityField(f.Field).IsValid() {
+			continue
+		}
+		if fields.WorkspaceField(f.Field).IsValid() {
 			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "resource_url",
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
-		case constants.WorkspaceDescField:
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    "description",
+				Field:    firestoreField,
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
 		}
-
 	}
 
 	return mappedFilters, nil
