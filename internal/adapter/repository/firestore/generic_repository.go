@@ -251,6 +251,36 @@ func (gr *GenericRepositoryImpl[T]) Count(ctx context.Context, spec query.Specif
 		fQuery = fQuery.Where(f.Field, string(f.Operator), f.Value)
 	}
 
+	// Check for transaction
+	if tx := fromCtx(ctx); tx != nil {
+		// Firestore Aggregation Queries do not support transactions yet.
+		// We must fall back to iterating over the documents (KeysOnly to save bandwidth).
+		// This is slower but consistent within the transaction.
+
+		// Use Select with empty path to fetch only document references (metadata) if possible,
+		// but Firestore Go SDK's Query.Select() still fetches the document.
+		// Ideally strict "KeysOnly" isn't fully exposed in high-level query builder without Select(FieldPath.DocumentID()) which might still read.
+		// Standard optimization is to select no fields.
+		// fQuery = fQuery.Select() // Selects nothing, just the doc.
+
+		iter := tx.Documents(fQuery)
+		defer iter.Stop()
+
+		var count int64
+		for {
+			_, err := iter.Next()
+			if err == iterator.Done {
+				break
+			}
+			if err != nil {
+				return 0, mapFirestoreError(err)
+			}
+			count++
+		}
+		return count, nil
+	}
+
+	// Non-transactional optimized count
 	aggQuery := fQuery.NewAggregationQuery().WithCount("count")
 
 	results, err := aggQuery.Get(ctx)
