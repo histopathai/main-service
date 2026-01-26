@@ -20,7 +20,7 @@ type ProcessResult struct {
 
 type ImageProcessCompleteEvent struct {
 	BaseEvent
-	ID                string
+	ImageID           string
 	ProcessingVersion vobj.ProcessingVersion
 	Contents          []model.Content
 
