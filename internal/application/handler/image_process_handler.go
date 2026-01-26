@@ -4,31 +4,31 @@ import (
 	"context"
 	"log/slog"
 
-	"github.com/histopathai/main-service/internal/application/usecase"
 	domainevent "github.com/histopathai/main-service/internal/domain/event"
+	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
 	portevent "github.com/histopathai/main-service/internal/port/event"
 )
 
 type ImageProcessHandler struct {
-	subscriber   portevent.EventSubscriber
-	worker       port.ImageProcessingWorker
-	imageUsecase *usecase.ImageUseCase
-	logger       *slog.Logger
+	subscriber portevent.EventSubscriber
+	worker     port.ImageProcessingWorker
+	imageRepo  port.ImageRepository
+	logger     *slog.Logger
 }
 
 func NewImageProcessHandler(
 	subscriber portevent.EventSubscriber,
 	worker port.ImageProcessingWorker,
-	imageUsecase *usecase.ImageUseCase,
+	imageRepo port.ImageRepository,
 	logger *slog.Logger,
 ) *ImageProcessHandler {
 	return &ImageProcessHandler{
-		subscriber:   subscriber,
-		worker:       worker,
-		imageUsecase: imageUsecase,
-		logger:       logger,
+		subscriber: subscriber,
+		worker:     worker,
+		imageRepo:  imageRepo,
+		logger:     logger,
 	}
 }
 
@@ -49,7 +49,12 @@ func (h *ImageProcessHandler) Handle(ctx context.Context, event domainevent.Even
 		return nil
 	}
 
-	err := h.imageUsecase.UpdateStatus(ctx, processEvent.Content.ID, vobj.StatusProcessing)
+	updates := map[string]any{
+		fields.ImageProcessingStatus.DomainName():  vobj.StatusProcessing,
+		fields.ImageProcessingVersion.DomainName(): processEvent.ProcessingVersion,
+	}
+
+	err := h.imageRepo.Update(ctx, processEvent.Content.ID, updates)
 
 	if err != nil {
 		return err
@@ -64,26 +69,25 @@ func (h *ImageProcessHandler) Handle(ctx context.Context, event domainevent.Even
 }
 
 type ImageProcessCompleteHandler struct {
-	subscriber     portevent.EventSubscriber
-	publisher      portevent.EventPublisher
-	imageUsecase   *usecase.ImageUseCase
-	contentUsecase *usecase.ContentUseCase
-	logger         *slog.Logger
+	subscriber  portevent.EventSubscriber
+	publisher   portevent.EventPublisher
+	imageRepo   port.ImageRepository
+	contentRepo port.ContentRepository
+	logger      *slog.Logger
 }
 
 func NewImageProcessCompleteHandler(
 	subscriber portevent.EventSubscriber,
 	publisher portevent.EventPublisher,
-	imageUsecase *usecase.ImageUseCase,
-	contentUsecase *usecase.ContentUseCase,
+	imageRepo port.ImageRepository,
+	contentRepo port.ContentRepository,
 	logger *slog.Logger,
 ) *ImageProcessCompleteHandler {
 	return &ImageProcessCompleteHandler{
-		subscriber:     subscriber,
-		publisher:      publisher,
-		imageUsecase:   imageUsecase,
-		contentUsecase: contentUsecase,
-		logger:         logger,
+		subscriber: subscriber,
+		publisher:  publisher,
+		imageRepo:  imageRepo,
+		logger:     logger,
 	}
 }
 
@@ -105,14 +109,40 @@ func (h *ImageProcessCompleteHandler) Handle(ctx context.Context, event domainev
 	}
 
 	if processCompleteEvent.Success {
-
+		imageUpdates := map[string]any{}
 		for _, content := range processCompleteEvent.Contents {
 
-			_, err := h.contentUsecase.Create(ctx, &content)
+			_, err := h.contentRepo.Create(ctx, &content)
 			if err != nil {
 				return err
 			}
 
+			if content.ContentType.IsThumbnail() {
+				imageUpdates[fields.ImageThumbnailContentID.DomainName()] = content.ID
+			}
+
+			if content.ContentType.IsDZI() {
+				imageUpdates[fields.ImageDziContentID.DomainName()] = content.ID
+			}
+
+			if content.ContentType.IsIndexMap() {
+				imageUpdates[fields.ImageIndexmapContentID.DomainName()] = content.ID
+			}
+
+			if content.ContentType.IsTiles() {
+				imageUpdates[fields.ImageTilesContentID.DomainName()] = content.ID
+			}
+
+			if content.ContentType.IsArchive() {
+				imageUpdates[fields.ImageZipTilesContentID.DomainName()] = content.ID
+			}
+
+		}
+
+		imageUpdates[fields.ImageProcessingStatus.DomainName()] = vobj.StatusProcessed
+		err := h.imageRepo.Update(ctx, processCompleteEvent.ImageID, imageUpdates)
+		if err != nil {
+			return err
 		}
 
 	} else {

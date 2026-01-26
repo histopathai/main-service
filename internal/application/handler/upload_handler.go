@@ -7,31 +7,31 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/histopathai/main-service/internal/application/usecase"
 	domainevent "github.com/histopathai/main-service/internal/domain/event"
 	"github.com/histopathai/main-service/internal/domain/vobj"
+	"github.com/histopathai/main-service/internal/port"
 
 	portevent "github.com/histopathai/main-service/internal/port/event"
 )
 
 type UploadHandler struct {
-	subscriber     portevent.EventSubscriber
-	publisher      portevent.EventPublisher
-	contentUsecase *usecase.ContentUseCase
-	logger         *slog.Logger
+	subscriber portevent.EventSubscriber
+	publisher  portevent.EventPublisher
+	repo       port.ContentRepository
+	logger     *slog.Logger
 }
 
 func NewUploadHandler(
 	subscriber portevent.EventSubscriber,
-	contentUsecase *usecase.ContentUseCase,
+	repo port.ContentRepository,
 	publisher portevent.EventPublisher,
 	logger *slog.Logger,
 ) *UploadHandler {
 	return &UploadHandler{
-		subscriber:     subscriber,
-		contentUsecase: contentUsecase,
-		publisher:      publisher,
-		logger:         logger,
+		subscriber: subscriber,
+		repo:       repo,
+		publisher:  publisher,
+		logger:     logger,
 	}
 }
 
@@ -55,7 +55,7 @@ func (h *UploadHandler) Handle(ctx context.Context, event domainevent.Event) err
 
 	content := &uploadedEvent.Content
 
-	created, err := h.contentUsecase.Create(ctx, content)
+	created, err := h.repo.Read(ctx, content.ID)
 	if err != nil {
 		return err
 	}
