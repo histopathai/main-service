@@ -143,7 +143,6 @@ func (uc *ImageUseCase) TransferMany(ctx context.Context, cmd *command.TransferM
 			ch <- uc.Transfer(ctx, &command.TransferCommand{
 				ID:         id,
 				NewParent:  cmd.GetNewParent(),
-				OldParent:  cmd.GetOldParent(),
 				ParentType: vobj.EntityTypeImage.String(),
 			})
 		}(id)

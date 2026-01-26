@@ -145,7 +145,6 @@ func (uc *PatientUseCase) TransferMany(ctx context.Context, cmd *command.Transfe
 		go func(id string) {
 			ch <- uc.Transfer(ctx, &command.TransferCommand{
 				NewParent:  cmd.GetNewParent(),
-				OldParent:  cmd.GetOldParent(),
 				ParentType: vobj.EntityTypePatient.String(),
 				ID:         id,
 			})
