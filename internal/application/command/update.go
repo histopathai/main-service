@@ -156,7 +156,7 @@ type UpdatePatientCommand struct {
 	Race    *string
 	Disease *string
 	Subtype *string
-	Grade   *string
+	Grade   *int
 	History *string
 }
 
