@@ -6,7 +6,6 @@ import (
 	"cloud.google.com/go/firestore"
 	"github.com/histopathai/main-service/internal/adapter/repository/firestore/mappers"
 	"github.com/histopathai/main-service/internal/domain/model"
-	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
 )
 
@@ -43,20 +42,10 @@ func NewFirestoreUnitOfWorkFactory(client *firestore.Client) *FirestoreUnitOfWor
 	}
 }
 
-func (f *FirestoreUnitOfWorkFactory) WithTx(ctx context.Context, fn func(ctx context.Context, repos map[vobj.EntityType]any) error) error {
+func (f *FirestoreUnitOfWorkFactory) WithTx(ctx context.Context, fn func(ctx context.Context) error) error {
 	return f.client.RunTransaction(ctx, func(ctx context.Context, tx *firestore.Transaction) error {
 		txCtx := withTx(ctx, tx)
-
-		repos := map[vobj.EntityType]any{
-			vobj.EntityTypeWorkspace:      f.workspaceRepo,
-			vobj.EntityTypePatient:        f.patientRepo,
-			vobj.EntityTypeImage:          f.imageRepo,
-			vobj.EntityTypeAnnotation:     f.annotationRepo,
-			vobj.EntityTypeAnnotationType: f.annotationTypeRepo,
-			vobj.EntityTypeContent:        f.contentRepo,
-		}
-
-		return fn(txCtx, repos)
+		return fn(txCtx)
 	})
 }
 
