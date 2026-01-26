@@ -43,10 +43,34 @@ type Repository[T Entity] interface {
 }
 
 type UnitOfWorkFactory interface {
-	WithTx(ctx context.Context, fn func(ctx context.Context, repos map[vobj.EntityType]any) error) error
-	GetWorkspaceRepo() Repository[*model.Workspace]
-	GetPatientRepo() Repository[*model.Patient]
-	GetImageRepo() Repository[*model.Image]
-	GetAnnotationRepo() Repository[*model.Annotation]
-	GetAnnotationTypeRepo() Repository[*model.AnnotationType]
+	WithTx(ctx context.Context, fn func(ctx context.Context) error) error
+	GetWorkspaceRepo() WorkspaceRepository
+	GetPatientRepo() PatientRepository
+	GetImageRepo() ImageRepository
+	GetAnnotationRepo() AnnotationRepository
+	GetAnnotationTypeRepo() AnnotationTypeRepository
+}
+
+type WorkspaceRepository interface {
+	Repository[*model.Workspace]
+}
+
+type PatientRepository interface {
+	Repository[*model.Patient]
+}
+
+type ImageRepository interface {
+	Repository[*model.Image]
+}
+
+type AnnotationRepository interface {
+	Repository[*model.Annotation]
+}
+
+type AnnotationTypeRepository interface {
+	Repository[*model.AnnotationType]
+}
+
+type ContentRepository interface {
+	Repository[*model.Content]
 }
