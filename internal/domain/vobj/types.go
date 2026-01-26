@@ -60,12 +60,13 @@ const (
 )
 
 const (
-	StatusPending    ImageStatus = "pending"    // Initial state, waiting for processing
-	StatusProcessing ImageStatus = "processing" // Currently being processed
-	StatusProcessed  ImageStatus = "processed"  // Successfully processed
-	StatusFailed     ImageStatus = "failed"     // Processing failed
-	StatusDeleting   ImageStatus = "deleting"   // Marked for deletion
-	StatusUploaded   ImageStatus = "uploaded"   // Successfully uploaded
+	StatusPending         ImageStatus = "pending"          // Initial state, waiting for processing
+	StatusProcessing      ImageStatus = "processing"       // Currently being processed
+	StatusProcessed       ImageStatus = "processed"        // Successfully processed
+	StatusFailed          ImageStatus = "failed"           // Processing failed (retrying)
+	StatusFailedPermanent ImageStatus = "failed_permanent" // Permanent failure (DLQ)
+	StatusDeleting        ImageStatus = "deleting"         // Marked for deletion
+	StatusUploaded        ImageStatus = "uploaded"         // Successfully uploaded
 )
 
 const (

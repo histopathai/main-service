@@ -28,12 +28,18 @@ type ImageProcessCompleteEvent struct {
 	Result        *ProcessResult
 	FailureReason string
 	Retryable     bool
+
+	// Retry tracking
+	RetryMetadata *RetryMetadata
 }
 
 type ImageProcessDlqEvent struct {
 	BaseEvent
-	ID            string
-	Content       model.Content
-	FailureReason string
-	Retryable     bool
+	ImageID           string
+	Content           model.Content
+	ProcessingVersion vobj.ProcessingVersion
+	FailureReason     string
+	Retryable         bool
+	RetryMetadata     *RetryMetadata // Track all retry attempts
+	OriginalEventID   string         // Reference to original event
 }

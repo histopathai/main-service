@@ -39,6 +39,7 @@ type GCPConfig struct {
 type PubSubConfig struct {
 	ImageProcessingRequest TopicSubscriptionConfig
 	ImageProcessingResult  TopicSubscriptionConfig
+	ImageProcessDLQ        TopicSubscriptionConfig // NEW: DLQ for failed image processing
 	ImageDeletion          TopicSubscriptionConfig
 	UploadStatus           SubscriptionConfig
 	TelemetryTopic         TopicConfig
@@ -93,10 +94,18 @@ type Config struct {
 	LocalTLS LocalTLSConfig
 }
 
-// RetryConfig defines global retry configuration
+// RetryConfig defines retry configuration per event type
 type RetryConfig struct {
-	MaxImageProcessingRetries int
-	MaxDeletionRetries        int
+	ImageProcessComplete RetryPolicyConfig
+	ImageProcess         RetryPolicyConfig
+}
+
+// RetryPolicyConfig defines retry behavior for a specific event type
+type RetryPolicyConfig struct {
+	MaxAttempts       int
+	BaseBackoffMs     int // Base backoff in milliseconds
+	MaxBackoffMs      int // Max backoff in milliseconds
+	BackoffMultiplier float64
 }
 
 func Load() (*Config, error) {
@@ -173,6 +182,17 @@ func Load() (*Config, error) {
 					DLQName: getEnv("IMAGE_DELETION_SUB_DLQ", "image-deletion-requests-sub-dlq"),
 				},
 			},
+			ImageProcessDLQ: TopicSubscriptionConfig{
+				Topic: TopicConfig{
+					Name:    getEnv("IMAGE_PROCESS_DLQ_TOPIC", "image-process-dlq"),
+					DLQName: "", // DLQ doesn't have its own DLQ
+				},
+				Subscription: SubscriptionConfig{
+					Name:    getEnv("IMAGE_PROCESS_DLQ_SUB", "image-process-dlq-sub"),
+					Topic:   getEnv("IMAGE_PROCESS_DLQ_TOPIC", "image-process-dlq"),
+					DLQName: "",
+				},
+			},
 			TelemetryDLQ: TopicSubscriptionConfig{
 				Topic: TopicConfig{
 					Name:    getEnv("TELEMETRY_DLQ_TOPIC", "telemetry-dlq"),
@@ -208,8 +228,18 @@ func Load() (*Config, error) {
 			JobLarge:  getEnv("CLOUD_RUN_JOB_LARGE", ""),  // EKLENDİ
 		},
 		Retry: RetryConfig{
-			MaxImageProcessingRetries: 3,
-			MaxDeletionRetries:        3,
+			ImageProcessComplete: RetryPolicyConfig{
+				MaxAttempts:       getEnvInt("RETRY_IMAGE_PROCESS_COMPLETE_MAX_ATTEMPTS", 5),
+				BaseBackoffMs:     getEnvInt("RETRY_IMAGE_PROCESS_COMPLETE_BASE_BACKOFF_MS", 1000),
+				MaxBackoffMs:      getEnvInt("RETRY_IMAGE_PROCESS_COMPLETE_MAX_BACKOFF_MS", 60000),
+				BackoffMultiplier: 2.0,
+			},
+			ImageProcess: RetryPolicyConfig{
+				MaxAttempts:       getEnvInt("RETRY_IMAGE_PROCESS_MAX_ATTEMPTS", 3),
+				BaseBackoffMs:     getEnvInt("RETRY_IMAGE_PROCESS_BASE_BACKOFF_MS", 2000),
+				MaxBackoffMs:      getEnvInt("RETRY_IMAGE_PROCESS_MAX_BACKOFF_MS", 30000),
+				BackoffMultiplier: 2.0,
+			},
 		},
 
 		LocalTLS: LocalTLSConfig{
@@ -299,4 +329,15 @@ func requireEnv(key string) string {
 		panic(fmt.Sprintf("required environment variable %s is not set", key))
 	}
 	return value
+}
+
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intVal, err := fmt.Sscanf(value, "%d", new(int)); err == nil && intVal == 1 {
+			var result int
+			fmt.Sscanf(value, "%d", &result)
+			return result
+		}
+	}
+	return defaultValue
 }

@@ -2,21 +2,18 @@ package event
 
 import "time"
 
-// RetryMetadata tracks retry attempts for events
 type RetryMetadata struct {
-	AttemptCount    int           // Current retry attempt (0 = first attempt)
-	MaxAttempts     int           // Maximum allowed retries
-	LastAttemptAt   time.Time     // Timestamp of last retry
-	FirstAttemptAt  time.Time     // Timestamp of first attempt
-	BackoffDuration time.Duration // Current backoff duration
+	AttemptCount    int
+	MaxAttempts     int
+	LastAttemptAt   time.Time
+	FirstAttemptAt  time.Time
+	BackoffDuration time.Duration
 }
 
-// ShouldRetry determines if event should be retried
 func (r *RetryMetadata) ShouldRetry() bool {
 	return r.AttemptCount < r.MaxAttempts
 }
 
-// IncrementAttempt increases retry counter and updates backoff
 func (r *RetryMetadata) IncrementAttempt() {
 	r.AttemptCount++
 	r.LastAttemptAt = time.Now()

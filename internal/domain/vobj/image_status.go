@@ -8,7 +8,7 @@ func (is ImageStatus) String() string {
 
 func (is ImageStatus) IsValid() bool {
 	switch is {
-	case StatusPending, StatusProcessing, StatusProcessed, StatusFailed, StatusDeleting:
+	case StatusPending, StatusProcessing, StatusProcessed, StatusFailed, StatusFailedPermanent, StatusDeleting:
 		return true
 	default:
 		return false
