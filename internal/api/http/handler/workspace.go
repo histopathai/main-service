@@ -1,409 +1,300 @@
 package handler
 
 import (
+	"io"
 	"log/slog"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/histopathai/main-service/internal/api/http/dto/request"
 	"github.com/histopathai/main-service/internal/api/http/dto/response"
+	"github.com/histopathai/main-service/internal/api/http/handler/helper"
 	"github.com/histopathai/main-service/internal/api/http/middleware"
-	"github.com/histopathai/main-service/internal/api/http/validator"
-	"github.com/histopathai/main-service/internal/domain/port"
+	"github.com/histopathai/main-service/internal/application/command"
+	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/vobj"
+	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/errors"
-	"github.com/histopathai/main-service/internal/shared/query"
+	validator "github.com/histopathai/main-service/internal/shared/query"
 )
 
-var allowedWorkspaceSortFields = map[string]bool{
-	"created_at":   true,
-	"updated_at":   true,
-	"name":         true,
-	"organ_type":   true,
-	"organization": true,
-	"license":      true,
-	"release_year": true,
-}
-
 type WorkspaceHandler struct {
-	workspaceService port.IWorkspaceService
-	validator        *validator.RequestValidator
-	BaseHandler      // Embed the BaseHandler
+	helper.BaseHandler
+	WsQuery     port.WorkspaceQeury
+	WsUsecase   port.WorkspaceUseCase
+	WsValidator *validator.Validator
 }
 
-func NewWorkspaceHandler(workspaceService port.IWorkspaceService, validator *validator.RequestValidator, logger *slog.Logger) *WorkspaceHandler {
+func NewWorkspaceHandler(wsQuery port.WorkspaceQeury, wsUsecase port.WorkspaceUseCase, logger *slog.Logger) *WorkspaceHandler {
 	return &WorkspaceHandler{
-		workspaceService: workspaceService,
-		validator:        validator,
-		BaseHandler:      BaseHandler{logger: logger},
+		WsQuery:     wsQuery,
+		WsUsecase:   wsUsecase,
+		WsValidator: validator.NewValidator(fields.NewWorkspaceFieldSet()),
+		BaseHandler: helper.NewBaseHandler(logger),
 	}
 }
 
-// CreateNewWorkspace [post] godoc
+// Create godoc
 // @Summary Create a new workspace
-// @Description Create a new workspace with the provided details
 // @Tags Workspaces
 // @Accept json
 // @Produce json
-// @Param        request body request.CreateWorkspaceRequest true "Workspace creation request"
-// @Success 201 {object} response.WorkspaceDataResponse "Workspace created successfully"
-// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
-// @Failure 409 {object} response.ErrorResponse "Workspace already exists"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Param        request body request.CreateWorkspaceRequest true "Workspace data"
+// @Success 201 {object} response.WorkspaceDataResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
 // @Security BearerAuth
 // @Router /workspaces [post]
-func (wh *WorkspaceHandler) CreateNewWorkspace(c *gin.Context) {
+func (wh *WorkspaceHandler) Create(c *gin.Context) {
 
-	creator_id, err := middleware.GetAuthenticatedUserID(c)
+	creatorID, err := middleware.GetAuthenticatedUserID(c)
 	if err != nil {
-		wh.handleError(c, err)
+		wh.HandleError(c, err)
 		return
 	}
+
 	var req request.CreateWorkspaceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		wh.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
-			"error": err.Error(),
-		}))
+		wh.HandleError(c, err)
 		return
 	}
 
-	if err := wh.validator.ValidateStruct(&req); err != nil {
-		wh.handleError(c, err)
-		return
+	// DTO -> CMD
+	cmd := command.CreateWorkspaceCommand{
+		CreateEntityCommand: command.CreateEntityCommand{
+			Name:       req.Name,
+			EntityType: vobj.EntityTypeWorkspace.String(),
+			CreatorID:  creatorID,
+			ParentID:   "",
+			ParentType: vobj.ParentTypeNone.String(),
+		},
+		OrganType:       req.OrganType,
+		AnnotationTypes: req.AnnotationTypes,
+		Organization:    req.Organization,
+		Description:     req.Description,
+		License:         req.License,
+		ResourceURL:     req.ResourceURL,
+		ReleaseYear:     req.ReleaseYear,
 	}
-
-	if isvalid := wh.validator.ValidateOrganType(req.OrganType); !isvalid {
-		wh.handleError(c, errors.NewValidationError("invalid organ type", map[string]interface{}{
-			"error": "invalid organ type",
-		}))
-		return
-	}
-
-	// DTO -> Service Input
-	entity_input := port.CreateEntityInput{
-		Name:      req.Name,
-		Type:      vobj.EntityTypeWorkspace,
-		CreatorID: creator_id,
-		Parent:    nil,
-	}
-
-	input := port.CreateWorkspaceInput{
-		CreateEntityInput: entity_input,
-		OrganType:         req.OrganType,
-		AnnotationTypes:   req.AnnotationTypes,
-		Organization:      req.Organization,
-		Description:       req.Description,
-		License:           req.License,
-		ResourceURL:       req.ResourceURL,
-		ReleaseYear:       req.ReleaseYear,
-	}
-
-	workspace, err := wh.workspaceService.CreateNewWorkspace(c.Request.Context(), &input)
-	if err != nil {
-		wh.handleError(c, err)
-		return
-	}
-
-	wh.logger.Info("Workspace created successfully",
-		slog.String("workspace_id", workspace.ID),
-	)
 
 	// Service Output -> DTO
 
-	workspaceResp := response.NewWorkspaceResponse(workspace)
-	wh.response.Created(c, workspaceResp)
+	errDetails, ok :=
+		cmd.Validate()
+	if !ok {
+		wh.HandleError(c, errors.NewValidationError("Invalid request", errDetails))
+		return
+	}
 
+	workspace, err := wh.WsUsecase.Create(c.Request.Context(), cmd)
+	if err != nil {
+		wh.HandleError(c, err)
+		return
+	}
+
+	wh.Response.Created(c, response.NewWorkspaceResponse(workspace))
 }
 
-// GetWorkspaceByID [get] godoc
-// @Summary Get workspace details by ID
-// @Description Retrieve the details of a workspace by its ID
+// Get godoc
+// Get godoc
+// @Summary Get workspace by ID
 // @Tags Workspaces
 // @Accept json
 // @Produce json
-// @Param        id   path      string  true  "Workspace ID"
-// @Success 200 {object} response.WorkspaceDataResponse "Workspace details retrieved successfully"
-// @Failure 404 {object} response.ErrorResponse "Workspace not found"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Router /workspaces/{workspace_id} [get]
-func (wh *WorkspaceHandler) GetWorkspaceByID(c *gin.Context) {
-
-	workspaceID := c.Param("workspace_id")
-	workspace, err := wh.workspaceService.GetWorkspaceByID(c.Request.Context(), workspaceID)
-	if err != nil {
-		wh.handleError(c, err)
-		return
-	}
-	// Service Output -> DTO
-	workspaceResp := response.NewWorkspaceResponse(workspace)
-	wh.response.Success(c, http.StatusOK, workspaceResp)
-}
-
-// ListWorkspaces [get] godoc
-// @Summary      List workspaces
-// @Description  Get paginated list of workspaces
-// @Tags         Workspaces
-// @Accept       json
-// @Produce      json
-// @Param        limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
-// @Param        offset query int false "Number of items to skip" default(0) minimum(0)
-// @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
-// @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
-// @Success      200 {object} response.WorkspaceListResponse "List of workspaces"
-// @Failure      400 {object} response.ErrorResponse "Invalid query parameters"
-// @Failure      401 {object} response.ErrorResponse "Unauthorized"
-// @Failure      500 {object} response.ErrorResponse "Internal server error"
-// @Security     BearerAuth
-// @Router       /workspaces [get]
-func (wh *WorkspaceHandler) ListWorkspaces(c *gin.Context) {
-	var queryReq request.QueryPaginationRequest
-	if err := c.ShouldBindQuery(&queryReq); err != nil {
-		wh.handleError(c, errors.NewValidationError("invalid query parameters",
-			map[string]interface{}{"error": err.Error()}))
-		return
-	}
-
-	pagination := queryReq.ToPagination()
-	pagination.ApplyDefaults()
-
-	if err := pagination.ValidateSortFields(request.ValidWorkspaceSortFields); err != nil {
-		wh.handleError(c, err)
-		return
-	}
-
-	result, err := wh.workspaceService.ListWorkspaces(c.Request.Context(), pagination)
-	if err != nil {
-		wh.handleError(c, err)
-		return
-	}
-
-	// Service Output -> DTO
-	paginationResp := &response.PaginationResponse{
-		Limit:   result.Limit,
-		Offset:  result.Offset,
-		HasMore: result.HasMore,
-	}
-
-	workspaceResponses := make([]response.WorkspaceResponse, len(result.Data))
-	for i, workspace := range result.Data {
-		workspaceResponses[i] = *response.NewWorkspaceResponse(workspace)
-	}
-
-	wh.response.SuccessList(c, workspaceResponses, paginationResp)
-}
-
-// Count V1 Workspaces [get] godoc
-// @Summary      Count workspaces
-// @Description  Get the total count of workspaces
-// @Tags         Workspaces
-// @Accept       json
-// @Produce      json
-// @Success      200 {object}  response.CountResponse "Total count of workspaces"
-// @Failure      500 {object} response.ErrorResponse "Internal server error"
-// @Router       /workspaces/count-v1 [get]
-func (wh *WorkspaceHandler) CountV1Workspaces(c *gin.Context) {
-	// Currently, no filters are applied. An empty slice is passed.
-	count, err := wh.workspaceService.CountWorkspaces(c.Request.Context(), []query.Filter{})
-	if err != nil {
-		wh.handleError(c, err)
-		return
-	}
-
-	wh.response.Success(c, http.StatusOK, response.CountResponse{Count: count})
-}
-
-// UpdateWorkspace [put] godoc
-// @Summary Update an existing workspace
-// @Description Update the details of an existing workspace by ID
-// @Tags Workspaces
-// @Accept json
-// @Produce json
-// @Param        id   path      string                      true  "Workspace ID"
-// @Param        request body request.UpdateWorkspaceRequest true "Workspace update request"
-// @Success 204 "Workspace updated successfully"
-// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
-// @Failure 404 {object} response.ErrorResponse "Workspace not found"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Param id path string true "Workspace ID"
+// @Success 200 {object} response.WorkspaceDataResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /workspaces/{workspace_id} [put]
-func (wh *WorkspaceHandler) UpdateWorkspace(c *gin.Context) {
+// @Router /workspaces/{id} [get]
+func (wh *WorkspaceHandler) Get(c *gin.Context) {
+	workspace, err := wh.WsQuery.Get(c.Request.Context(), c.Param("id"))
+	if err != nil {
+		wh.HandleError(c, err)
+		return
+	}
 
-	workspaceID := c.Param("workspace_id")
+	wh.Response.Success(c, http.StatusOK, response.NewWorkspaceResponse(workspace))
+
+}
+
+// List [get] godoc
+// List godoc
+// @Summary List workspaces
+// @Tags Workspaces
+// @Accept json
+// @Produce json
+// @Param limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Number of items to skip" default(0) minimum(0)
+// @Param sort_by query string false "Field to sort by" default(created_at)
+// @Param sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
+// @Success 200 {object} response.WorkspaceListResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /workspaces [get]
+func (wh *WorkspaceHandler) List(c *gin.Context) {
+	var req request.ListRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		req = request.ListRequest{}
+	}
+
+	spec, err := req.ToSpecification()
+	if err != nil {
+		wh.HandleError(c, err)
+		return
+	}
+
+	if err := wh.WsValidator.ValidateSpec(spec); err != nil {
+		wh.HandleError(c, err)
+		return
+	}
+
+	workspaces, err := wh.WsQuery.List(c.Request.Context(), spec)
+	if err != nil {
+		wh.HandleError(c, err)
+		return
+	}
+
+	wh.Response.Success(c, http.StatusOK, response.NewWorkspaceListResponse(workspaces))
+}
+
+// Update godoc
+// @Summary Update workspace
+// @Tags Workspaces
+// @Accept json
+// @Produce json
+// @Param id path string true "Workspace ID"
+// @Param request body request.UpdateWorkspaceRequest true "Workspace update request"
+// @Success 204
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /workspaces/{id} [patch]
+func (wh *WorkspaceHandler) Update(c *gin.Context) {
+	id := c.Param("id")
 
 	var req request.UpdateWorkspaceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		wh.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
-			"error": err.Error(),
-		}))
+		wh.HandleError(c, err)
 		return
 	}
 
-	if err := wh.validator.ValidateStruct(&req); err != nil {
-		wh.handleError(c, err)
+	// DTO -> CMD
+	cmd := command.UpdateWorkspaceCommand{
+		UpdateEntityCommand: command.UpdateEntityCommand{
+			ID:        id,
+			Name:      req.Name,
+			CreatorID: req.CreatorID,
+		},
+		OrganType:       req.OrganType,
+		Organization:    req.Organization,
+		Description:     req.Description,
+		License:         req.License,
+		ResourceURL:     req.ResourceURL,
+		ReleaseYear:     req.ReleaseYear,
+		AnnotationTypes: req.AnnotationTypes,
+	}
+
+	errDetails, ok := cmd.Validate()
+	if !ok {
+		wh.HandleError(c, errors.NewValidationError("Invalid request", errDetails))
 		return
 	}
 
-	// DTO -> Service Input
-	updateEntityInput := port.UpdateEntityInput{
-		Name:   req.Name,
-		Parent: nil,
-	}
-
-	input := port.UpdateWorkspaceInput{
-		UpdateEntityInput: updateEntityInput,
-		OrganType:         req.OrganType,
-		Organization:      req.Organization,
-		Description:       req.Description,
-		License:           req.License,
-		ResourceURL:       req.ResourceURL,
-		ReleaseYear:       req.ReleaseYear,
-		AnnotationTypes:   req.AnnotationTypes,
-	}
-
-	err := wh.workspaceService.UpdateWorkspace(c.Request.Context(), workspaceID, input)
+	err := wh.WsUsecase.Update(c.Request.Context(), cmd)
 	if err != nil {
-		wh.handleError(c, err)
+		wh.HandleError(c, err)
 		return
 	}
-
-	wh.logger.Info("Workspace updated successfully",
-		slog.String("workspace_id", workspaceID),
-	)
-
-	// No content to return
-	wh.response.NoContent(c)
+	wh.Response.NoContent(c)
 }
 
-// DeleteWorkspace [delete] godoc
-// @Summary Delete a workspace by ID
-// @Description Delete an existing workspace by its ID
+// SoftDelete godoc
+// @Summary Soft delete workspace
 // @Tags Workspaces
 // @Accept json
 // @Produce json
-// @Param        id   path      string  true  "Workspace ID"
-// @Success 204 "Workspace deleted successfully"
-// @Failure 404 {object} response.ErrorResponse "Workspace not found"
-// @Failure 409 {object} response.ErrorResponse "Workspace associated with existing patients"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Param id path string true "Workspace ID"
+// @Success 204
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /workspaces/{workspace_id} [delete]
-func (wh *WorkspaceHandler) DeleteWorkspace(c *gin.Context) {
-	workspaceID := c.Param("workspace_id")
+// @Router /workspaces/{id}/soft-delete [delete]
+func (wh *WorkspaceHandler) SoftDelete(c *gin.Context) {
 
-	err := wh.workspaceService.DeleteWorkspace(c.Request.Context(), workspaceID)
+	err := wh.WsQuery.SoftDelete(c.Request.Context(), c.Param("id"))
 	if err != nil {
-		wh.handleError(c, err)
+		wh.HandleError(c, err)
 		return
 	}
-
-	wh.logger.Info("Workspace deleted successfully",
-		slog.String("workspace_id", workspaceID),
-	)
-
-	// No content to return
-	wh.response.NoContent(c)
+	wh.Response.NoContent(c)
 }
 
-// BatchDeleteWorkspaces [post] godoc
-// @Summary      Batch delete workspaces
-// @Description  Delete multiple workspaces by their IDs
-// @Tags         Workspaces
-// @Accept       json
-// @Produce      json
-// @Param        request body request.BatchDeleteRequest true "Batch delete workspaces request"
-// @Success      204 "Workspaces deleted successfully"
-// @Failure      400 {object} response.ErrorResponse "Invalid request payload"
-// @Failure      404 {object} response.ErrorResponse "One or more workspaces not found"
-// @Failure      409 {object} response.ErrorResponse "One or more workspaces associated with existing patients"
-// @Failure      500 {object} response.ErrorResponse "Internal server error"
-// @Failure      401 {object} response.ErrorResponse "Unauthorized"
-// @Security     BearerAuth
-// @Router       /workspaces/batch-delete [post]
-func (wh *WorkspaceHandler) BatchDeleteWorkspaces(c *gin.Context) {
-	var req request.BatchDeleteRequest
+// Count godoc
+// @Summary Count workspaces
+// @Tags Workspaces
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.CountResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /workspaces/count [post]
+func (wh *WorkspaceHandler) Count(c *gin.Context) {
+	var req request.ListRequest
+	var spec validator.Specification
+
 	if err := c.ShouldBindJSON(&req); err != nil {
-		wh.handleError(c, errors.NewValidationError("invalid request payload",
-			map[string]interface{}{"error": err.Error()}))
-		return
-	}
-
-	if err := wh.validator.ValidateStruct(&req); err != nil {
-		wh.handleError(c, err)
-		return
-	}
-
-	user_role, err := middleware.GetAuthenticatedUserRole(c)
-	if err != nil {
-		wh.handleError(c, err)
-		return
-	}
-
-	if user_role != "admin" {
-
-		err := wh.workspaceService.BatchDeleteWorkspaces(c.Request.Context(), req.IDs)
-		if err != nil {
-			wh.handleError(c, err)
+		if err != io.EOF {
+			wh.HandleError(c, err)
 			return
 		}
-
-		wh.logger.Info("Workspaces batch deleted successfully",
-			slog.Int("count", len(req.IDs)),
-		)
-
 	} else {
-		for _, id := range req.IDs {
-			err := wh.workspaceService.CascadeDeleteWorkspace(c.Request.Context(), id)
-			if err != nil {
-				wh.handleError(c, err)
-				return
-			}
-			wh.logger.Info("Workspace cascade deleted successfully",
-				slog.String("workspace_id", id),
-			)
+		spec, err = req.ToSpecification()
+		if err != nil {
+			wh.HandleError(c, err)
+			return
+		}
+		if err := wh.WsValidator.ValidateSpec(spec); err != nil {
+			wh.HandleError(c, err)
+			return
 		}
 	}
 
-	// No content to return
-	wh.response.NoContent(c)
+	count, err := wh.WsQuery.Count(c.Request.Context(), spec)
+	if err != nil {
+		wh.HandleError(c, err)
+		return
+	}
+	wh.Response.Success(c, http.StatusOK, response.CountResponse{Count: count})
 }
 
-// CascadeDeleteWorkspace [delete] godoc
-// @Summary Cascade delete a workspace by ID
-// @Description Delete an existing workspace and all its associated data by its ID
+// SoftDeleteMany godoc
+// @Summary Batch soft delete workspaces
 // @Tags Workspaces
 // @Accept json
 // @Produce json
-// @Param        id   path      string  true  "Workspace ID"
-// @Success 204 "Workspace and associated data deleted successfully"
-// @Failure 404 {object} response.ErrorResponse "Workspace not found"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Param ids query []string true "Workspace IDs"
+// @Success 204
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /workspaces/{workspace_id}/cascade-delete [delete]
-func (wh *WorkspaceHandler) CascadeDeleteWorkspace(c *gin.Context) {
-	user_role, err := middleware.GetAuthenticatedUserRole(c)
+// @Router /workspaces/soft-delete-many [delete]
+func (wh *WorkspaceHandler) SoftDeleteMany(c *gin.Context) {
+	err := wh.WsQuery.SoftDeleteMany(c.Request.Context(), c.QueryArray("ids"))
 	if err != nil {
-		wh.handleError(c, err)
+		wh.HandleError(c, err)
 		return
 	}
-	if user_role != "admin" {
-		wh.handleError(c, errors.NewUnauthorizedError("only admin users can perform cascade delete"))
-		return
-	}
-	workspaceID := c.Param("workspace_id")
-	err = wh.workspaceService.CascadeDeleteWorkspace(c.Request.Context(), workspaceID)
-	if err != nil {
-		wh.handleError(c, err)
-		return
-	}
-
-	wh.logger.Info("Workspace cascade deleted successfully",
-		slog.String("workspace_id", workspaceID),
-	)
-
-	// No content to return
-	wh.response.NoContent(c)
+	wh.Response.NoContent(c)
 }
