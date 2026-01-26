@@ -63,16 +63,13 @@ func (v *PatientValidator) ValidateTransfer(ctx context.Context, command *comman
 	if err := helper.CheckParentExists(ctx, &vobj.ParentRef{ID: command.GetNewParent(), Type: vobj.ParentTypeWorkspace}, v.uow); err != nil {
 		return errors.NewInternalError("failed to check parent exists", err)
 	}
-	if err := helper.CheckParentExists(ctx, &vobj.ParentRef{ID: command.GetOldParent(), Type: vobj.ParentTypeWorkspace}, v.uow); err != nil {
-		return errors.NewInternalError("failed to check parent exists", err)
-	}
 
-	if isUnique, err := helper.CheckNameUniqueUnderParent(ctx, v.repo, command.GetNewParent(), command.GetOldParent()); err != nil {
+	if isUnique, err := helper.CheckNameUniqueUnderParent(ctx, v.repo, command.GetNewParent(), command.GetNewParent()); err != nil {
 		return errors.NewInternalError("failed to check name uniqueness", err)
 	} else if !isUnique {
 		return errors.NewConflictError("patient name already exists", map[string]interface{}{
 			"name":      command.GetNewParent(),
-			"parent_id": command.GetOldParent(),
+			"parent_id": command.GetNewParent(),
 		})
 	}
 
