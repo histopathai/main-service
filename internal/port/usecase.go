@@ -16,6 +16,7 @@ type PatientUseCase interface {
 	Create(ctx context.Context, cmd command.CreatePatientCommand) (*model.Patient, error)
 	Update(ctx context.Context, cmd command.UpdatePatientCommand) error
 	Transfer(ctx context.Context, cmd command.TransferCommand) error
+	TransferMany(ctx context.Context, cmd command.TransferManyCommand) error
 }
 
 type AnnotationTypeUseCase interface {
