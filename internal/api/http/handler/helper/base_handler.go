@@ -1,4 +1,4 @@
-package handler
+package helper
 
 import (
 	"net/http"
@@ -13,17 +13,17 @@ import (
 
 type BaseHandler struct {
 	logger   *slog.Logger
-	response *ResponseHelper
+	Response *ResponseHelper
 }
 
 func NewBaseHandler(logger *slog.Logger) BaseHandler {
 	return BaseHandler{
 		logger:   logger,
-		response: &ResponseHelper{},
+		Response: &ResponseHelper{},
 	}
 }
 
-func (bh *BaseHandler) handleError(c *gin.Context, err error) {
+func (bh *BaseHandler) HandleError(c *gin.Context, err error) {
 	requestID, _ := c.Get("request_id")
 	var customErr *errors.Err
 
