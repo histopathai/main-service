@@ -34,6 +34,12 @@ func (ct ContentType) IsValid() bool {
 		return false
 	}
 }
+func (ct ContentType) IsOriginImage() bool {
+	if ct.GetCategory() == "image" && ct.IsThumbnail() == false {
+		return true
+	}
+	return false
+}
 
 func (ct ContentType) IsThumbnail() bool {
 	switch ct {
@@ -60,6 +66,13 @@ func (ct ContentType) IsArchive() bool {
 
 func (ct ContentType) IsDZI() bool {
 	if ContentTypeApplicationDZI == ct {
+		return true
+	}
+	return false
+}
+
+func (ct ContentType) IsTiles() bool {
+	if ContentTypeApplicationOctetStream == ct {
 		return true
 	}
 	return false
