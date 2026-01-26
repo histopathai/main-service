@@ -2,257 +2,159 @@ package usecase
 
 import (
 	"context"
+	"fmt"
+	"time"
 
-	"github.com/histopathai/main-service/internal/domain/fields"
-	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/google/uuid"
+	"github.com/histopathai/main-service/internal/application/command"
+	"github.com/histopathai/main-service/internal/application/usecase/validator"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/errors"
-	"github.com/histopathai/main-service/internal/shared/query"
 )
 
 type ImageUseCase struct {
-	repo port.Repository[*model.Image]
-	uow  port.UnitOfWorkFactory
+	repo      port.ImageRepository
+	uow       port.UnitOfWorkFactory
+	validator *validator.ImageValidator
+	storage   port.Storage // Origin Image Storage
 }
 
-func NewImageUseCase(repo port.Repository[*model.Image], uow port.UnitOfWorkFactory) *ImageUseCase {
+func NewImageUseCase(repo port.ImageRepository, uow port.UnitOfWorkFactory, storage port.Storage) *ImageUseCase {
 	return &ImageUseCase{
-		repo: repo,
-		uow:  uow,
+		repo:      repo,
+		uow:       uow,
+		validator: validator.NewImageValidator(repo, uow),
+		storage:   storage,
 	}
 }
 
-func (uc *ImageUseCase) Create(ctx context.Context, entity *model.Image) (*model.Image, error) {
-	var createdImage *model.Image
+func (uc *ImageUseCase) Upload(ctx context.Context, cmd command.UploadImageCommand) (*port.PresignedURLPayload, error) {
 
-	err := uc.uow.WithTx(ctx, func(txCtx context.Context, repos map[vobj.EntityType]any) error {
-		// Validate parent exists (must be a Patient)
-		if err := CheckParentExists(txCtx, &entity.Parent, uc.uow); err != nil {
-			return errors.NewValidationError("parent validation failed", map[string]interface{}{
-				"parent_type": entity.GetParent().Type,
-				"parent_id":   entity.GetParent().ID,
-				"error":       err.Error(),
-			})
-		}
-
-		// Validate parent type is Patient
-		if entity.Parent.Type != vobj.ParentTypePatient {
-			return errors.NewValidationError("image parent must be a patient", map[string]interface{}{
-				"parent_type": entity.Parent.Type,
-				"expected":    vobj.ParentTypePatient,
-			})
-		}
-
-		// Get workspace ID from parent patient if not set
-		if entity.WsID == "" {
-			parentRepo := uc.uow.GetPatientRepo()
-			parentPatient, err := parentRepo.Read(txCtx, entity.Parent.ID)
-			if err != nil {
-				return errors.NewInternalError("failed to read parent patient", err)
-			}
-			entity.WsID = parentPatient.Parent.ID
-		}
-
-		// Ensure processing status is set
-		if entity.Processing.Status == "" {
-			// Default to PENDING for web uploads
-			entity.Processing.Status = vobj.StatusPending
-		}
-
-		// Create image
-		created, err := uc.repo.Create(txCtx, entity)
-		if err != nil {
-			return errors.NewInternalError("failed to create image", err)
-		}
-
-		createdImage = created
-		return nil
-	})
-
+	image, err := cmd.ToEntity()
 	if err != nil {
 		return nil, err
 	}
 
-	return createdImage, nil
-}
+	image.SetID(uuid.New().String())
 
-func (uc *ImageUseCase) Transfer(ctx context.Context, imageID string, newParent vobj.ParentRef) error {
-	err := uc.uow.WithTx(ctx, func(txCtx context.Context, repos map[vobj.EntityType]any) error {
-		// Read current image
-		currentImage, err := uc.repo.Read(txCtx, imageID)
-		if err != nil {
-			return errors.NewInternalError("failed to read image", err)
-		}
+	content := cmd.GetContent()
 
-		// Validate new parent exists and is a Patient
-		if err := CheckParentExists(txCtx, &newParent, uc.uow); err != nil {
-			return errors.NewValidationError("new parent validation failed", map[string]interface{}{
-				"parent_type": newParent.Type,
-				"parent_id":   newParent.ID,
-				"error":       err.Error(),
-			})
-		}
-
-		if newParent.Type != vobj.ParentTypePatient {
-			return errors.NewValidationError("image parent must be a patient", map[string]interface{}{
-				"parent_type": newParent.Type,
-				"expected":    vobj.ParentTypePatient,
-			})
-		}
-
-		// Get new parent patient to check workspace
-		newParentPatient, err := uc.uow.GetPatientRepo().Read(txCtx, newParent.ID)
-		if err != nil {
-			return errors.NewInternalError("failed to read new parent patient", err)
-		}
-
-		// Transfer image (updates parent_id)
-		err = uc.repo.Transfer(txCtx, imageID, newParent.ID)
-		if err != nil {
-			return errors.NewInternalError("failed to transfer image", err)
-		}
-
-		// Get annotation IDs under this image
-		annotationIDs, err := uc.getAnnotationIDsUnderImage(txCtx, imageID, currentImage.WsID)
-		if err != nil {
-			return err
-		}
-
-		// Transfer annotations to new workspace if any exist
-		if len(annotationIDs) > 0 {
-			// Check transaction limit
-			totalOps := 1 + len(annotationIDs) // image transfer + annotation transfers
-
-			if totalOps > maxOpsPerTx {
-				return errors.NewValidationError("transfer operation exceeds transaction limit", map[string]interface{}{
-					"annotation_count": len(annotationIDs),
-					"total_operations": totalOps,
-					"limit":            maxOpsPerTx,
-					"message":          "Image has too many annotations for atomic transfer. Please contact support.",
-				})
-			}
-
-			annotationRepo := uc.uow.GetAnnotationRepo()
-			err = annotationRepo.UpdateMany(txCtx, annotationIDs, map[string]interface{}{
-				fields.ImageWsID.DomainName(): newParentPatient.Parent.ID,
-			})
-			if err != nil {
-				return errors.NewInternalError("failed to transfer annotations to new workspace", err)
-			}
-		}
-
-		return nil
-	})
-
-	return err
-}
-
-func (uc *ImageUseCase) UpdateStatus(ctx context.Context, imageID string, newStatus vobj.ImageStatus) error {
-	err := uc.uow.WithTx(ctx, func(txCtx context.Context, repos map[vobj.EntityType]any) error {
-		// Read current image
-		currentImage, err := uc.repo.Read(txCtx, imageID)
-		if err != nil {
-			return errors.NewInternalError("failed to read image", err)
-		}
-
-		// Validate status transition
-		if err := uc.validateStatusTransition(currentImage.Processing.Status, newStatus); err != nil {
-			return err
-		}
-
-		// Update status
-		updates := map[string]interface{}{
-			fields.ImageProcessingStatus.DomainName(): newStatus.String(),
-		}
-		err = uc.repo.Update(txCtx, imageID, updates)
-		if err != nil {
-			return errors.NewInternalError("failed to update image status", err)
-		}
-
-		return nil
-	})
-
-	return err
-}
-
-// validateStatusTransition validates if status transition is allowed
-func (uc *ImageUseCase) validateStatusTransition(currentStatus, newStatus vobj.ImageStatus) error {
-	// Define allowed transitions
-	allowedTransitions := map[vobj.ImageStatus][]vobj.ImageStatus{
-		vobj.StatusPending: {
-			vobj.StatusProcessing,
-			vobj.StatusDeleting,
-		},
-		vobj.StatusProcessing: {
-			vobj.StatusProcessed,
-			vobj.StatusFailed,
-			vobj.StatusDeleting,
-		},
-		vobj.StatusProcessed: {
-			vobj.StatusDeleting,
-			vobj.StatusProcessing, // Re-processing allowed (e.g., V1 -> V2 migration)
-		},
-		vobj.StatusFailed: {
-			vobj.StatusProcessing, // Retry
-			vobj.StatusDeleting,
-		},
-		vobj.StatusDeleting: {
-			// No transitions allowed from DELETING
-		},
-	}
-
-	allowedStates, exists := allowedTransitions[currentStatus]
-	if !exists {
-		return errors.NewValidationError("invalid current status", map[string]interface{}{
-			"current_status": currentStatus,
+	if content == nil {
+		return nil, errors.NewValidationError("content is required", map[string]interface{}{
+			"Upload":  "Origin Image upload",
+			"content": "Content is required",
 		})
 	}
 
-	for _, allowed := range allowedStates {
-		if newStatus == allowed {
-			return nil
-		}
+	if !content.ContentType.IsOriginImage() {
+		return nil, errors.NewValidationError("content type is not origin image", map[string]interface{}{
+			"Upload":  "Origin Image upload",
+			"content": "Content type is not origin image",
+		})
 	}
 
-	return errors.NewValidationError("invalid status transition", map[string]interface{}{
-		"current_status": currentStatus,
-		"new_status":     newStatus,
-		"allowed":        allowedStates,
+	content.SetParent(&vobj.ParentRef{
+		ID:   image.GetID(),
+		Type: vobj.ParentTypeImage,
 	})
+
+	content.Provider = uc.storage.Provider()
+	content.SetID(uuid.New().String())
+
+	content.Path = fmt.Sprintf("%s/%s", content.GetID(), content.Name)
+
+	presignedURLPayload, err := uc.storage.GenerateSignedURL(ctx, port.MethodPut, *content, time.Duration(1*time.Hour))
+	if err != nil {
+		return nil, errors.NewInternalError("failed to generate presigned url", err)
+	}
+
+	image.OriginContentID = &content.ID
+
+	image.Processing = &vobj.ProcessingInfo{
+		Status:          vobj.StatusPending,
+		Version:         vobj.ProcessingV2,
+		RetryCount:      0,
+		LastProcessedAt: time.Now(),
+	}
+
+	uowerr := uc.uow.WithTx(ctx, func(txCtx context.Context) error {
+		if err := uc.validator.ValidateCreate(txCtx, image); err != nil {
+			return err
+		}
+
+		createdEntity, err := uc.repo.Create(txCtx, image)
+		if err != nil {
+			return errors.NewInternalError("failed to create image", err)
+		}
+		if createdEntity == nil {
+			return errors.NewInternalError("failed to create image", nil)
+		}
+
+		return nil
+	})
+
+	if uowerr != nil {
+		return nil, uowerr
+	}
+
+	return presignedURLPayload, nil
+
 }
 
-func (uc *ImageUseCase) getAnnotationIDsUnderImage(ctx context.Context, imageID string, wsID string) ([]string, error) {
-	annotationRepo := uc.uow.GetAnnotationRepo()
-
-	builder := query.NewBuilder()
-	builder.Where(fields.EntityParentID.DomainName(), query.OpEqual, imageID)
-	builder.Where(fields.ImageWsID.DomainName(), query.OpEqual, wsID)
-	builder.Where(fields.EntityIsDeleted.DomainName(), query.OpEqual, false)
-
-	const limit = 1000
-	offset := 0
-	var allAnnotationIDs []string
-
-	for {
-		builder.Paginate(limit, offset)
-		spec := builder.Build()
-
-		result, err := annotationRepo.Find(ctx, spec)
-		if err != nil {
-			return nil, errors.NewInternalError("failed to fetch annotations", err)
-		}
-
-		for _, ann := range result.Data {
-			allAnnotationIDs = append(allAnnotationIDs, ann.GetID())
-		}
-
-		if !result.HasMore {
-			break
-		}
-
-		offset += limit
+func (uc *ImageUseCase) Update(ctx context.Context, cmd command.UpdateImageCommand) error {
+	updates := cmd.GetUpdates()
+	if updates == nil {
+		return errors.NewInternalError("no updates provided", nil)
 	}
 
-	return allAnnotationIDs, nil
+	id := cmd.GetID()
+
+	if err := uc.repo.Update(ctx, id, updates); err != nil {
+		return errors.NewInternalError("failed to update image", err)
+	}
+
+	return nil
+}
+
+func (uc *ImageUseCase) Transfer(ctx context.Context, cmd *command.TransferCommand) error {
+	err := uc.uow.WithTx(ctx, func(txCtx context.Context) error {
+		if err := uc.validator.ValidateTransfer(txCtx, cmd); err != nil {
+			return err
+		}
+
+		id := cmd.GetID()
+
+		if err := uc.repo.Transfer(txCtx, id, cmd.GetNewParent()); err != nil {
+			return errors.NewInternalError("failed to transfer image", err)
+		}
+
+		return nil
+	})
+
+	return err
+}
+
+func (uc *ImageUseCase) TransferMany(ctx context.Context, cmd *command.TransferManyCommand) error {
+
+	ch := make(chan error)
+	for _, id := range cmd.GetIDs() {
+		go func(id string) {
+			ch <- uc.Transfer(ctx, &command.TransferCommand{
+				ID:         id,
+				NewParent:  cmd.GetNewParent(),
+				OldParent:  cmd.GetOldParent(),
+				ParentType: vobj.EntityTypeImage.String(),
+			})
+		}(id)
+	}
+
+	for range cmd.GetIDs() {
+		if err := <-ch; err != nil {
+			return err
+		}
+	}
+
+	return nil
+
 }
