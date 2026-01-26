@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 
 	domainevent "github.com/histopathai/main-service/internal/domain/event"
@@ -146,12 +147,42 @@ func (h *ImageProcessCompleteHandler) Handle(ctx context.Context, event domainev
 		}
 
 	} else {
-
-		// TODO: Handle failure
-		// Will be implemented in the future
-		return nil
-
+		// Handle processing failure
+		return h.handleProcessingFailure(ctx, processCompleteEvent)
 	}
 
+	return nil
+}
+
+func (h *ImageProcessCompleteHandler) handleProcessingFailure(
+	ctx context.Context,
+	event domainevent.ImageProcessCompleteEvent,
+) error {
+	h.logger.Error("Image processing failed",
+		slog.String("image_id", event.ImageID),
+		slog.String("reason", event.FailureReason),
+		slog.Bool("retryable", event.Retryable),
+		slog.Any("retry_metadata", event.RetryMetadata),
+	)
+
+	// Update image status to failed
+	updates := map[string]any{
+		fields.ImageProcessingStatus.DomainName(): vobj.StatusFailed,
+	}
+
+	if err := h.imageRepo.Update(ctx, event.ImageID, updates); err != nil {
+		h.logger.Error("Failed to update image status",
+			slog.String("image_id", event.ImageID),
+			slog.String("error", err.Error()))
+		// Continue even if status update fails
+	}
+
+	// If retryable, return error to trigger retry mechanism in subscriber
+	if event.Retryable {
+		return fmt.Errorf("retryable processing failure: %s", event.FailureReason)
+	}
+
+	// Non-retryable errors are logged but don't trigger retry
+	// The subscriber will handle sending to DLQ
 	return nil
 }

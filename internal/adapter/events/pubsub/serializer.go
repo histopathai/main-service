@@ -74,14 +74,28 @@ func (s *EventSerializer) Serialize(event domainevent.Event) ([]byte, error) {
 			ImageID:       e.ImageID,
 		}
 	case *domainevent.ImageProcessDlqEvent:
+		var retryMeta *retryMetadataDTO
+		if e.RetryMetadata != nil {
+			retryMeta = &retryMetadataDTO{
+				AttemptCount:    e.RetryMetadata.AttemptCount,
+				MaxAttempts:     e.RetryMetadata.MaxAttempts,
+				LastAttemptAt:   e.RetryMetadata.LastAttemptAt.Format(time.RFC3339),
+				FirstAttemptAt:  e.RetryMetadata.FirstAttemptAt.Format(time.RFC3339),
+				BackoffDuration: int64(e.RetryMetadata.BackoffDuration.Milliseconds()),
+			}
+		}
+
 		dto = imageProcessDlqDTO{
-			EventID:       e.EventID,
-			EventType:     string(e.EventType),
-			Timestamp:     e.Timestamp.Format(time.RFC3339),
-			ID:            e.ID,
-			Content:       contentToDTO(e.Content),
-			FailureReason: e.FailureReason,
-			Retryable:     e.Retryable,
+			EventID:           e.EventID,
+			EventType:         string(e.EventType),
+			Timestamp:         e.Timestamp.Format(time.RFC3339),
+			ImageID:           e.ImageID,
+			Content:           contentToDTO(e.Content),
+			ProcessingVersion: string(e.ProcessingVersion),
+			FailureReason:     e.FailureReason,
+			Retryable:         e.Retryable,
+			RetryMetadata:     retryMeta,
+			OriginalEventID:   e.OriginalEventID,
 		}
 
 	default:
@@ -159,6 +173,14 @@ type imageProcessDTO struct {
 	ProcessingVersion string     `json:"processing_version"`
 }
 
+type retryMetadataDTO struct {
+	AttemptCount    int    `json:"attempt_count"`
+	MaxAttempts     int    `json:"max_attempts"`
+	LastAttemptAt   string `json:"last_attempt_at"`
+	FirstAttemptAt  string `json:"first_attempt_at"`
+	BackoffDuration int64  `json:"backoff_duration_ms"`
+}
+
 type imageProcessCompleteDTO struct {
 	EventID       string               `json:"event_id"`
 	EventType     string               `json:"event_type"`
@@ -169,6 +191,7 @@ type imageProcessCompleteDTO struct {
 	Result        *processingResultDTO `json:"result,omitempty"`
 	FailureReason string               `json:"failure_reason,omitempty"`
 	Retryable     bool                 `json:"retryable"`
+	RetryMetadata *retryMetadataDTO    `json:"retry_metadata,omitempty"`
 }
 
 type processingResultDTO struct {
@@ -190,13 +213,16 @@ type contentDTO struct {
 }
 
 type imageProcessDlqDTO struct {
-	EventID       string     `json:"event_id"`
-	EventType     string     `json:"event_type"`
-	Timestamp     string     `json:"timestamp"`
-	ID            string     `json:"id"`
-	Content       contentDTO `json:"content"`
-	FailureReason string     `json:"failure_reason,omitempty"`
-	Retryable     bool       `json:"retryable"`
+	EventID           string            `json:"event_id"`
+	EventType         string            `json:"event_type"`
+	Timestamp         string            `json:"timestamp"`
+	ImageID           string            `json:"image_id"`
+	Content           contentDTO        `json:"content"`
+	ProcessingVersion string            `json:"processing_version"`
+	FailureReason     string            `json:"failure_reason,omitempty"`
+	Retryable         bool              `json:"retryable"`
+	RetryMetadata     *retryMetadataDTO `json:"retry_metadata,omitempty"`
+	OriginalEventID   string            `json:"original_event_id"`
 }
 
 func contentToDTO(c model.Content) contentDTO {
@@ -392,15 +418,32 @@ func (s *EventSerializer) imageProcessDlqDTOToDomain(dto imageProcessDlqDTO) (*d
 		return nil, err
 	}
 
+	var retryMeta *domainevent.RetryMetadata
+	if dto.RetryMetadata != nil {
+		lastAttempt, _ := time.Parse(time.RFC3339, dto.RetryMetadata.LastAttemptAt)
+		firstAttempt, _ := time.Parse(time.RFC3339, dto.RetryMetadata.FirstAttemptAt)
+
+		retryMeta = &domainevent.RetryMetadata{
+			AttemptCount:    dto.RetryMetadata.AttemptCount,
+			MaxAttempts:     dto.RetryMetadata.MaxAttempts,
+			LastAttemptAt:   lastAttempt,
+			FirstAttemptAt:  firstAttempt,
+			BackoffDuration: time.Duration(dto.RetryMetadata.BackoffDuration) * time.Millisecond,
+		}
+	}
+
 	return &domainevent.ImageProcessDlqEvent{
 		BaseEvent: domainevent.BaseEvent{
 			EventID:   dto.EventID,
 			EventType: domainevent.EventType(dto.EventType),
 			Timestamp: timestamp,
 		},
-		ID:            dto.ID,
-		Content:       dtoToContent(dto.Content),
-		FailureReason: dto.FailureReason,
-		Retryable:     dto.Retryable,
+		ImageID:           dto.ImageID,
+		Content:           dtoToContent(dto.Content),
+		ProcessingVersion: vobj.ProcessingVersion(dto.ProcessingVersion),
+		FailureReason:     dto.FailureReason,
+		Retryable:         dto.Retryable,
+		RetryMetadata:     retryMeta,
+		OriginalEventID:   dto.OriginalEventID,
 	}, nil
 }
