@@ -71,7 +71,7 @@ func (s *EventSerializer) Serialize(event domainevent.Event) ([]byte, error) {
 			Result:        result,
 			FailureReason: e.FailureReason,
 			Retryable:     e.Retryable,
-			ID:            e.ID,
+			ImageID:       e.ImageID,
 		}
 	case *domainevent.ImageProcessDlqEvent:
 		dto = imageProcessDlqDTO{
@@ -163,7 +163,7 @@ type imageProcessCompleteDTO struct {
 	EventID       string               `json:"event_id"`
 	EventType     string               `json:"event_type"`
 	Timestamp     string               `json:"timestamp"`
-	ID            string               `json:"id"`
+	ImageID       string               `json:"image_id"`
 	Contents      []contentDTO         `json:"contents"`
 	Success       bool                 `json:"success"`
 	Result        *processingResultDTO `json:"result,omitempty"`
@@ -297,7 +297,7 @@ func (s *EventSerializer) processingCompletedDTOToDomain(dto imageProcessComplet
 			EventType: domainevent.EventType(dto.EventType),
 			Timestamp: timestamp,
 		},
-		ID: dto.ID,
+		ImageID: dto.ImageID,
 		Contents: func() []model.Content {
 			var contents []model.Content
 			for _, c := range dto.Contents {

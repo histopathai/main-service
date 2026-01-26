@@ -66,7 +66,7 @@ func TestEventSerializer_ImageProcessCompleteEvent_RoundTrip(t *testing.T) {
 			EventType: domainevent.ImageProcessCompleteEventType,
 			Timestamp: time.Now().Truncate(time.Second), // Truncate for JSON precision
 		},
-		ID: "proc-123",
+		ImageID: "proc-123",
 		Contents: []model.Content{
 			{
 				Entity: vobj.Entity{
@@ -100,7 +100,7 @@ func TestEventSerializer_ImageProcessCompleteEvent_RoundTrip(t *testing.T) {
 	assert.True(t, ok)
 
 	assert.Equal(t, originalEvent.EventID, resultEvent.EventID)
-	assert.Equal(t, originalEvent.ID, resultEvent.ID)
+	assert.Equal(t, originalEvent.ImageID, resultEvent.ImageID)
 	assert.Equal(t, originalEvent.Success, resultEvent.Success)
 	assert.Equal(t, len(originalEvent.Contents), len(resultEvent.Contents))
 
