@@ -3,6 +3,8 @@ package fields
 type AnnotationField string
 
 const (
+	AnnotationTypeID   AnnotationField = "annotation_type_id"
+	AnnotationWsID     AnnotationField = "ws_id"
 	AnnotationTagType  AnnotationField = "tag_type"
 	AnnotationTagValue AnnotationField = "value"
 	AnnotationPolygon  AnnotationField = "polygon"
@@ -20,6 +22,10 @@ func (f AnnotationField) FirestoreName() string {
 
 func (f AnnotationField) DomainName() string {
 	switch f {
+	case AnnotationTypeID:
+		return "AnnotationTypeID"
+	case AnnotationWsID:
+		return "WsID"
 	case AnnotationTagType:
 		return "TagType"
 	case AnnotationTagValue:
@@ -37,7 +43,7 @@ func (f AnnotationField) DomainName() string {
 
 func (f AnnotationField) IsValid() bool {
 	switch f {
-	case AnnotationTagType, AnnotationTagValue, AnnotationPolygon, AnnotationIsGlobal, AnnotationColor:
+	case AnnotationTagType, AnnotationTagValue, AnnotationPolygon, AnnotationIsGlobal, AnnotationColor, AnnotationTypeID:
 		return true
 	default:
 		return false
@@ -45,5 +51,5 @@ func (f AnnotationField) IsValid() bool {
 }
 
 var AnnotationFields = []AnnotationField{
-	AnnotationTagType, AnnotationTagValue, AnnotationPolygon, AnnotationIsGlobal, AnnotationColor,
+	AnnotationTagType, AnnotationTagValue, AnnotationPolygon, AnnotationIsGlobal, AnnotationColor, AnnotationTypeID,
 }
