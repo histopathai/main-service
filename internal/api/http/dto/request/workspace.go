@@ -12,6 +12,7 @@ type CreateWorkspaceRequest struct {
 }
 
 type UpdateWorkspaceRequest struct {
+	CreatorID       *string  `json:"creator_id" binding:"required" example:"1"`
 	Name            *string  `json:"name,omitempty" example:"Lung Cancer Study Updated"`
 	OrganType       *string  `json:"organ_type,omitempty" example:"lung"`
 	Organization    *string  `json:"organization,omitempty" example:"Health Research Institute"`

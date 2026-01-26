@@ -16,8 +16,9 @@ type CreateAnnotationRequest struct {
 }
 
 type UpdateAnnotationRequest struct {
-	Value    interface{}     `json:"value,omitempty" swaggertype:"string" example:"4.2"`
-	Color    *string         `json:"color,omitempty" example:"#00FF00"`
-	IsGlobal *bool           `json:"is_global,omitempty" example:"true"`
-	Polygon  *[]PointRequest `json:"polygon,omitempty" binding:"omitempty,min=3,dive"`
+	CreatorID *string         `json:"creator_id" binding:"required" example:"1"`
+	Value     interface{}     `json:"value,omitempty" swaggertype:"string" example:"4.2"`
+	Color     *string         `json:"color,omitempty" example:"#00FF00"`
+	IsGlobal  *bool           `json:"is_global,omitempty" example:"true"`
+	Polygon   *[]PointRequest `json:"polygon,omitempty" binding:"omitempty,min=3,dive"`
 }

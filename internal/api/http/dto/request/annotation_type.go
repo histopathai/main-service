@@ -12,6 +12,7 @@ type CreateAnnotationTypeRequest struct {
 }
 
 type UpdateAnnotationTypeRequest struct {
+	CreatorID  *string  `json:"creator_id" binding:"required" example:"1"`
 	Name       *string  `json:"name,omitempty" example:"Tumor Grade"`
 	Options    []string `json:"options,omitempty" example:"['Option1','Option2']"`
 	IsGlobal   *bool    `json:"is_global,omitempty" example:"false"`

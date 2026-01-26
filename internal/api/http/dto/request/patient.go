@@ -13,13 +13,13 @@ type CreatePatientRequest struct {
 }
 
 type UpdatePatientRequest struct {
-	Parent  *ParentRefRequest `json:"parent,omitempty"`
-	Name    *string           `json:"name,omitempty" example:"Patient_001"`
-	Age     *int              `json:"age,omitempty" example:"45"`
-	Gender  *string           `json:"gender,omitempty" example:"Female"`
-	Race    *string           `json:"race,omitempty" example:"Asian"`
-	Disease *string           `json:"disease,omitempty" example:"Glioblastoma"`
-	Subtype *string           `json:"subtype,omitempty" example:"IDH-wildtype"`
-	Grade   *int              `json:"grade,omitempty" example:"3"`
-	History *string           `json:"history,omitempty" example:"No prior history of cancer"`
+	CreatorID *string `json:"creator_id" binding:"required" example:"1"`
+	Name      *string `json:"name,omitempty" example:"Patient_001"`
+	Age       *int    `json:"age,omitempty" example:"45"`
+	Gender    *string `json:"gender,omitempty" example:"Female"`
+	Race      *string `json:"race,omitempty" example:"Asian"`
+	Disease   *string `json:"disease,omitempty" example:"Glioblastoma"`
+	Subtype   *string `json:"subtype,omitempty" example:"IDH-wildtype"`
+	Grade     *int    `json:"grade,omitempty" example:"3"`
+	History   *string `json:"history,omitempty" example:"No prior history of cancer"`
 }
