@@ -3,10 +3,11 @@ package fields
 type ContentField string
 
 const (
-	ContentProvider ContentField = "provider"
-	ContentPath     ContentField = "path"
-	ContentType     ContentField = "content_type"
-	ContentSize     ContentField = "size"
+	ContentProvider      ContentField = "provider"
+	ContentPath          ContentField = "path"
+	ContentType          ContentField = "content_type"
+	ContentSize          ContentField = "size"
+	ContentUploadPending ContentField = "upload_pending"
 )
 
 func (f ContentField) APIName() string {
@@ -27,6 +28,8 @@ func (f ContentField) DomainName() string {
 		return "ContentType"
 	case ContentSize:
 		return "Size"
+	case ContentUploadPending:
+		return "UploadPending"
 	default:
 		return ""
 	}
@@ -34,7 +37,7 @@ func (f ContentField) DomainName() string {
 
 func (f ContentField) IsValid() bool {
 	switch f {
-	case ContentProvider, ContentPath, ContentType, ContentSize:
+	case ContentProvider, ContentPath, ContentType, ContentSize, ContentUploadPending:
 		return true
 	default:
 		return false
@@ -42,5 +45,5 @@ func (f ContentField) IsValid() bool {
 }
 
 var ContentFields = []ContentField{
-	ContentProvider, ContentPath, ContentType, ContentSize,
+	ContentProvider, ContentPath, ContentType, ContentSize, ContentUploadPending,
 }
