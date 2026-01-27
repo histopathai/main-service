@@ -49,6 +49,7 @@ type UnitOfWorkFactory interface {
 	GetImageRepo() ImageRepository
 	GetAnnotationRepo() AnnotationRepository
 	GetAnnotationTypeRepo() AnnotationTypeRepository
+	GetContentRepo() ContentRepository
 }
 
 type WorkspaceRepository interface {
