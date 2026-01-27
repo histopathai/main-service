@@ -45,8 +45,9 @@ type HierarchicalQueries[T port.Entity] struct {
 	repo port.Repository[T]
 }
 
-func (s *HierarchicalQueries[T]) GetByParentID(ctx context.Context, parentID string) (*query.Result[T], error) {
-	filter := []query.Filter{
+func (s *HierarchicalQueries[T]) GetByParentID(ctx context.Context, spec query.Specification, parentID string) (*query.Result[T], error) {
+	// Add parent ID and deleted filters to the provided spec
+	additionalFilters := []query.Filter{
 		{
 			Field:    fields.EntityParentID.DomainName(),
 			Operator: query.OpEqual,
@@ -59,14 +60,13 @@ func (s *HierarchicalQueries[T]) GetByParentID(ctx context.Context, parentID str
 		},
 	}
 
-	return s.repo.Find(ctx, query.Specification{
-		Filters: filter,
-	})
-
+	spec.Filters = append(spec.Filters, additionalFilters...)
+	return s.repo.Find(ctx, spec)
 }
 
-func (s *HierarchicalQueries[T]) GetByWsID(ctx context.Context, wsID string) (*query.Result[T], error) {
-	filter := []query.Filter{
+func (s *HierarchicalQueries[T]) GetByWsID(ctx context.Context, spec query.Specification, wsID string) (*query.Result[T], error) {
+	// Add workspace ID and deleted filters to the provided spec
+	additionalFilters := []query.Filter{
 		{
 			Field:    "WsID",
 			Operator: query.OpEqual,
@@ -79,9 +79,8 @@ func (s *HierarchicalQueries[T]) GetByWsID(ctx context.Context, wsID string) (*q
 		},
 	}
 
-	return s.repo.Find(ctx, query.Specification{
-		Filters: filter,
-	})
+	spec.Filters = append(spec.Filters, additionalFilters...)
+	return s.repo.Find(ctx, spec)
 }
 
 func deletedFilterCheck(spec *query.Specification, includeDeleted bool) {

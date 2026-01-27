@@ -7,13 +7,17 @@ import (
 
 type ContentQuery struct {
 	*BaseQuery[*model.Content]
+	*HierarchicalQueries[*model.Content]
 }
 
 func NewContentQuery(
-	repo port.Repository[*model.Content],
+	repo port.ContentRepository,
 ) *ContentQuery {
 	return &ContentQuery{
 		BaseQuery: &BaseQuery[*model.Content]{
+			repo: repo,
+		},
+		HierarchicalQueries: &HierarchicalQueries[*model.Content]{
 			repo: repo,
 		},
 	}
