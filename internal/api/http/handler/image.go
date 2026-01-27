@@ -61,6 +61,24 @@ func (ih *ImageHandler) UploadImage(c *gin.Context) {
 	}
 
 	// DTO -> Command
+
+	contents := make([]struct {
+		ContentType string
+		Name        string
+		Size        int64
+	}, len(req.Contents))
+	for i, content := range req.Contents {
+		contents[i] = struct {
+			ContentType string
+			Name        string
+			Size        int64
+		}{
+			ContentType: content.ContentType,
+			Name:        content.Name,
+			Size:        content.Size,
+		}
+	}
+
 	cmd := command.UploadImageCommand{
 		CreateEntityCommand: command.CreateEntityCommand{
 			Name:       req.Name,
@@ -69,11 +87,10 @@ func (ih *ImageHandler) UploadImage(c *gin.Context) {
 			ParentID:   req.Parent.ID,
 			ParentType: req.Parent.Type,
 		},
-		ContentType: req.ContentType,
-		Format:      req.Format,
-		Size:        req.Size,
-		Width:       req.Width,
-		Height:      req.Height,
+		Format:   req.Format,
+		Width:    req.Width,
+		Height:   req.Height,
+		Contents: contents,
 	}
 
 	errDetails, ok := cmd.Validate()
@@ -89,10 +106,14 @@ func (ih *ImageHandler) UploadImage(c *gin.Context) {
 		return
 	}
 
-	respPayload := response.UploadImagePayload{
-		UploadURL: payload.URL,
-		Headers:   payload.Headers,
-		Message:   "Use this URL and Headers to upload the image via a PUT request.",
+	// Command -> Response
+	respPayload := make([]response.UploadImagePayload, len(payload))
+	for i, p := range payload {
+		respPayload[i] = response.UploadImagePayload{
+			UploadURL: p.URL,
+			Headers:   p.Headers,
+			Message:   "Use this URL and Headers to upload the image via a PUT request.",
+		}
 	}
 
 	ih.Response.Success(c, http.StatusCreated, respPayload)
