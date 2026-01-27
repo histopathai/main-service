@@ -26,6 +26,7 @@ func (cm *ContentMapper) ToFirestoreMap(entity *model.Content) map[string]interf
 	m[fields.ContentPath.FirestoreName()] = entity.Path
 	m[fields.ContentType.FirestoreName()] = entity.ContentType.String()
 	m[fields.ContentSize.FirestoreName()] = entity.Size
+	m[fields.ContentUploadPending.FirestoreName()] = entity.UploadPending
 
 	return m
 }
@@ -56,6 +57,9 @@ func (cm *ContentMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*mod
 
 	if v, ok := data[fields.ContentSize.FirestoreName()].(int64); ok {
 		content.Size = v
+	}
+	if v, ok := data[fields.ContentUploadPending.FirestoreName()].(bool); ok {
+		content.UploadPending = v
 	}
 
 	return content, nil
@@ -105,6 +109,13 @@ func (cm *ContentMapper) MapUpdates(updates map[string]interface{}) (map[string]
 				mappedUpdates[firestoreField] = sizeInt
 			} else {
 				return nil, errors.NewValidationError("invalid type for size field", nil)
+			}
+
+		case fields.ContentUploadPending.DomainName():
+			if uploadPending, ok := v.(bool); ok {
+				mappedUpdates[firestoreField] = uploadPending
+			} else {
+				return nil, errors.NewValidationError("invalid type for upload_pending field", nil)
 			}
 		}
 	}
