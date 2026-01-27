@@ -49,7 +49,6 @@ type Container struct {
 	WorkspaceUseCase      port.WorkspaceUseCase
 	PatientUseCase        port.PatientUseCase
 	ImageUseCase          port.ImageUseCase
-	ContentUseCase        port.ContentUseCase
 	AnnotationUseCase     port.AnnotationUseCase
 	AnnotationTypeUseCase port.AnnotationTypeUseCase
 
@@ -185,8 +184,7 @@ func (c *Container) initStorages(ctx context.Context) error {
 func (c *Container) initUseCases(ctx context.Context) error {
 	c.WorkspaceUseCase = appusecase.NewWorkspaceUseCase(c.WorkspaceRepo, c.UOW)
 	c.PatientUseCase = appusecase.NewPatientUseCase(c.PatientRepo, c.UOW)
-	c.ImageUseCase = appusecase.NewImageUseCase(c.ImageRepo, c.UOW, c.OriginStorage)
-	c.ContentUseCase = appusecase.NewContentUseCase(c.ContentRepo, c.UOW, c.ProcessedStorage)
+	c.ImageUseCase = appusecase.NewImageUseCase(c.ImageRepo, c.UOW, c.OriginStorage, c.ProcessedStorage)
 	c.AnnotationUseCase = appusecase.NewAnnotationUseCase(c.AnnotationRepo, c.UOW)
 	c.AnnotationTypeUseCase = appusecase.NewAnnotationTypeUseCase(c.AnnotationTypeRepo, c.UOW)
 	c.Logger.Info("Use cases initialized")
