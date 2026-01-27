@@ -23,7 +23,7 @@ type HierarchicalQueries[T Entity] interface {
 	GetByWsID(ctx context.Context, spec query.Specification, workspaceID string) (*query.Result[T], error)
 }
 
-type WorkspaceQeury interface {
+type WorkspaceQuery interface {
 	Queries[*model.Workspace]
 }
 
