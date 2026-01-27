@@ -41,7 +41,7 @@ func (h *ImageProcessDlqHandler) Stop() error {
 }
 
 func (h *ImageProcessDlqHandler) Handle(ctx context.Context, event domainevent.Event) error {
-	dlqEvent, ok := event.(domainevent.ImageProcessDlqEvent)
+	dlqEvent, ok := event.(*domainevent.ImageProcessDlqEvent)
 	if !ok {
 		h.logger.Warn("ImageProcessDlqHandler: received unsupported event type")
 		return nil
