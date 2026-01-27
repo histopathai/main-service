@@ -10,7 +10,6 @@ import (
 	"cloud.google.com/go/pubsub"
 	"github.com/google/uuid"
 	domainevent "github.com/histopathai/main-service/internal/domain/event"
-	"github.com/histopathai/main-service/internal/domain/model"
 	portevent "github.com/histopathai/main-service/internal/port/event"
 )
 
@@ -142,11 +141,6 @@ func (s *PubSubSubscriber) publishToDLQ(ctx context.Context, event domainevent.E
 			FirstAttemptAt: time.Now().Add(-time.Duration(retryCount) * time.Minute), // Approximate
 		}
 
-		var content model.Content
-		if len(e.Contents) > 0 {
-			content = e.Contents[0]
-		}
-
 		dlqEvent = &domainevent.ImageProcessDlqEvent{
 			BaseEvent: domainevent.BaseEvent{
 				EventID:   uuid.New().String(),
@@ -154,7 +148,6 @@ func (s *PubSubSubscriber) publishToDLQ(ctx context.Context, event domainevent.E
 				Timestamp: time.Now(),
 			},
 			ImageID:           e.ImageID,
-			Content:           content,
 			ProcessingVersion: e.ProcessingVersion,
 			FailureReason:     err.Error(),
 			Retryable:         e.Retryable,

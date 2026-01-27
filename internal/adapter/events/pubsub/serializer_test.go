@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestEventSerializer_ParseGCSNotificationToUploadEvent(t *testing.T) {
+func TestEventSerializer_ParseGCSNotificationToNewFileExistEvent(t *testing.T) {
 	serializer := NewEventSerializer()
 
 	gcsNotification := map[string]interface{}{
@@ -37,24 +37,24 @@ func TestEventSerializer_ParseGCSNotificationToUploadEvent(t *testing.T) {
 	data, err := json.Marshal(gcsNotification)
 	assert.NoError(t, err)
 
-	event, err := serializer.Deserialize(data, domainevent.UploadEventType)
+	event, err := serializer.Deserialize(data, domainevent.NewFileExistEventType)
 	assert.NoError(t, err)
 	assert.NotNil(t, event)
 
-	uploadEvent, ok := event.(*domainevent.UploadEvent)
+	newFileEvent, ok := event.(*domainevent.NewFileExistEvent)
 	assert.True(t, ok)
 
-	assert.Equal(t, "test-event-id", uploadEvent.EventID)
-	assert.Equal(t, domainevent.UploadEventType, uploadEvent.EventType)
+	assert.Equal(t, "test-event-id", newFileEvent.EventID)
+	assert.Equal(t, domainevent.NewFileExistEventType, newFileEvent.EventType)
 
 	// Check Content model populated from metadata
-	assert.Equal(t, "img-123", uploadEvent.Content.ID)
-	assert.Equal(t, "Test Image", uploadEvent.Content.Name)
-	assert.Equal(t, vobj.EntityTypeImage, uploadEvent.Content.EntityType)
-	assert.Equal(t, vobj.ContentProviderGCS, uploadEvent.Content.Provider)
-	assert.Equal(t, "path/to/image.svs", uploadEvent.Content.Path)
-	assert.Equal(t, vobj.ContentTypeImageSVS, uploadEvent.Content.ContentType)
-	assert.Equal(t, int64(123456), uploadEvent.Content.Size)
+	assert.Equal(t, "img-123", newFileEvent.Content.ID)
+	assert.Equal(t, "Test Image", newFileEvent.Content.Name)
+	assert.Equal(t, vobj.EntityTypeImage, newFileEvent.Content.EntityType)
+	assert.Equal(t, vobj.ContentProviderGCS, newFileEvent.Content.Provider)
+	assert.Equal(t, "path/to/image.svs", newFileEvent.Content.Path)
+	assert.Equal(t, vobj.ContentTypeImageSVS, newFileEvent.Content.ContentType)
+	assert.Equal(t, int64(123456), newFileEvent.Content.Size)
 }
 
 func TestEventSerializer_ImageProcessCompleteEvent_RoundTrip(t *testing.T) {

@@ -22,7 +22,7 @@ func (s *EventSerializer) Serialize(event domainevent.Event) ([]byte, error) {
 	var dto interface{}
 
 	switch e := event.(type) {
-	case *domainevent.UploadEvent:
+	case *domainevent.NewFileExistEvent:
 		dto = uploadEventDTO{
 			EventID:   e.EventID,
 			EventType: string(e.EventType),
@@ -30,7 +30,7 @@ func (s *EventSerializer) Serialize(event domainevent.Event) ([]byte, error) {
 			Content:   contentToDTO(e.Content),
 		}
 
-	case *domainevent.DeleteEvent:
+	case *domainevent.DeleteFileEvent:
 		dto = deleteEventDTO{
 			EventID:   e.EventID,
 			EventType: string(e.EventType),
@@ -38,7 +38,7 @@ func (s *EventSerializer) Serialize(event domainevent.Event) ([]byte, error) {
 			Content:   contentToDTO(e.Content),
 		}
 
-	case *domainevent.ImageProcessEvent:
+	case *domainevent.ImageProcessReqEvent:
 		dto = imageProcessDTO{
 			EventID:           e.EventID,
 			EventType:         string(e.EventType),
@@ -90,7 +90,6 @@ func (s *EventSerializer) Serialize(event domainevent.Event) ([]byte, error) {
 			EventType:         string(e.EventType),
 			Timestamp:         e.Timestamp.Format(time.RFC3339),
 			ImageID:           e.ImageID,
-			Content:           contentToDTO(e.Content),
 			ProcessingVersion: string(e.ProcessingVersion),
 			FailureReason:     e.FailureReason,
 			Retryable:         e.Retryable,
@@ -107,7 +106,7 @@ func (s *EventSerializer) Serialize(event domainevent.Event) ([]byte, error) {
 
 func (s *EventSerializer) Deserialize(data []byte, eventType domainevent.EventType) (domainevent.Event, error) {
 	switch eventType {
-	case domainevent.UploadEventType:
+	case domainevent.NewFileExistEventType:
 		var dto uploadEventDTO
 		// Unmarshal tries to match JSON to struct. If fields are missing, it succeeds with zero values.
 		// We need to check if it really looks like our DTO.
@@ -115,16 +114,16 @@ func (s *EventSerializer) Deserialize(data []byte, eventType domainevent.EventTy
 			return s.uploadDTOToDomain(dto)
 		}
 
-		return s.parseGCSNotificationToUploadEvent(data)
+		return s.parseGCSNotificationToNewFileExistEvent(data)
 
-	case domainevent.DeleteEventType:
+	case domainevent.DeleteFileEventType:
 		var dto deleteEventDTO
 		if err := json.Unmarshal(data, &dto); err != nil {
 			return nil, err
 		}
 		return s.deleteDTOToDomain(dto)
 
-	case domainevent.ImageProcessEventType:
+	case domainevent.ImageProcessReqEventType:
 		var dto imageProcessDTO
 		if err := json.Unmarshal(data, &dto); err != nil {
 			return nil, err
@@ -203,6 +202,8 @@ type processingResultDTO struct {
 type contentDTO struct {
 	ID          string            `json:"id"`
 	Name        string            `json:"name"`
+	ParentID    string            `json:"parent_id"`
+	ParentType  string            `json:"parent_type"`
 	CreatorID   string            `json:"creator_id"`
 	EntityType  string            `json:"entity_type"`
 	Provider    string            `json:"provider"`
@@ -217,7 +218,6 @@ type imageProcessDlqDTO struct {
 	EventType         string            `json:"event_type"`
 	Timestamp         string            `json:"timestamp"`
 	ImageID           string            `json:"image_id"`
-	Content           contentDTO        `json:"content"`
 	ProcessingVersion string            `json:"processing_version"`
 	FailureReason     string            `json:"failure_reason,omitempty"`
 	Retryable         bool              `json:"retryable"`
@@ -229,6 +229,8 @@ func contentToDTO(c model.Content) contentDTO {
 	return contentDTO{
 		ID:          c.ID,
 		Name:        c.Name,
+		ParentID:    c.Parent.ID,
+		ParentType:  string(c.Parent.Type),
 		CreatorID:   c.CreatorID,
 		EntityType:  string(c.EntityType),
 		Provider:    string(c.Provider),
@@ -245,6 +247,10 @@ func dtoToContent(dto contentDTO) model.Content {
 			Name:       dto.Name,
 			CreatorID:  dto.CreatorID,
 			EntityType: vobj.EntityType(dto.EntityType),
+			Parent: vobj.ParentRef{
+				ID:   dto.ParentID,
+				Type: vobj.ParentType(dto.ParentType),
+			},
 		},
 		Provider:    vobj.ContentProvider(dto.Provider),
 		Path:        dto.Path,
@@ -253,13 +259,13 @@ func dtoToContent(dto contentDTO) model.Content {
 	}
 }
 
-func (s *EventSerializer) uploadDTOToDomain(dto uploadEventDTO) (*domainevent.UploadEvent, error) {
+func (s *EventSerializer) uploadDTOToDomain(dto uploadEventDTO) (*domainevent.NewFileExistEvent, error) {
 	timestamp, err := time.Parse(time.RFC3339, dto.Timestamp)
 	if err != nil {
 		return nil, err
 	}
 
-	return &domainevent.UploadEvent{
+	return &domainevent.NewFileExistEvent{
 		BaseEvent: domainevent.BaseEvent{
 			EventID:   dto.EventID,
 			EventType: domainevent.EventType(dto.EventType),
@@ -269,13 +275,13 @@ func (s *EventSerializer) uploadDTOToDomain(dto uploadEventDTO) (*domainevent.Up
 	}, nil
 }
 
-func (s *EventSerializer) deleteDTOToDomain(dto deleteEventDTO) (*domainevent.DeleteEvent, error) {
+func (s *EventSerializer) deleteDTOToDomain(dto deleteEventDTO) (*domainevent.DeleteFileEvent, error) {
 	timestamp, err := time.Parse(time.RFC3339, dto.Timestamp)
 	if err != nil {
 		return nil, err
 	}
 
-	return &domainevent.DeleteEvent{
+	return &domainevent.DeleteFileEvent{
 		BaseEvent: domainevent.BaseEvent{
 			EventID:   dto.EventID,
 			EventType: domainevent.EventType(dto.EventType),
@@ -285,13 +291,13 @@ func (s *EventSerializer) deleteDTOToDomain(dto deleteEventDTO) (*domainevent.De
 	}, nil
 }
 
-func (s *EventSerializer) processingRequestedDTOToDomain(dto imageProcessDTO) (*domainevent.ImageProcessEvent, error) {
+func (s *EventSerializer) processingRequestedDTOToDomain(dto imageProcessDTO) (*domainevent.ImageProcessReqEvent, error) {
 	timestamp, err := time.Parse(time.RFC3339, dto.Timestamp)
 	if err != nil {
 		return nil, err
 	}
 
-	return &domainevent.ImageProcessEvent{
+	return &domainevent.ImageProcessReqEvent{
 		BaseEvent: domainevent.BaseEvent{
 			EventID:   dto.EventID,
 			EventType: domainevent.EventType(dto.EventType),
@@ -338,7 +344,7 @@ func (s *EventSerializer) processingCompletedDTOToDomain(dto imageProcessComplet
 	}, nil
 }
 
-func (s *EventSerializer) parseGCSNotificationToUploadEvent(data []byte) (*domainevent.UploadEvent, error) {
+func (s *EventSerializer) parseGCSNotificationToNewFileExistEvent(data []byte) (*domainevent.NewFileExistEvent, error) {
 	// GCS notification yapısı
 	var gcsNotif struct {
 		Kind        string            `json:"kind"`
@@ -371,12 +377,16 @@ func (s *EventSerializer) parseGCSNotificationToUploadEvent(data []byte) (*domai
 		Entity: vobj.Entity{
 			ID:         gcsNotif.Metadata["id"],
 			Name:       gcsNotif.Metadata["name"],
-			CreatorID:  gcsNotif.Metadata["creator-id"],
-			EntityType: vobj.EntityType(gcsNotif.Metadata["entity-type"]),
+			CreatorID:  gcsNotif.Metadata["creator_id"],
+			EntityType: vobj.EntityType(gcsNotif.Metadata["entity_type"]),
+			Parent: vobj.ParentRef{
+				ID:   gcsNotif.Metadata["parent_id"],
+				Type: vobj.ParentType(gcsNotif.Metadata["parent_type"]),
+			},
 		},
 		Provider:    vobj.ContentProvider(gcsNotif.Metadata["provider"]),
 		Path:        gcsNotif.Metadata["path"],
-		ContentType: vobj.ContentType(gcsNotif.Metadata["content-type"]),
+		ContentType: vobj.ContentType(gcsNotif.Metadata["content_type"]),
 		Size:        size,
 	}
 
@@ -402,10 +412,10 @@ func (s *EventSerializer) parseGCSNotificationToUploadEvent(data []byte) (*domai
 		// Let's rely on metadata primarily.
 	}
 
-	return &domainevent.UploadEvent{
+	return &domainevent.NewFileExistEvent{
 		BaseEvent: domainevent.BaseEvent{
 			EventID:   gcsNotif.ID,
-			EventType: domainevent.UploadEventType,
+			EventType: domainevent.NewFileExistEventType,
 			Timestamp: timestamp,
 		},
 		Content: content,
@@ -439,7 +449,6 @@ func (s *EventSerializer) imageProcessDlqDTOToDomain(dto imageProcessDlqDTO) (*d
 			Timestamp: timestamp,
 		},
 		ImageID:           dto.ImageID,
-		Content:           dtoToContent(dto.Content),
 		ProcessingVersion: vobj.ProcessingVersion(dto.ProcessingVersion),
 		FailureReason:     dto.FailureReason,
 		Retryable:         dto.Retryable,

@@ -20,7 +20,7 @@ var DefaultRetryPolicies = map[domainevent.EventType]RetryPolicy{
 		MaxBackoff:        60 * time.Second,
 		BackoffMultiplier: 2.0,
 	},
-	domainevent.ImageProcessEventType: {
+	domainevent.ImageProcessReqEventType: {
 		MaxAttempts:       3,
 		BaseBackoff:       2 * time.Second,
 		MaxBackoff:        30 * time.Second,
