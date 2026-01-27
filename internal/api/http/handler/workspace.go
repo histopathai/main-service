@@ -20,12 +20,12 @@ import (
 
 type WorkspaceHandler struct {
 	helper.BaseHandler
-	WsQuery     port.WorkspaceQeury
+	WsQuery     port.WorkspaceQuery
 	WsUsecase   port.WorkspaceUseCase
 	WsValidator *validator.Validator
 }
 
-func NewWorkspaceHandler(wsQuery port.WorkspaceQeury, wsUsecase port.WorkspaceUseCase, logger *slog.Logger) *WorkspaceHandler {
+func NewWorkspaceHandler(wsQuery port.WorkspaceQuery, wsUsecase port.WorkspaceUseCase, logger *slog.Logger) *WorkspaceHandler {
 	return &WorkspaceHandler{
 		WsQuery:     wsQuery,
 		WsUsecase:   wsUsecase,
