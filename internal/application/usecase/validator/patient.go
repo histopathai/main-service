@@ -59,7 +59,7 @@ func (v *PatientValidator) ValidateUpdate(ctx context.Context, id string, update
 	return nil
 }
 
-func (v *PatientValidator) ValidateTransfer(ctx context.Context, command *command.TransferCommand) error {
+func (v *PatientValidator) ValidateTransfer(ctx context.Context, command command.TransferCommand) error {
 	if err := helper.CheckParentExists(ctx, &vobj.ParentRef{ID: command.GetNewParent(), Type: vobj.ParentTypeWorkspace}, v.uow); err != nil {
 		return errors.NewInternalError("failed to check parent exists", err)
 	}

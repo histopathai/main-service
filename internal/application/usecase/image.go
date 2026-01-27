@@ -63,12 +63,7 @@ func (uc *ImageUseCase) Upload(ctx context.Context, cmd command.UploadImageComma
 	content.SetID(uuid.New().String())
 
 	content.Path = fmt.Sprintf("%s/%s", content.GetID(), content.Name)
-
-	presignedURLPayload, err := uc.storage.GenerateSignedURL(ctx, port.MethodPut, *content, time.Duration(1*time.Hour))
-	if err != nil {
-		return nil, errors.NewInternalError("failed to generate presigned url", err)
-	}
-
+	content.UploadPending = true
 	image.OriginContentID = &content.ID
 
 	image.Processing = &vobj.ProcessingInfo{
@@ -91,11 +86,26 @@ func (uc *ImageUseCase) Upload(ctx context.Context, cmd command.UploadImageComma
 			return errors.NewInternalError("failed to create image", nil)
 		}
 
+		contentRepo := uc.uow.GetContentRepo()
+
+		createdContent, err := contentRepo.Create(txCtx, content)
+		if err != nil {
+			return errors.NewInternalError("failed to create content", err)
+		}
+		if createdContent == nil {
+			return errors.NewInternalError("failed to create content", nil)
+		}
+
 		return nil
 	})
 
 	if uowerr != nil {
 		return nil, uowerr
+	}
+
+	presignedURLPayload, err := uc.storage.GenerateSignedURL(ctx, port.MethodPut, *content, time.Duration(1*time.Hour))
+	if err != nil {
+		return nil, errors.NewInternalError("failed to generate presigned url", err)
 	}
 
 	return presignedURLPayload, nil
@@ -117,7 +127,7 @@ func (uc *ImageUseCase) Update(ctx context.Context, cmd command.UpdateImageComma
 	return nil
 }
 
-func (uc *ImageUseCase) Transfer(ctx context.Context, cmd *command.TransferCommand) error {
+func (uc *ImageUseCase) Transfer(ctx context.Context, cmd command.TransferCommand) error {
 	err := uc.uow.WithTx(ctx, func(txCtx context.Context) error {
 		if err := uc.validator.ValidateTransfer(txCtx, cmd); err != nil {
 			return err
@@ -135,12 +145,12 @@ func (uc *ImageUseCase) Transfer(ctx context.Context, cmd *command.TransferComma
 	return err
 }
 
-func (uc *ImageUseCase) TransferMany(ctx context.Context, cmd *command.TransferManyCommand) error {
+func (uc *ImageUseCase) TransferMany(ctx context.Context, cmd command.TransferManyCommand) error {
 
 	ch := make(chan error)
 	for _, id := range cmd.GetIDs() {
 		go func(id string) {
-			ch <- uc.Transfer(ctx, &command.TransferCommand{
+			ch <- uc.Transfer(ctx, command.TransferCommand{
 				ID:         id,
 				NewParent:  cmd.GetNewParent(),
 				ParentType: vobj.EntityTypeImage.String(),

@@ -2,6 +2,7 @@ package usecase
 
 import (
 	"context"
+	"time"
 
 	"github.com/histopathai/main-service/internal/application/command"
 	"github.com/histopathai/main-service/internal/application/usecase/validator"
@@ -14,23 +15,26 @@ import (
 type ContentUseCase struct {
 	repo      port.ContentRepository
 	uow       port.UnitOfWorkFactory
+	storage   port.Storage
 	validator *validator.ContentValidator
 }
 
 func NewContentUseCase(
 	repo port.ContentRepository,
 	uow port.UnitOfWorkFactory,
+	storage port.Storage,
 ) *ContentUseCase {
 	return &ContentUseCase{
 		repo:      repo,
 		uow:       uow,
+		storage:   storage,
 		validator: validator.NewContentValidator(repo, uow),
 	}
 }
 
-func (uc *ContentUseCase) Upload(ctx context.Context, cmd command.UploadContentCommand) (*model.Content, error) {
-	var createdContent *model.Content
+func (uc *ContentUseCase) Upload(ctx context.Context, cmd command.UploadContentCommand) (*port.PresignedURLPayload, error) {
 
+	var createdContent *model.Content
 	err := uc.uow.WithTx(ctx, func(txCtx context.Context) error {
 
 		content, err := cmd.ToEntity()
@@ -56,6 +60,7 @@ func (uc *ContentUseCase) Upload(ctx context.Context, cmd command.UploadContentC
 			return errors.NewInternalError("failed to define content in parent", nil)
 		}
 
+		content.UploadPending = true
 		// Create content
 		created, err := uc.repo.Create(txCtx, content)
 		if err != nil {
@@ -77,5 +82,11 @@ func (uc *ContentUseCase) Upload(ctx context.Context, cmd command.UploadContentC
 		return nil, err
 	}
 
-	return createdContent, nil
+	// Generate Presigned URL
+	payload, err := uc.storage.GenerateSignedURL(ctx, port.MethodPut, *createdContent, time.Duration(1*time.Hour))
+	if err != nil {
+		return nil, errors.NewInternalError("failed to generate presigned URL", err)
+	}
+
+	return payload, nil
 }

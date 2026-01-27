@@ -33,7 +33,7 @@ func (v *ImageValidator) ValidateCreate(ctx context.Context, image *model.Image)
 
 }
 
-func (v *ImageValidator) ValidateTransfer(ctx context.Context, command *command.TransferCommand) error {
+func (v *ImageValidator) ValidateTransfer(ctx context.Context, command command.TransferCommand) error {
 	if err := helper.CheckParentExists(ctx, &vobj.ParentRef{ID: command.GetNewParent(), Type: vobj.ParentTypeWorkspace}, v.uow); err != nil {
 		return errors.NewInternalError("failed to check parent exists", err)
 	}

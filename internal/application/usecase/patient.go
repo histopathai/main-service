@@ -14,12 +14,12 @@ import (
 )
 
 type PatientUseCase struct {
-	repo      port.Repository[*model.Patient]
+	repo      port.PatientRepository
 	uow       port.UnitOfWorkFactory
 	validator *validator.PatientValidator
 }
 
-func NewPatientUseCase(repo port.Repository[*model.Patient], uow port.UnitOfWorkFactory) *PatientUseCase {
+func NewPatientUseCase(repo port.PatientRepository, uow port.UnitOfWorkFactory) *PatientUseCase {
 	return &PatientUseCase{
 		validator: validator.NewPatientValidator(repo, uow),
 		repo:      repo,
@@ -74,7 +74,7 @@ func (uc *PatientUseCase) Update(ctx context.Context, cmd command.UpdatePatientC
 	return nil
 }
 
-func (uc *PatientUseCase) Transfer(ctx context.Context, cmd *command.TransferCommand) error {
+func (uc *PatientUseCase) Transfer(ctx context.Context, cmd command.TransferCommand) error {
 
 	uowerr := uc.uow.WithTx(ctx, func(txCtx context.Context) error {
 		if err := uc.validator.ValidateTransfer(txCtx, cmd); err != nil {
@@ -136,14 +136,14 @@ func (uc *PatientUseCase) Transfer(ctx context.Context, cmd *command.TransferCom
 	return nil
 }
 
-func (uc *PatientUseCase) TransferMany(ctx context.Context, cmd *command.TransferManyCommand) error {
+func (uc *PatientUseCase) TransferMany(ctx context.Context, cmd command.TransferManyCommand) error {
 	// Appply in channel
 
 	ch := make(chan error)
 
 	for _, id := range cmd.GetIDs() {
 		go func(id string) {
-			ch <- uc.Transfer(ctx, &command.TransferCommand{
+			ch <- uc.Transfer(ctx, command.TransferCommand{
 				NewParent:  cmd.GetNewParent(),
 				ParentType: vobj.EntityTypePatient.String(),
 				ID:         id,

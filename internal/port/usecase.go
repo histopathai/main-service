@@ -30,12 +30,12 @@ type AnnotationUseCase interface {
 }
 
 type ImageUseCase interface {
-	Upload(ctx context.Context, cmd command.UploadImageCommand) (PresignedURLPayload, error)
+	Upload(ctx context.Context, cmd command.UploadImageCommand) (*PresignedURLPayload, error)
 	Update(ctx context.Context, cmd command.UpdateImageCommand) error
 	Transfer(ctx context.Context, cmd command.TransferCommand) error
 	TransferMany(ctx context.Context, cmd command.TransferManyCommand) error
 }
 
 type ContentUseCase interface {
-	Upload(ctx context.Context, cmd command.UploadContentCommand) (PresignedURLPayload, error)
+	Upload(ctx context.Context, cmd command.UploadContentCommand) (*PresignedURLPayload, error)
 }
