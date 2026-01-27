@@ -5,7 +5,7 @@ import (
 	"github.com/histopathai/main-service/internal/domain/vobj"
 )
 
-type ImageProcessEvent struct {
+type ImageProcessReqEvent struct {
 	BaseEvent
 	model.Content
 
@@ -36,7 +36,6 @@ type ImageProcessCompleteEvent struct {
 type ImageProcessDlqEvent struct {
 	BaseEvent
 	ImageID           string
-	Content           model.Content
 	ProcessingVersion vobj.ProcessingVersion
 	FailureReason     string
 	Retryable         bool
