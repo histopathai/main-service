@@ -226,7 +226,7 @@ func Load() (*Config, error) {
 	}
 
 	// Apply environment-based prefixes for dev environment
-	if cfg.IsDevelopment() {
+	if cfg.IsDevelopment() || cfg.IsLocal() {
 		cfg.applyDevPrefixes()
 	}
 
