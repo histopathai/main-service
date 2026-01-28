@@ -288,6 +288,10 @@ func (gr *GenericRepositoryImpl[T]) Count(ctx context.Context, spec query.Specif
 				break
 			}
 			if err != nil {
+				// Return 0 for non-existent collections instead of error
+				if isCollectionNotFoundError(err) {
+					return 0, nil
+				}
 				return 0, mapFirestoreError(err)
 			}
 			count++
@@ -300,6 +304,10 @@ func (gr *GenericRepositoryImpl[T]) Count(ctx context.Context, spec query.Specif
 
 	results, err := aggQuery.Get(ctx)
 	if err != nil {
+		// Return 0 for non-existent collections instead of error
+		if isCollectionNotFoundError(err) {
+			return 0, nil
+		}
 		return 0, mapFirestoreError(err)
 	}
 
@@ -386,6 +394,18 @@ func (gr *GenericRepositoryImpl[T]) executeQuery(ctx context.Context, spec query
 			break
 		}
 		if err != nil {
+			// Check if error is due to collection not existing
+			// Firestore returns NotFound or similar errors for non-existent collections
+			// In this case, we should return an empty result instead of an error
+			if isCollectionNotFoundError(err) {
+				// Return empty result for non-existent collections
+				return &query.Result[T]{
+					Data:    []T{},
+					Limit:   limit,
+					Offset:  offset,
+					HasMore: false,
+				}, nil
+			}
 			return nil, err
 		}
 
