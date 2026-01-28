@@ -117,12 +117,12 @@ func NewParentTypeFromString(s string) (ParentType, error) {
 }
 
 func NewParentRef(id string, parentType ParentType) (*ParentRef, error) {
-	if id == "" {
-		return nil, errors.New("parent ID is required")
-	}
-
 	if !parentType.IsValid() {
 		return nil, errors.New("invalid parent type")
+	}
+
+	if parentType != ParentTypeNone && id == "" {
+		return nil, errors.New("parent ID is required")
 	}
 
 	return &ParentRef{
