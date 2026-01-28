@@ -100,9 +100,13 @@ type CreateWorkspaceCommand struct {
 }
 
 func (c *CreateWorkspaceCommand) Validate() (map[string]interface{}, bool) {
-	details, ok := c.CreateEntityCommand.Validate()
-	if ok {
-		details = make(map[string]interface{})
+	details := make(map[string]interface{})
+
+	if c.Name == "" {
+		details["name"] = "Name is required"
+	}
+	if c.CreatorID == "" {
+		details["creator_id"] = "CreatorID is required"
 	}
 
 	if c.OrganType == "" {
@@ -161,18 +165,21 @@ func (c *CreateWorkspaceCommand) ToEntity() (*model.Workspace, error) {
 		return nil, errors.NewValidationError("validation error", details)
 	}
 
-	entityInterface, err := c.CreateEntityCommand.ToEntity()
-	if err != nil {
-		return nil, err
-	}
-
 	organType, err := vobj.NewOrganTypeFromString(c.OrganType)
 	if err != nil {
 		return nil, err
 	}
 
 	workspaceEntity := model.Workspace{
-		Entity:       *entityInterface,
+		Entity: vobj.Entity{
+			EntityType: vobj.EntityTypeWorkspace,
+			Name:       c.Name,
+			CreatorID:  c.CreatorID,
+			Parent: vobj.ParentRef{
+				ID:   "None",
+				Type: vobj.ParentTypeNone,
+			},
+		},
 		OrganType:    organType,
 		Organization: c.Organization,
 		Description:  c.Description,
@@ -358,9 +365,13 @@ type CreateAnnotationTypeCommand struct {
 }
 
 func (c *CreateAnnotationTypeCommand) Validate() (map[string]interface{}, bool) {
-	details, ok := c.CreateEntityCommand.Validate()
-	if ok {
-		details = make(map[string]interface{})
+	details := make(map[string]interface{})
+
+	if c.Name == "" {
+		details["name"] = "Name is required"
+	}
+	if c.CreatorID == "" {
+		details["creator_id"] = "CreatorID is required"
 	}
 
 	if c.TagType == "" {
@@ -400,17 +411,21 @@ func (c *CreateAnnotationTypeCommand) ToEntity() (*model.AnnotationType, error) 
 		return nil, errors.NewValidationError("validation error", details)
 	}
 
-	baseEntity, err := c.CreateEntityCommand.ToEntity()
-	if err != nil {
-		return nil, err
-	}
 	tagType, err := vobj.NewTagTypeFromString(c.TagType)
 	if err != nil {
 		return nil, err
 	}
 
 	annotationTypeEntity := model.AnnotationType{
-		Entity:     *baseEntity,
+		Entity: vobj.Entity{
+			EntityType: vobj.EntityTypeAnnotationType,
+			Name:       c.Name,
+			CreatorID:  c.CreatorID,
+			Parent: vobj.ParentRef{
+				ID:   "None",
+				Type: vobj.ParentTypeNone,
+			},
+		},
 		TagType:    tagType,
 		IsGlobal:   c.IsGlobal,
 		IsRequired: c.IsRequired,
