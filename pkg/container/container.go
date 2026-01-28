@@ -140,12 +140,21 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Contain
 
 func (c *Container) initInfrastructure(ctx context.Context) error {
 	// Initialize Firestore Client
-	firestoreClient, err := firestore.NewClient(ctx, c.Config.GCP.ProjectID)
+	var firestoreClient *firestore.Client
+	var err error
+
+	// Use configured database name (supports dev environment isolation)
+	if c.Config.GCP.FirestoreDatabase != "" && c.Config.GCP.FirestoreDatabase != "(default)" {
+		firestoreClient, err = firestore.NewClientWithDatabase(ctx, c.Config.GCP.ProjectID, c.Config.GCP.FirestoreDatabase)
+	} else {
+		firestoreClient, err = firestore.NewClient(ctx, c.Config.GCP.ProjectID)
+	}
+
 	if err != nil {
 		return fmt.Errorf("failed to create firestore client: %w", err)
 	}
 	c.FirestoreClient = firestoreClient
-	c.Logger.Info("Firestore client initialized")
+	c.Logger.Info("Firestore client initialized", "database", c.Config.GCP.FirestoreDatabase)
 
 	// Initialize GCSs
 	client, err := storage.NewClient(ctx)

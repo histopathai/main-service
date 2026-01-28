@@ -34,6 +34,7 @@ type GCPConfig struct {
 	CredentialsFile     string
 	OriginalBucketName  string
 	ProcessedBucketName string
+	FirestoreDatabase   string // Firestore database name (default: "(default)")
 }
 
 type PubSubConfig struct {
@@ -42,9 +43,6 @@ type PubSubConfig struct {
 	ImageProcessDLQ        TopicSubscriptionConfig // NEW: DLQ for failed image processing
 	ImageDeletion          TopicSubscriptionConfig
 	UploadStatus           SubscriptionConfig
-	TelemetryTopic         TopicConfig
-	TelemetryDLQ           TopicSubscriptionConfig
-	TelemetryError         TopicSubscriptionConfig
 }
 
 // TopicSubscriptionConfig bundles topic and subscription together
@@ -142,6 +140,7 @@ func Load() (*Config, error) {
 			CredentialsFile:     getEnv("GOOGLE_APPLICATION_CREDENTIALS", ""),
 			OriginalBucketName:  requireEnv("ORIGINAL_BUCKET_NAME"),
 			ProcessedBucketName: getEnv("PROCESSED_BUCKET_NAME", ""),
+			FirestoreDatabase:   getEnv("FIRESTORE_DATABASE", "(default)"),
 		},
 		PubSub: PubSubConfig{
 			UploadStatus: SubscriptionConfig{
@@ -151,13 +150,13 @@ func Load() (*Config, error) {
 			},
 			ImageProcessingRequest: TopicSubscriptionConfig{
 				Topic: TopicConfig{
-					Name:    getEnv("IMAGE_PROCESSING_REQUEST_TOPIC", "image-processing-requests"),
-					DLQName: getEnv("IMAGE_PROCESSING_REQUEST_DLQ", "image-processing-requests-dlq"),
+					Name:    getEnv("IMAGE_PROCESSING_REQUEST_TOPIC", "image-processing-request"),
+					DLQName: getEnv("IMAGE_PROCESSING_REQUEST_DLQ", "image-processing-request-dlq"),
 				},
 				Subscription: SubscriptionConfig{
 					Name:    getEnv("IMAGE_PROCESSING_REQUEST_SUB", "image-processing-request-sub"),
-					Topic:   getEnv("IMAGE_PROCESSING_REQUEST_TOPIC", "image-processing-requests"),
-					DLQName: getEnv("IMAGE_PROCESSING_REQUEST_SUB_DLQ", "image-processing-requests-sub-dlq"),
+					Topic:   getEnv("IMAGE_PROCESSING_REQUEST_TOPIC", "image-processing-request"),
+					DLQName: getEnv("IMAGE_PROCESSING_REQUEST_SUB_DLQ", "image-processing-request-sub-dlq"),
 				},
 			},
 			ImageProcessingResult: TopicSubscriptionConfig{
@@ -190,28 +189,6 @@ func Load() (*Config, error) {
 				Subscription: SubscriptionConfig{
 					Name:    getEnv("IMAGE_PROCESS_DLQ_SUB", "image-process-dlq-sub"),
 					Topic:   getEnv("IMAGE_PROCESS_DLQ_TOPIC", "image-process-dlq"),
-					DLQName: "",
-				},
-			},
-			TelemetryDLQ: TopicSubscriptionConfig{
-				Topic: TopicConfig{
-					Name:    getEnv("TELEMETRY_DLQ_TOPIC", "telemetry-dlq"),
-					DLQName: "", // DLQ doesn't have its own DLQ
-				},
-				Subscription: SubscriptionConfig{
-					Name:    getEnv("TELEMETRY_DLQ_SUB", "telemetry-dlq-sub"),
-					Topic:   getEnv("TELEMETRY_DLQ_TOPIC", "telemetry-dlq"),
-					DLQName: "",
-				},
-			},
-			TelemetryError: TopicSubscriptionConfig{
-				Topic: TopicConfig{
-					Name:    getEnv("TELEMETRY_ERROR_TOPIC", "telemetry-errors"),
-					DLQName: "", // Error topic doesn't have DLQ
-				},
-				Subscription: SubscriptionConfig{
-					Name:    getEnv("TELEMETRY_ERROR_SUB", "telemetry-errors-sub"),
-					Topic:   getEnv("TELEMETRY_ERROR_TOPIC", "telemetry-errors"),
 					DLQName: "",
 				},
 			},
@@ -248,6 +225,11 @@ func Load() (*Config, error) {
 		},
 	}
 
+	// Apply environment-based prefixes for dev environment
+	if cfg.IsDevelopment() {
+		cfg.applyDevPrefixes()
+	}
+
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
@@ -256,19 +238,25 @@ func Load() (*Config, error) {
 }
 
 func (c *Config) Validate() error {
+	// GCP Configuration
 	if c.GCP.ProjectID == "" {
 		return fmt.Errorf("PROJECT_ID is required")
 	}
-
+	if c.GCP.Region == "" {
+		return fmt.Errorf("REGION is required")
+	}
 	if c.GCP.OriginalBucketName == "" {
 		return fmt.Errorf("ORIGINAL_BUCKET_NAME is required")
 	}
 
+	// Server Configuration
 	if c.Server.Port == "" {
 		return fmt.Errorf("PORT is required")
 	}
-	if c.GCP.Region == "" {
-		return fmt.Errorf("REGION is required")
+
+	// PubSub Configuration
+	if c.PubSub.UploadStatus.Name == "" {
+		return fmt.Errorf("UPLOAD_STATUS_SUBSCRIPTION is required")
 	}
 	if c.PubSub.ImageProcessingRequest.Topic.Name == "" {
 		return fmt.Errorf("IMAGE_PROCESSING_REQUEST_TOPIC is required")
@@ -288,17 +276,16 @@ func (c *Config) Validate() error {
 	if c.PubSub.ImageDeletion.Subscription.Name == "" {
 		return fmt.Errorf("IMAGE_DELETION_SUB is required")
 	}
-	if c.PubSub.TelemetryDLQ.Topic.Name == "" {
-		return fmt.Errorf("TELEMETRY_DLQ_TOPIC is required")
+	if c.PubSub.ImageProcessDLQ.Topic.Name == "" {
+		return fmt.Errorf("IMAGE_PROCESS_DLQ_TOPIC is required")
 	}
-	if c.PubSub.TelemetryDLQ.Subscription.Name == "" {
-		return fmt.Errorf("TELEMETRY_DLQ_SUB is required")
+	if c.PubSub.ImageProcessDLQ.Subscription.Name == "" {
+		return fmt.Errorf("IMAGE_PROCESS_DLQ_SUB is required")
 	}
-	if c.PubSub.TelemetryError.Topic.Name == "" {
-		return fmt.Errorf("TELEMETRY_ERROR_TOPIC is required")
-	}
-	if c.PubSub.TelemetryError.Subscription.Name == "" {
-		return fmt.Errorf("TELEMETRY_ERROR_SUB is required")
+
+	// Worker Configuration
+	if c.Worker.Type == "" {
+		return fmt.Errorf("WORKER_TYPE is required")
 	}
 
 	return nil
@@ -314,6 +301,61 @@ func (c *Config) IsDevelopment() bool {
 
 func (c *Config) IsLocal() bool {
 	return c.Env == EnvLocal
+}
+
+// applyDevPrefixes adds "dev-" prefix to all pubsub topics/subscriptions and firestore database for dev environment
+func (c *Config) applyDevPrefixes() {
+	const devPrefix = "dev-"
+
+	// Apply prefix to Firestore database
+	if c.GCP.FirestoreDatabase == "(default)" {
+		c.GCP.FirestoreDatabase = devPrefix + "db"
+	}
+
+	// Apply prefix to Upload Status
+	c.PubSub.UploadStatus.Name = devPrefix + c.PubSub.UploadStatus.Name
+	c.PubSub.UploadStatus.Topic = devPrefix + c.PubSub.UploadStatus.Topic
+	if c.PubSub.UploadStatus.DLQName != "" {
+		c.PubSub.UploadStatus.DLQName = devPrefix + c.PubSub.UploadStatus.DLQName
+	}
+
+	// Apply prefix to Image Processing Request
+	c.PubSub.ImageProcessingRequest.Topic.Name = devPrefix + c.PubSub.ImageProcessingRequest.Topic.Name
+	if c.PubSub.ImageProcessingRequest.Topic.DLQName != "" {
+		c.PubSub.ImageProcessingRequest.Topic.DLQName = devPrefix + c.PubSub.ImageProcessingRequest.Topic.DLQName
+	}
+	c.PubSub.ImageProcessingRequest.Subscription.Name = devPrefix + c.PubSub.ImageProcessingRequest.Subscription.Name
+	c.PubSub.ImageProcessingRequest.Subscription.Topic = devPrefix + c.PubSub.ImageProcessingRequest.Subscription.Topic
+	if c.PubSub.ImageProcessingRequest.Subscription.DLQName != "" {
+		c.PubSub.ImageProcessingRequest.Subscription.DLQName = devPrefix + c.PubSub.ImageProcessingRequest.Subscription.DLQName
+	}
+
+	// Apply prefix to Image Processing Result
+	c.PubSub.ImageProcessingResult.Topic.Name = devPrefix + c.PubSub.ImageProcessingResult.Topic.Name
+	if c.PubSub.ImageProcessingResult.Topic.DLQName != "" {
+		c.PubSub.ImageProcessingResult.Topic.DLQName = devPrefix + c.PubSub.ImageProcessingResult.Topic.DLQName
+	}
+	c.PubSub.ImageProcessingResult.Subscription.Name = devPrefix + c.PubSub.ImageProcessingResult.Subscription.Name
+	c.PubSub.ImageProcessingResult.Subscription.Topic = devPrefix + c.PubSub.ImageProcessingResult.Subscription.Topic
+	if c.PubSub.ImageProcessingResult.Subscription.DLQName != "" {
+		c.PubSub.ImageProcessingResult.Subscription.DLQName = devPrefix + c.PubSub.ImageProcessingResult.Subscription.DLQName
+	}
+
+	// Apply prefix to Image Deletion
+	c.PubSub.ImageDeletion.Topic.Name = devPrefix + c.PubSub.ImageDeletion.Topic.Name
+	if c.PubSub.ImageDeletion.Topic.DLQName != "" {
+		c.PubSub.ImageDeletion.Topic.DLQName = devPrefix + c.PubSub.ImageDeletion.Topic.DLQName
+	}
+	c.PubSub.ImageDeletion.Subscription.Name = devPrefix + c.PubSub.ImageDeletion.Subscription.Name
+	c.PubSub.ImageDeletion.Subscription.Topic = devPrefix + c.PubSub.ImageDeletion.Subscription.Topic
+	if c.PubSub.ImageDeletion.Subscription.DLQName != "" {
+		c.PubSub.ImageDeletion.Subscription.DLQName = devPrefix + c.PubSub.ImageDeletion.Subscription.DLQName
+	}
+
+	// Apply prefix to Image Process DLQ
+	c.PubSub.ImageProcessDLQ.Topic.Name = devPrefix + c.PubSub.ImageProcessDLQ.Topic.Name
+	c.PubSub.ImageProcessDLQ.Subscription.Name = devPrefix + c.PubSub.ImageProcessDLQ.Subscription.Name
+	c.PubSub.ImageProcessDLQ.Subscription.Topic = devPrefix + c.PubSub.ImageProcessDLQ.Subscription.Topic
 }
 
 func getEnv(key, defaultValue string) string {
