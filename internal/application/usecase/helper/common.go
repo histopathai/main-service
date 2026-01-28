@@ -13,12 +13,12 @@ import (
 
 func CheckNameUniqueUnderParent[T port.Entity](ctx context.Context, repo port.Repository[T], name string, parentID string, excludeID ...string) (bool, error) {
 	builder := query.NewBuilder()
-	builder.Where(fields.EntityName.DomainName(), query.OpEqual, name)
-	builder.Where(fields.EntityParentID.DomainName(), query.OpEqual, parentID)
-	builder.Where(fields.EntityIsDeleted.DomainName(), query.OpEqual, false)
+	builder.Where(fields.EntityName.APIName(), query.OpEqual, name)
+	builder.Where(fields.EntityParentID.APIName(), query.OpEqual, parentID)
+	builder.Where(fields.EntityIsDeleted.APIName(), query.OpEqual, false)
 
 	if len(excludeID) > 0 && excludeID[0] != "" {
-		builder.Where(fields.EntityID.DomainName(), query.OpNotEqual, excludeID[0])
+		builder.Where(fields.EntityID.APIName(), query.OpNotEqual, excludeID[0])
 	}
 
 	count, err := repo.Count(ctx, builder.Build())
@@ -31,11 +31,11 @@ func CheckNameUniqueUnderParent[T port.Entity](ctx context.Context, repo port.Re
 
 func CheckNameUniqueInCollection[T port.Entity](ctx context.Context, repo port.Repository[T], name string, excludeID ...string) (bool, error) {
 	builder := query.NewBuilder()
-	builder.Where(fields.EntityName.DomainName(), query.OpEqual, name)
-	builder.Where(fields.EntityIsDeleted.DomainName(), query.OpEqual, false)
+	builder.Where(fields.EntityName.APIName(), query.OpEqual, name)
+	builder.Where(fields.EntityIsDeleted.APIName(), query.OpEqual, false)
 
 	if len(excludeID) > 0 && excludeID[0] != "" {
-		builder.Where(fields.EntityID.DomainName(), query.OpNotEqual, excludeID[0])
+		builder.Where(fields.EntityID.APIName(), query.OpNotEqual, excludeID[0])
 	}
 
 	count, err := repo.Count(ctx, builder.Build())
