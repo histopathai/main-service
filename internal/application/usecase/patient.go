@@ -36,11 +36,11 @@ func (uc *PatientUseCase) Create(ctx context.Context, cmd command.CreatePatientC
 	var createdPatient *model.Patient
 	uowerr := uc.uow.WithTx(ctx, func(txCtx context.Context) error {
 		patientRepo := uc.uow.GetPatientRepo()
-		if err := uc.validator.ValidateCreate(ctx, entity); err != nil {
+		if err := uc.validator.ValidateCreate(txCtx, entity); err != nil {
 			return err
 		}
 
-		createdPatient, err = patientRepo.Create(ctx, entity)
+		createdPatient, err = patientRepo.Create(txCtx, entity)
 		if err != nil {
 			return errors.NewInternalError("failed to create patient", err)
 		}
