@@ -26,6 +26,10 @@ const (
 
 	ImageSize          ImageField = "size"
 	ImageMagnification ImageField = "magnification"
+
+	ImageMagnificationObjective         ImageField = "magnification.objective"
+	ImageMagnificationNativeLevel       ImageField = "magnification.native_level"
+	ImageMagnificationScanMagnification ImageField = "magnification.scan_magnification"
 )
 
 func (f ImageField) APIName() string {
@@ -41,6 +45,12 @@ func (f ImageField) APIName() string {
 		return "retry_count"
 	case ImageProcessingLastProcessedAt:
 		return "last_processed_at"
+	case ImageMagnificationObjective:
+		return "objective"
+	case ImageMagnificationNativeLevel:
+		return "native_level"
+	case ImageMagnificationScanMagnification:
+		return "scan_magnification"
 	default:
 		return string(f)
 	}
@@ -86,6 +96,12 @@ func (f ImageField) DomainName() string {
 		return "Size"
 	case ImageMagnification:
 		return "Magnification"
+	case ImageMagnificationObjective:
+		return "MagnificationObjective"
+	case ImageMagnificationNativeLevel:
+		return "MagnificationNativeLevel"
+	case ImageMagnificationScanMagnification:
+		return "MagnificationScanMagnification"
 	default:
 		return ""
 	}
@@ -98,7 +114,8 @@ func (f ImageField) IsValid() bool {
 		ImageProcessingRetryCount, ImageProcessingLastProcessedAt,
 		ImageOriginContentID, ImageThumbnailContentID, ImageDziContentID,
 		ImageIndexmapContentID, ImageTilesContentID, ImageZipTilesContentID,
-		ImageSize, ImageMagnification:
+		ImageSize, ImageMagnification,
+		ImageMagnificationObjective, ImageMagnificationNativeLevel, ImageMagnificationScanMagnification:
 		return true
 	default:
 		return false
@@ -112,4 +129,5 @@ var ImageFields = []ImageField{
 	ImageOriginContentID, ImageThumbnailContentID, ImageDziContentID,
 	ImageIndexmapContentID, ImageTilesContentID, ImageZipTilesContentID,
 	ImageSize, ImageMagnification,
+	ImageMagnificationObjective, ImageMagnificationNativeLevel, ImageMagnificationScanMagnification,
 }
