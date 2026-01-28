@@ -31,7 +31,7 @@ func NewAnnotationTypeValidator(
 
 func (v *AnnotationTypeValidator) ValidateCreate(ctx context.Context, at *model.AnnotationType) error {
 	// 1. Validate parent is None
-	if at.Parent.Type != vobj.ParentTypeNone || at.Parent.ID != "" {
+	if at.Parent.Type != vobj.ParentTypeNone || at.Parent.ID != "None" {
 		return errors.NewValidationError("annotation type cannot have a parent", map[string]interface{}{
 			"parent_type": at.Parent.Type,
 			"parent_id":   at.Parent.ID,
