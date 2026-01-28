@@ -195,32 +195,30 @@ func (im *ImageMapper) MapUpdates(updates map[string]interface{}) (map[string]in
 	}
 
 	for k, v := range updates {
-		firestoreField := fields.MapToFirestore(k)
-
 		switch k {
 		case fields.ImageWidth.DomainName():
 			if width, ok := v.(*int); ok {
-				mappedUpdates[firestoreField] = *width
+				mappedUpdates[fields.ImageWidth.FirestoreName()] = *width
 			} else if widthInt, ok := v.(int); ok {
-				mappedUpdates[firestoreField] = widthInt
+				mappedUpdates[fields.ImageWidth.FirestoreName()] = widthInt
 			} else {
 				return nil, errors.NewValidationError("invalid type for width field", nil)
 			}
 
 		case fields.ImageHeight.DomainName():
 			if height, ok := v.(*int); ok {
-				mappedUpdates[firestoreField] = *height
+				mappedUpdates[fields.ImageHeight.FirestoreName()] = *height
 			} else if heightInt, ok := v.(int); ok {
-				mappedUpdates[firestoreField] = heightInt
+				mappedUpdates[fields.ImageHeight.FirestoreName()] = heightInt
 			} else {
 				return nil, errors.NewValidationError("invalid type for height field", nil)
 			}
 
 		case fields.ImageSize.DomainName(): // Not in ImageField?
 			if size, ok := v.(*int64); ok {
-				mappedUpdates[firestoreField] = *size
+				mappedUpdates[fields.ImageSize.FirestoreName()] = *size
 			} else if sizeInt64, ok := v.(int64); ok {
-				mappedUpdates[firestoreField] = sizeInt64
+				mappedUpdates[fields.ImageSize.FirestoreName()] = sizeInt64
 			} else {
 				return nil, errors.NewValidationError("invalid type for size field", nil)
 			}
@@ -229,120 +227,120 @@ func (im *ImageMapper) MapUpdates(updates map[string]interface{}) (map[string]in
 			if mag, ok := v.(*vobj.OpticalMagnification); ok && mag != nil {
 				magMap := make(map[string]interface{})
 				if mag.Objective != nil {
-					magMap["objective"] = *mag.Objective
+					magMap[fields.ImageMagnificationObjective.FirestoreName()] = *mag.Objective
 				}
 				if mag.NativeLevel != nil {
-					magMap["native_level"] = *mag.NativeLevel
+					magMap[fields.ImageMagnificationNativeLevel.FirestoreName()] = *mag.NativeLevel
 				}
 				if mag.ScanMagnification != nil {
-					magMap["scan_magnification"] = *mag.ScanMagnification
+					magMap[fields.ImageMagnificationScanMagnification.FirestoreName()] = *mag.ScanMagnification
 				}
-				mappedUpdates[firestoreField] = magMap
+				mappedUpdates[fields.ImageMagnification.FirestoreName()] = magMap
 			} else {
 				return nil, errors.NewValidationError("invalid type for magnification field", nil)
 			}
 
 		case fields.ImageOriginContentID.DomainName():
 			if id, ok := v.(*string); ok {
-				mappedUpdates[firestoreField] = *id
+				mappedUpdates[fields.ImageOriginContentID.FirestoreName()] = *id
 			} else if idStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = idStr
+				mappedUpdates[fields.ImageOriginContentID.FirestoreName()] = idStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for origin_content_id field", nil)
 			}
 
 		case fields.ImageThumbnailContentID.DomainName():
 			if id, ok := v.(*string); ok {
-				mappedUpdates[firestoreField] = *id
+				mappedUpdates[fields.ImageThumbnailContentID.FirestoreName()] = *id
 			} else if idStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = idStr
+				mappedUpdates[fields.ImageThumbnailContentID.FirestoreName()] = idStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for thumbnail_content_id field", nil)
 			}
 		case fields.ImageDziContentID.DomainName():
 			if id, ok := v.(*string); ok {
-				mappedUpdates[firestoreField] = *id
+				mappedUpdates[fields.ImageDziContentID.FirestoreName()] = *id
 			} else if idStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = idStr
+				mappedUpdates[fields.ImageDziContentID.FirestoreName()] = idStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for dzi_content_id field", nil)
 			}
 
 		case fields.ImageIndexmapContentID.DomainName():
 			if id, ok := v.(*string); ok {
-				mappedUpdates[firestoreField] = *id
+				mappedUpdates[fields.ImageIndexmapContentID.FirestoreName()] = *id
 			} else if idStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = idStr
+				mappedUpdates[fields.ImageIndexmapContentID.FirestoreName()] = idStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for indexmap_content_id field", nil)
 			}
 
 		case fields.ImageTilesContentID.DomainName(): // Typo fix: previous code had ImageZipTilesContentIDField separately
 			if id, ok := v.(*string); ok {
-				mappedUpdates[firestoreField] = *id
+				mappedUpdates[fields.ImageTilesContentID.FirestoreName()] = *id
 			} else if idStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = idStr
+				mappedUpdates[fields.ImageTilesContentID.FirestoreName()] = idStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for tiles_content_id field", nil)
 			}
 
 		case fields.ImageZipTilesContentID.DomainName():
 			if id, ok := v.(*string); ok {
-				mappedUpdates[firestoreField] = *id
+				mappedUpdates[fields.ImageZipTilesContentID.FirestoreName()] = *id
 			} else if idStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = idStr
+				mappedUpdates[fields.ImageZipTilesContentID.FirestoreName()] = idStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for ziptiles_content_id field", nil)
 			}
 
 		case fields.ImageProcessingStatus.DomainName():
 			if status, ok := v.(vobj.ImageStatus); ok {
-				mappedUpdates[firestoreField] = status.String()
+				mappedUpdates[fields.ImageProcessingStatus.FirestoreName()] = status.String()
 			} else if statusStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = statusStr
+				mappedUpdates[fields.ImageProcessingStatus.FirestoreName()] = statusStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for processing.status field", nil)
 			}
 
 		case fields.ImageProcessingVersion.DomainName():
 			if version, ok := v.(vobj.ProcessingVersion); ok {
-				mappedUpdates[firestoreField] = version.String()
+				mappedUpdates[fields.ImageProcessingVersion.FirestoreName()] = version.String()
 			} else if versionStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = versionStr
+				mappedUpdates[fields.ImageProcessingVersion.FirestoreName()] = versionStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for processing.version field", nil)
 			}
 
 		case fields.ImageProcessingFailureReason.DomainName():
 			if reason, ok := v.(*string); ok {
-				mappedUpdates[firestoreField] = *reason
+				mappedUpdates[fields.ImageProcessingFailureReason.FirestoreName()] = *reason
 			} else if reasonStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = reasonStr
+				mappedUpdates[fields.ImageProcessingFailureReason.FirestoreName()] = reasonStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for processing.failure_reason field", nil)
 			}
 
 		case fields.ImageProcessingRetryCount.DomainName():
 			if retryCount, ok := v.(*int); ok {
-				mappedUpdates[firestoreField] = *retryCount
+				mappedUpdates[fields.ImageProcessingRetryCount.FirestoreName()] = *retryCount
 			} else if retryCountInt, ok := v.(int); ok {
-				mappedUpdates[firestoreField] = retryCountInt
+				mappedUpdates[fields.ImageProcessingRetryCount.FirestoreName()] = retryCountInt
 			} else {
 				return nil, errors.NewValidationError("invalid type for processing.retry_count field", nil)
 			}
 
 		case fields.ImageProcessingLastProcessedAt.DomainName():
 			if lastProcessedAt, ok := v.(*time.Time); ok {
-				mappedUpdates[firestoreField] = *lastProcessedAt
+				mappedUpdates[fields.ImageProcessingLastProcessedAt.FirestoreName()] = *lastProcessedAt
 			} else if lastProcessedAtTime, ok := v.(time.Time); ok {
-				mappedUpdates[firestoreField] = lastProcessedAtTime
+				mappedUpdates[fields.ImageProcessingLastProcessedAt.FirestoreName()] = lastProcessedAtTime
 			} else {
 				return nil, errors.NewValidationError("invalid type for processing.last_processed_at field", nil)
 			}
 
 		case fields.ImageWsID.DomainName():
 			if wsID, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = wsID
+				mappedUpdates[fields.ImageWsID.FirestoreName()] = wsID
 			} else {
 				return nil, errors.NewValidationError("invalid type for ws_id field", nil)
 			}

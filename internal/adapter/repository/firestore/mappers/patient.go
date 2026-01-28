@@ -95,68 +95,67 @@ func (pm *PatientMapper) MapUpdates(updates map[string]interface{}) (map[string]
 
 	// Patient specific updates
 	for k, v := range updates {
-		firestoreField := fields.MapToFirestore(k)
 
 		switch k {
 		case fields.PatientAge.DomainName():
 			if age, ok := v.(*int); ok {
-				mappedUpdates[firestoreField] = *age
+				mappedUpdates[fields.PatientAge.FirestoreName()] = *age
 			} else if ageInt, ok := v.(int); ok {
-				mappedUpdates[firestoreField] = ageInt
+				mappedUpdates[fields.PatientAge.FirestoreName()] = ageInt
 			} else {
 				return nil, errors.NewValidationError("invalid type for age field", nil)
 			}
 
 		case fields.PatientGender.DomainName():
 			if gender, ok := v.(*string); ok {
-				mappedUpdates[firestoreField] = *gender
+				mappedUpdates[fields.PatientGender.FirestoreName()] = *gender
 			} else if genderStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = genderStr
+				mappedUpdates[fields.PatientGender.FirestoreName()] = genderStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for gender field", nil)
 			}
 
 		case fields.PatientRace.DomainName():
 			if race, ok := v.(*string); ok {
-				mappedUpdates[firestoreField] = *race
+				mappedUpdates[fields.PatientRace.FirestoreName()] = *race
 			} else if raceStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = raceStr
+				mappedUpdates[fields.PatientRace.FirestoreName()] = raceStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for race field", nil)
 			}
 
 		case fields.PatientDisease.DomainName():
 			if disease, ok := v.(*string); ok {
-				mappedUpdates[firestoreField] = *disease
+				mappedUpdates[fields.PatientDisease.FirestoreName()] = *disease
 			} else if diseaseStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = diseaseStr
+				mappedUpdates[fields.PatientDisease.FirestoreName()] = diseaseStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for disease field", nil)
 			}
 
 		case fields.PatientSubtype.DomainName():
 			if subtype, ok := v.(*string); ok {
-				mappedUpdates[firestoreField] = *subtype
+				mappedUpdates[fields.PatientSubtype.FirestoreName()] = *subtype
 			} else if subtypeStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = subtypeStr
+				mappedUpdates[fields.PatientSubtype.FirestoreName()] = subtypeStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for subtype field", nil)
 			}
 
 		case fields.PatientGrade.DomainName():
 			if grade, ok := v.(*int); ok {
-				mappedUpdates[firestoreField] = *grade
+				mappedUpdates[fields.PatientGrade.FirestoreName()] = *grade
 			} else if gradeInt, ok := v.(int); ok {
-				mappedUpdates[firestoreField] = gradeInt
+				mappedUpdates[fields.PatientGrade.FirestoreName()] = gradeInt
 			} else {
 				return nil, errors.NewValidationError("invalid type for grade field", nil)
 			}
 
 		case fields.PatientHistory.DomainName():
 			if history, ok := v.(*string); ok {
-				mappedUpdates[firestoreField] = *history
+				mappedUpdates[fields.PatientHistory.FirestoreName()] = *history
 			} else if historyStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = historyStr
+				mappedUpdates[fields.PatientHistory.FirestoreName()] = historyStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for history field", nil)
 			}

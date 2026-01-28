@@ -95,60 +95,58 @@ func (wm *WorkspaceMapper) MapUpdates(updates map[string]interface{}) (map[strin
 	}
 
 	for k, v := range updates {
-		firestoreField := fields.MapToFirestore(k)
-
 		switch k {
 		case fields.WorkspaceOrganType.DomainName():
 			if organType, ok := v.(vobj.OrganType); ok {
-				mappedUpdates[firestoreField] = organType.String()
+				mappedUpdates[fields.WorkspaceOrganType.FirestoreName()] = organType.String()
 			} else if organTypeStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = organTypeStr
+				mappedUpdates[fields.WorkspaceOrganType.FirestoreName()] = organTypeStr
 			} else {
 				return nil, errors.NewValidationError("invalid organ_type field", nil)
 			}
 
 		case fields.WorkspaceOrganization.DomainName():
 			if organization, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = organization
+				mappedUpdates[fields.WorkspaceOrganization.FirestoreName()] = organization
 			} else {
 				return nil, errors.NewValidationError("invalid organization field", nil)
 			}
 
 		case fields.WorkspaceDescription.DomainName():
 			if description, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = description
+				mappedUpdates[fields.WorkspaceDescription.FirestoreName()] = description
 			} else {
 				return nil, errors.NewValidationError("invalid description field", nil)
 			}
 
 		case fields.WorkspaceLicense.DomainName():
 			if license, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = license
+				mappedUpdates[fields.WorkspaceLicense.FirestoreName()] = license
 			} else {
 				return nil, errors.NewValidationError("invalid license field", nil)
 			}
 
 		case fields.WorkspaceResourceURL.DomainName():
 			if resourceURL, ok := v.(*string); ok {
-				mappedUpdates[firestoreField] = *resourceURL
+				mappedUpdates[fields.WorkspaceResourceURL.FirestoreName()] = *resourceURL
 			} else if resourceURLStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = resourceURLStr
+				mappedUpdates[fields.WorkspaceResourceURL.FirestoreName()] = resourceURLStr
 			} else {
 				return nil, errors.NewValidationError("invalid resource_url field", nil)
 			}
 
 		case fields.WorkspaceReleaseYear.DomainName():
 			if releaseYear, ok := v.(*int); ok {
-				mappedUpdates[firestoreField] = *releaseYear
+				mappedUpdates[fields.WorkspaceReleaseYear.FirestoreName()] = *releaseYear
 			} else if releaseYearInt, ok := v.(int); ok {
-				mappedUpdates[firestoreField] = releaseYearInt
+				mappedUpdates[fields.WorkspaceReleaseYear.FirestoreName()] = releaseYearInt
 			} else {
 				return nil, errors.NewValidationError("invalid release_year field", nil)
 			}
 
 		case fields.WorkspaceAnnotationTypes.DomainName():
 			if annotationTypes, ok := v.([]string); ok {
-				mappedUpdates[firestoreField] = annotationTypes
+				mappedUpdates[fields.WorkspaceAnnotationTypes.FirestoreName()] = annotationTypes
 			} else {
 				return nil, errors.NewValidationError("invalid annotation_types field", nil)
 			}
@@ -166,7 +164,6 @@ func (wm *WorkspaceMapper) MapFilters(filters []query.Filter) ([]query.Filter, e
 
 	for _, f := range filters {
 		firestoreField := fields.MapToFirestore(f.Field)
-
 		if fields.EntityField(f.Field).IsValid() {
 			continue
 		}

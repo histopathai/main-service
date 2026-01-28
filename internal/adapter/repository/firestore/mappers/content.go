@@ -72,48 +72,47 @@ func (cm *ContentMapper) MapUpdates(updates map[string]interface{}) (map[string]
 	}
 
 	for k, v := range updates {
-		firestoreField := fields.MapToFirestore(k)
 
 		switch k {
 		case fields.ContentProvider.DomainName():
 			if provider, ok := v.(vobj.ContentProvider); ok {
-				mappedUpdates[firestoreField] = provider.String()
+				mappedUpdates[fields.ContentProvider.FirestoreName()] = provider.String()
 			} else if providerStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = providerStr
+				mappedUpdates[fields.ContentProvider.FirestoreName()] = providerStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for provider field", nil)
 			}
 
 		case fields.ContentPath.DomainName():
 			if path, ok := v.(*string); ok {
-				mappedUpdates[firestoreField] = *path
+				mappedUpdates[fields.ContentPath.FirestoreName()] = *path
 			} else if pathStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = pathStr
+				mappedUpdates[fields.ContentPath.FirestoreName()] = pathStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for path field", nil)
 			}
 
 		case fields.ContentType.DomainName():
 			if contentType, ok := v.(vobj.ContentType); ok {
-				mappedUpdates[firestoreField] = contentType.String()
+				mappedUpdates[fields.ContentType.FirestoreName()] = contentType.String()
 			} else if contentTypeStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = contentTypeStr
+				mappedUpdates[fields.ContentType.FirestoreName()] = contentTypeStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for content_type field", nil)
 			}
 
 		case fields.ContentSize.DomainName():
 			if size, ok := v.(*int64); ok {
-				mappedUpdates[firestoreField] = *size
+				mappedUpdates[fields.ContentSize.FirestoreName()] = *size
 			} else if sizeInt, ok := v.(int64); ok {
-				mappedUpdates[firestoreField] = sizeInt
+				mappedUpdates[fields.ContentSize.FirestoreName()] = sizeInt
 			} else {
 				return nil, errors.NewValidationError("invalid type for size field", nil)
 			}
 
 		case fields.ContentUploadPending.DomainName():
 			if uploadPending, ok := v.(bool); ok {
-				mappedUpdates[firestoreField] = uploadPending
+				mappedUpdates[fields.ContentUploadPending.FirestoreName()] = uploadPending
 			} else {
 				return nil, errors.NewValidationError("invalid type for upload_pending field", nil)
 			}

@@ -101,62 +101,61 @@ func (atm *AnnotationTypeMapper) MapUpdates(updates map[string]interface{}) (map
 	}
 
 	for k, v := range updates {
-		firestoreField := fields.MapToFirestore(k)
 
 		switch k {
 		case fields.AnnotationTypeTagType.DomainName():
 			if tagType, ok := v.(vobj.TagType); ok {
-				mappedUpdates[firestoreField] = tagType.String()
+				mappedUpdates[fields.AnnotationTypeTagType.FirestoreName()] = tagType.String()
 			} else if tagTypeStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = tagTypeStr
+				mappedUpdates[fields.AnnotationTypeTagType.FirestoreName()] = tagTypeStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for tag_type field", nil)
 			}
 
 		case fields.AnnotationTypeIsGlobal.DomainName():
 			if isGlobal, ok := v.(bool); ok {
-				mappedUpdates[firestoreField] = isGlobal
+				mappedUpdates[fields.AnnotationTypeIsGlobal.FirestoreName()] = isGlobal
 			} else {
 				return nil, errors.NewValidationError("invalid type for is_global field", nil)
 			}
 
 		case fields.AnnotationTypeIsRequired.DomainName():
 			if isRequired, ok := v.(bool); ok {
-				mappedUpdates[firestoreField] = isRequired
+				mappedUpdates[fields.AnnotationTypeIsRequired.FirestoreName()] = isRequired
 			} else {
 				return nil, errors.NewValidationError("invalid type for is_required field", nil)
 			}
 
 		case fields.AnnotationTypeOptions.DomainName():
 			if options, ok := v.([]string); ok {
-				mappedUpdates[firestoreField] = options
+				mappedUpdates[fields.AnnotationTypeOptions.FirestoreName()] = options
 			} else {
 				return nil, errors.NewValidationError("invalid type for options field", nil)
 			}
 
 		case fields.AnnotationTypeMin.DomainName():
 			if min, ok := v.(*float64); ok {
-				mappedUpdates[firestoreField] = *min
+				mappedUpdates[fields.AnnotationTypeMin.FirestoreName()] = *min
 			} else if minFloat, ok := v.(float64); ok {
-				mappedUpdates[firestoreField] = minFloat
+				mappedUpdates[fields.AnnotationTypeMin.FirestoreName()] = minFloat
 			} else {
 				return nil, errors.NewValidationError("invalid type for min field", nil)
 			}
 
 		case fields.AnnotationTypeMax.DomainName():
 			if max, ok := v.(*float64); ok {
-				mappedUpdates[firestoreField] = *max
+				mappedUpdates[fields.AnnotationTypeMax.FirestoreName()] = *max
 			} else if maxFloat, ok := v.(float64); ok {
-				mappedUpdates[firestoreField] = maxFloat
+				mappedUpdates[fields.AnnotationTypeMax.FirestoreName()] = maxFloat
 			} else {
 				return nil, errors.NewValidationError("invalid type for max field", nil)
 			}
 
 		case fields.AnnotationTypeColor.DomainName():
 			if color, ok := v.(*string); ok {
-				mappedUpdates[firestoreField] = *color
+				mappedUpdates[fields.AnnotationTypeColor.FirestoreName()] = *color
 			} else if colorStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = colorStr
+				mappedUpdates[fields.AnnotationTypeColor.FirestoreName()] = colorStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for color field", nil)
 			}
@@ -173,10 +172,9 @@ func (atm *AnnotationTypeMapper) MapFilters(filters []query.Filter) ([]query.Fil
 	}
 
 	for _, f := range filters {
-		firestoreField := fields.MapToFirestore(f.Field)
 		if fields.AnnotationTypeField(f.Field).IsValid() {
 			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    firestoreField,
+				Field:    fields.MapToFirestore(f.Field),
 				Operator: f.Operator,
 				Value:    f.Value,
 			})

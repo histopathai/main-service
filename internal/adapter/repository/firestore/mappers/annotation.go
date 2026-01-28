@@ -100,48 +100,47 @@ func (am *AnnotationMapper) MapUpdates(updates map[string]interface{}) (map[stri
 	}
 
 	for k, v := range updates {
-		firestoreField := fields.MapToFirestore(k)
 
 		switch k {
 		case fields.AnnotationPolygon.DomainName():
 			if polygon, ok := v.(*[]vobj.Point); ok {
-				mappedUpdates[firestoreField] = vobj.ToJSONPoints(*polygon)
+				mappedUpdates[fields.AnnotationPolygon.FirestoreName()] = vobj.ToJSONPoints(*polygon)
 			} else if points, ok := v.([]vobj.Point); ok {
-				mappedUpdates[firestoreField] = vobj.ToJSONPoints(points)
+				mappedUpdates[fields.AnnotationPolygon.FirestoreName()] = vobj.ToJSONPoints(points)
 			} else {
 				return nil, errors.NewValidationError("invalid type for polygon field", nil)
 			}
 
 		case fields.AnnotationTagValue.DomainName():
-			mappedUpdates[firestoreField] = v
+			mappedUpdates[fields.AnnotationTagValue.FirestoreName()] = v
 
 		case fields.AnnotationTagType.DomainName():
 			if tagType, ok := v.(vobj.TagType); ok {
-				mappedUpdates[firestoreField] = tagType.String()
+				mappedUpdates[fields.AnnotationTagType.FirestoreName()] = tagType.String()
 			} else if tagTypeStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = tagTypeStr
+				mappedUpdates[fields.AnnotationTagType.FirestoreName()] = tagTypeStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for tag_type field", nil)
 			}
 
 		case fields.AnnotationIsGlobal.DomainName():
 			if isGlobal, ok := v.(bool); ok {
-				mappedUpdates[firestoreField] = isGlobal
+				mappedUpdates[fields.AnnotationIsGlobal.FirestoreName()] = isGlobal
 			} else {
 				return nil, errors.NewValidationError("invalid type for is_global field", nil)
 			}
 
 		case fields.AnnotationColor.DomainName():
 			if color, ok := v.(*string); ok {
-				mappedUpdates[firestoreField] = *color
+				mappedUpdates[fields.AnnotationColor.FirestoreName()] = *color
 			} else if colorStr, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = colorStr
+				mappedUpdates[fields.AnnotationColor.FirestoreName()] = colorStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for color field", nil)
 			}
 		case fields.ImageWsID.DomainName():
 			if wsID, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = wsID
+				mappedUpdates[fields.ImageWsID.FirestoreName()] = wsID
 			} else {
 				return nil, errors.NewValidationError("invalid type for ws_id field", nil)
 			}
