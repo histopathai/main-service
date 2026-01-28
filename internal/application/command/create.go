@@ -322,6 +322,8 @@ func (c *CreateAnnotationCommand) ToEntity() (*model.Annotation, error) {
 		for i, p := range c.Points {
 			points[i] = vobj.Point{X: p.X, Y: p.Y}
 		}
+	} else {
+		points = nil
 	}
 	wsID := ""
 	if c.WsID != nil {
