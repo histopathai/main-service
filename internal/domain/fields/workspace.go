@@ -17,7 +17,7 @@ func (f WorkspaceField) APIName() string {
 }
 
 func (f WorkspaceField) FirestoreName() string {
-	return string(f) // Workspace için aynı
+	return string(f)
 }
 
 func (f WorkspaceField) DomainName() string {
