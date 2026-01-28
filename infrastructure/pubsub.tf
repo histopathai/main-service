@@ -194,10 +194,10 @@ resource "google_pubsub_subscription" "image_deletion_sub" {
 }
 
 # ----------------------------------------
-# 6. TELEMETRY DLQ
+# 5. IMAGE PROCESS DLQ
 # ----------------------------------------
-resource "google_pubsub_topic" "telemetry_dlq" {
-  name = "telemetry-dlq" 
+resource "google_pubsub_topic" "image_process_dlq" {
+  name = "image-process-dlq"
 
   labels = {
     service     = "main-service"
@@ -207,40 +207,9 @@ resource "google_pubsub_topic" "telemetry_dlq" {
   message_retention_duration = "604800s" # 7 days
 }
 
-resource "google_pubsub_subscription" "telemetry_dlq_sub" {
-  name  = "telemetry-dlq-sub"
-  topic = google_pubsub_topic.telemetry_dlq.name
-
-  ack_deadline_seconds = 600 # 10 minutes
-
-  retry_policy {
-    minimum_backoff = "10s"
-    maximum_backoff = "600s"
-  }
-
-  labels = {
-    service     = "main-service"
-    managed_by  = "terraform"
-  }
-}
-
-# ----------------------------------------
-# 7. TELEMETRY ERROR
-# ----------------------------------------
-resource "google_pubsub_topic" "telemetry_error" {
-  name = "telemetry-errors"
-
-  labels = {
-    service     = "main-service"
-    managed_by  = "terraform"
-  }
-
-  message_retention_duration = "604800s" # 7 days
-}
-
-resource "google_pubsub_subscription" "telemetry_error_sub" {
-  name  = "telemetry-errors-sub"
-  topic = google_pubsub_topic.telemetry_error.name
+resource "google_pubsub_subscription" "image_process_dlq_sub" {
+  name  = "image-process-dlq-sub"
+  topic = google_pubsub_topic.image_process_dlq.name
 
   ack_deadline_seconds = 600 # 10 minutes
 
