@@ -10,7 +10,7 @@ const (
 )
 
 const (
-	ParentTypeNone           ParentType = ""
+	ParentTypeNone           ParentType = "None"
 	ParentTypeWorkspace      ParentType = "workspace"
 	ParentTypePatient        ParentType = "patient"
 	ParentTypeImage          ParentType = "image"
