@@ -12,6 +12,7 @@ import (
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/errors"
+	"golang.org/x/sync/errgroup"
 )
 
 type ImageUseCase struct {
@@ -76,6 +77,8 @@ func (uc *ImageUseCase) Upload(ctx context.Context, cmd command.UploadImageComma
 
 	presignedURLs, err := uc.generatePresignedURLS(ctx, cmd, createdImage.ID)
 	if err != nil {
+
+		go uc.repo.Delete(ctx, createdImage.ID)
 		return nil, err
 	}
 
@@ -118,24 +121,19 @@ func (uc *ImageUseCase) Transfer(ctx context.Context, cmd command.TransferComman
 
 func (uc *ImageUseCase) TransferMany(ctx context.Context, cmd command.TransferManyCommand) error {
 
-	ch := make(chan error)
+	g, ctx := errgroup.WithContext(ctx)
+
 	for _, id := range cmd.GetIDs() {
-		go func(id string) {
-			ch <- uc.Transfer(ctx, command.TransferCommand{
+		g.Go(func() error {
+			return uc.Transfer(ctx, command.TransferCommand{
 				ID:         id,
 				NewParent:  cmd.GetNewParent(),
 				ParentType: vobj.EntityTypeImage.String(),
 			})
-		}(id)
+		})
 	}
 
-	for range cmd.GetIDs() {
-		if err := <-ch; err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return g.Wait()
 
 }
 
