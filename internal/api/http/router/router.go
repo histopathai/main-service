@@ -118,7 +118,7 @@ func (r *Router) setupWorkspaceRoutes(rg *gin.RouterGroup) {
 		workspaces.POST("", r.workspaceHandler.Create)
 		workspaces.GET("", r.workspaceHandler.List)
 		workspaces.GET("/:id", r.workspaceHandler.Get)
-		workspaces.PATCH("/:id", r.workspaceHandler.Update)
+		workspaces.PUT("/:id", r.workspaceHandler.Update)
 		workspaces.DELETE("/:id/soft-delete", r.workspaceHandler.SoftDelete)
 		workspaces.GET("/:id/patients", r.patientHandler.GetByParentID)
 		workspaces.GET("/count", r.workspaceHandler.Count)
