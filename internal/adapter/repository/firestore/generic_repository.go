@@ -145,6 +145,21 @@ func (gr *GenericRepositoryImpl[T]) UpdateMany(ctx context.Context, ids []string
 	return gr.updateManyWithBulkWriter(ctx, ids, updates)
 }
 
+func (gr *GenericRepositoryImpl[T]) Delete(ctx context.Context, id string) error {
+	docRef := gr.client.Collection(gr.collection).Doc(id)
+	var err error
+	if tx := fromCtx(ctx); tx != nil {
+		err = tx.Delete(docRef)
+	} else {
+		_, err = docRef.Delete(ctx)
+	}
+	if err != nil {
+		return mapFirestoreError(err)
+	}
+	return nil
+
+}
+
 func (gr *GenericRepositoryImpl[T]) SoftDelete(ctx context.Context, id string) error {
 	updates := map[string]interface{}{
 		"is_deleted": true,

@@ -40,6 +40,7 @@ type Repository[T Entity] interface {
 	UpdateMany(ctx context.Context, ids []string, updates map[string]interface{}) error
 	TransferMany(ctx context.Context, ids []string, newOwnerID string) error
 	Count(ctx context.Context, spec query.Specification) (int64, error)
+	Delete(ctx context.Context, id string) error
 }
 
 type UnitOfWorkFactory interface {
