@@ -39,7 +39,11 @@ locals {
   service_account        = data.terraform_remote_state.platform.outputs.main_service_account_email
   artifact_repository_id = data.terraform_remote_state.platform.outputs.artifact_repository_id
   service_name           = var.environment == "prod" ? "main-service" : "main-service-${var.environment}"
-  
+
+  # Environment-based prefix for PubSub resources
+  # In dev environment, all topics/subscriptions get "dev-" prefix for isolation
+  pubsub_prefix = var.environment == "dev" ? "dev-" : ""
+
   # Construct the full image path
   image_name = "${var.region}-docker.pkg.dev/${var.project_id}/${var.artifact_registry_repo}/main-service:${var.image_tag}"
 
