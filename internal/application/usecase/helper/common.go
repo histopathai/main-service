@@ -17,16 +17,34 @@ func CheckNameUniqueUnderParent[T port.Entity](ctx context.Context, repo port.Re
 	builder.Where(fields.EntityParentID.APIName(), query.OpEqual, parentID)
 	builder.Where(fields.EntityIsDeleted.APIName(), query.OpEqual, false)
 
-	if len(excludeID) > 0 && excludeID[0] != "" {
-		builder.Where(fields.EntityID.APIName(), query.OpNotEqual, excludeID[0])
-	}
+	// Fetch potential conflicts
+	builder.Paginate(2, 0) // We only need to know if > 0 exists
 
-	count, err := repo.Count(ctx, builder.Build())
+	// Use Find instead of Count to inspect IDs
+	result, err := repo.Find(ctx, builder.Build())
 	if err != nil {
 		return false, fmt.Errorf("failed to check name uniqueness: %w", err)
 	}
 
-	return count == 0, nil
+	if len(result.Data) == 0 {
+		return true, nil
+	}
+
+	// If excluding an ID (update scenario)
+	if len(excludeID) > 0 && excludeID[0] != "" {
+		targetID := excludeID[0]
+		for _, entity := range result.Data {
+			// If we find an entity with same name but DIFFERENT ID -> Conflict
+			if entity.GetID() != targetID {
+				return false, nil
+			}
+		}
+		// Only match was self -> Unique
+		return true, nil
+	}
+
+	// No exclusion -> Any match is conflict
+	return false, nil
 }
 
 func CheckNameUniqueInCollection[T port.Entity](ctx context.Context, repo port.Repository[T], name string, excludeID ...string) (bool, error) {
@@ -34,16 +52,29 @@ func CheckNameUniqueInCollection[T port.Entity](ctx context.Context, repo port.R
 	builder.Where(fields.EntityName.APIName(), query.OpEqual, name)
 	builder.Where(fields.EntityIsDeleted.APIName(), query.OpEqual, false)
 
-	if len(excludeID) > 0 && excludeID[0] != "" {
-		builder.Where(fields.EntityID.APIName(), query.OpNotEqual, excludeID[0])
-	}
+	// Fetch potential conflicts
+	builder.Paginate(2, 0)
 
-	count, err := repo.Count(ctx, builder.Build())
+	result, err := repo.Find(ctx, builder.Build())
 	if err != nil {
 		return false, fmt.Errorf("failed to check name uniqueness in collection: %w", err)
 	}
 
-	return count == 0, nil
+	if len(result.Data) == 0 {
+		return true, nil
+	}
+
+	if len(excludeID) > 0 && excludeID[0] != "" {
+		targetID := excludeID[0]
+		for _, entity := range result.Data {
+			if entity.GetID() != targetID {
+				return false, nil
+			}
+		}
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func CheckParentExists(ctx context.Context, parent *vobj.ParentRef, uow port.UnitOfWorkFactory) error {
