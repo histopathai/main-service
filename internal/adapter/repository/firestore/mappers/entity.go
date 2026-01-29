@@ -117,19 +117,18 @@ func (em *EntityMapper[T]) MapUpdates(updates map[string]interface{}) (map[strin
 	mappedUpdates := make(map[string]interface{})
 
 	for k, v := range updates {
-		firestoreField := fields.MapToFirestore(k)
 
 		switch k {
 		case fields.EntityName.DomainName():
 			if name, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = name
+				mappedUpdates[fields.EntityName.FirestoreName()] = name
 			} else {
 				return nil, errors.NewValidationError("invalid type for name field", nil)
 			}
 
 		case fields.EntityCreatorID.DomainName():
 			if creatorID, ok := v.(string); ok {
-				mappedUpdates[firestoreField] = creatorID
+				mappedUpdates[fields.EntityCreatorID.FirestoreName()] = creatorID
 			} else {
 				return nil, errors.NewValidationError("invalid type for creator_id field", nil)
 			}
@@ -159,14 +158,14 @@ func (em *EntityMapper[T]) MapUpdates(updates map[string]interface{}) (map[strin
 
 		case fields.EntityEntityType.DomainName():
 			if entityType, ok := v.(vobj.EntityType); ok {
-				mappedUpdates[firestoreField] = entityType
+				mappedUpdates[fields.EntityEntityType.FirestoreName()] = entityType.String()
 			} else {
 				return nil, errors.NewValidationError("invalid type for entity_type field", nil)
 			}
 
 		case fields.EntityIsDeleted.DomainName():
 			if deleted, ok := v.(bool); ok {
-				mappedUpdates[firestoreField] = deleted
+				mappedUpdates[fields.EntityIsDeleted.FirestoreName()] = deleted
 			} else {
 				return nil, errors.NewValidationError("invalid type for deleted field", nil)
 			}
