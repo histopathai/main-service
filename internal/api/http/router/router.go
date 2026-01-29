@@ -31,7 +31,7 @@ type Router struct {
 	imageHandler          *handler.ImageHandler
 	annotationHandler     *handler.AnnotationHandler
 	annotationTypeHandler *handler.AnnotationTypeHandler
-	gcsProxyHandler       *handler.GCSProxyHandler
+	tileProxyHandler      *handler.TileProxyHandler
 
 	// Middleware
 	authMiddleware    *middleware.AuthMiddleware
@@ -48,7 +48,7 @@ func NewRouter(
 	imageHandler *handler.ImageHandler,
 	annotationHandler *handler.AnnotationHandler,
 	annotationTypeHandler *handler.AnnotationTypeHandler,
-	gcsProxyHandler *handler.GCSProxyHandler,
+	tileProxyHandler *handler.TileProxyHandler,
 	authMiddleware *middleware.AuthMiddleware,
 	timeoutMiddleware *middleware.TimeoutMiddleware,
 ) *Router {
@@ -60,7 +60,7 @@ func NewRouter(
 		imageHandler:          imageHandler,
 		annotationHandler:     annotationHandler,
 		annotationTypeHandler: annotationTypeHandler,
-		gcsProxyHandler:       gcsProxyHandler,
+		tileProxyHandler:      tileProxyHandler,
 		authMiddleware:        authMiddleware,
 		timeoutMiddleware:     timeoutMiddleware,
 	}
@@ -106,7 +106,7 @@ func (r *Router) SetupRoutes() *gin.Engine {
 		r.setupAnnotationRoutes(v1)
 		r.setupAnnotationTypeRoutes(v1)
 
-		v1.GET("/proxy/:imageId/*objectPath", r.gcsProxyHandler.ProxyObject)
+		v1.GET("/proxy/:imageId/*objectPath", r.tileProxyHandler.ProxyTile)
 	}
 
 	return r.engine
