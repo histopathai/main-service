@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"log/slog"
 	"time"
 
@@ -18,8 +19,6 @@ type GCSAdapter struct {
 	bucketName string
 	logger     *slog.Logger
 }
-
-var _ port.Storage = (*GCSAdapter)(nil)
 
 func NewGCSAdapter(client *storage.Client, bucketName string, logger *slog.Logger) *GCSAdapter {
 	return &GCSAdapter{
@@ -135,4 +134,28 @@ func (g *GCSAdapter) GenerateSignedURL(ctx context.Context,
 		ExpiresAt: opts.Expires,
 		Headers:   headersMap,
 	}, nil
+}
+
+func (g *GCSAdapter) GetRange(ctx context.Context, content model.Content, offset int64, length int64) (io.ReadCloser, error) {
+	bucket := g.client.Bucket(g.bucketName)
+	obj := bucket.Object(content.Path)
+
+	reader, err := obj.NewRangeReader(ctx, offset, length)
+	if err != nil {
+		return nil, mapGCSError(err, "getting range reader for GCS object")
+	}
+
+	return reader, nil
+}
+
+func (g *GCSAdapter) Get(ctx context.Context, content model.Content) (io.ReadCloser, error) {
+	bucket := g.client.Bucket(g.bucketName)
+	obj := bucket.Object(content.Path)
+
+	reader, err := obj.NewReader(ctx)
+	if err != nil {
+		return nil, mapGCSError(err, "getting reader for GCS object")
+	}
+
+	return reader, nil
 }

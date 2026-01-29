@@ -2,6 +2,7 @@ package port
 
 import (
 	"context"
+	"io"
 	"time"
 
 	"github.com/histopathai/main-service/internal/domain/model"
@@ -34,8 +35,11 @@ type Storage interface {
 
 	GetAttributes(ctx context.Context, content model.Content) (*FileAttributes, error)
 
-	// metadata parametresi eklendi
 	GenerateSignedURL(ctx context.Context, method SignedURLMethod, content model.Content, expiry time.Duration) (*PresignedURLPayload, error)
+
+	GetRange(ctx context.Context, content model.Content, offset int64, length int64) (io.ReadCloser, error)
+
+	Get(ctx context.Context, content model.Content) (io.ReadCloser, error)
 }
 
 type FileAttributes struct {
