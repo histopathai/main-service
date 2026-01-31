@@ -70,33 +70,8 @@ func (s *EventSerializer) Serialize(event domainevent.Event) ([]byte, error) {
 			Success:       e.Success,
 			Result:        result,
 			FailureReason: e.FailureReason,
-			Retryable:     e.Retryable,
 			ImageID:       e.ImageID,
 		}
-	case *domainevent.ImageProcessDlqEvent:
-		var retryMeta *retryMetadataDTO
-		if e.RetryMetadata != nil {
-			retryMeta = &retryMetadataDTO{
-				AttemptCount:    e.RetryMetadata.AttemptCount,
-				MaxAttempts:     e.RetryMetadata.MaxAttempts,
-				LastAttemptAt:   e.RetryMetadata.LastAttemptAt.Format(time.RFC3339),
-				FirstAttemptAt:  e.RetryMetadata.FirstAttemptAt.Format(time.RFC3339),
-				BackoffDuration: int64(e.RetryMetadata.BackoffDuration.Milliseconds()),
-			}
-		}
-
-		dto = imageProcessDlqDTO{
-			EventID:           e.EventID,
-			EventType:         string(e.EventType),
-			Timestamp:         e.Timestamp.Format(time.RFC3339),
-			ImageID:           e.ImageID,
-			ProcessingVersion: string(e.ProcessingVersion),
-			FailureReason:     e.FailureReason,
-			Retryable:         e.Retryable,
-			RetryMetadata:     retryMeta,
-			OriginalEventID:   e.OriginalEventID,
-		}
-
 	default:
 		return nil, fmt.Errorf("unsupported event type: %T", event)
 	}
@@ -136,13 +111,6 @@ func (s *EventSerializer) Deserialize(data []byte, eventType domainevent.EventTy
 			return nil, err
 		}
 		return s.processingCompletedDTOToDomain(dto)
-
-	case domainevent.ImageProcessDlqEventType:
-		var dto imageProcessDlqDTO
-		if err := json.Unmarshal(data, &dto); err != nil {
-			return nil, err
-		}
-		return s.imageProcessDlqDTOToDomain(dto)
 
 	default:
 		return nil, fmt.Errorf("unsupported event type: %s", eventType)
@@ -340,7 +308,6 @@ func (s *EventSerializer) processingCompletedDTOToDomain(dto imageProcessComplet
 		Success:       dto.Success,
 		Result:        result,
 		FailureReason: dto.FailureReason,
-		Retryable:     dto.Retryable,
 	}, nil
 }
 
@@ -419,40 +386,5 @@ func (s *EventSerializer) parseGCSNotificationToNewFileExistEvent(data []byte) (
 			Timestamp: timestamp,
 		},
 		Content: content,
-	}, nil
-}
-
-func (s *EventSerializer) imageProcessDlqDTOToDomain(dto imageProcessDlqDTO) (*domainevent.ImageProcessDlqEvent, error) {
-	timestamp, err := time.Parse(time.RFC3339, dto.Timestamp)
-	if err != nil {
-		return nil, err
-	}
-
-	var retryMeta *domainevent.RetryMetadata
-	if dto.RetryMetadata != nil {
-		lastAttempt, _ := time.Parse(time.RFC3339, dto.RetryMetadata.LastAttemptAt)
-		firstAttempt, _ := time.Parse(time.RFC3339, dto.RetryMetadata.FirstAttemptAt)
-
-		retryMeta = &domainevent.RetryMetadata{
-			AttemptCount:    dto.RetryMetadata.AttemptCount,
-			MaxAttempts:     dto.RetryMetadata.MaxAttempts,
-			LastAttemptAt:   lastAttempt,
-			FirstAttemptAt:  firstAttempt,
-			BackoffDuration: time.Duration(dto.RetryMetadata.BackoffDuration) * time.Millisecond,
-		}
-	}
-
-	return &domainevent.ImageProcessDlqEvent{
-		BaseEvent: domainevent.BaseEvent{
-			EventID:   dto.EventID,
-			EventType: domainevent.EventType(dto.EventType),
-			Timestamp: timestamp,
-		},
-		ImageID:           dto.ImageID,
-		ProcessingVersion: vobj.ProcessingVersion(dto.ProcessingVersion),
-		FailureReason:     dto.FailureReason,
-		Retryable:         dto.Retryable,
-		RetryMetadata:     retryMeta,
-		OriginalEventID:   dto.OriginalEventID,
 	}, nil
 }
