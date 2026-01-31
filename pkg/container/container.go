@@ -67,11 +67,9 @@ type Container struct {
 
 	// Event Infrastructure
 	EventPublisher     portevent.EventPublisher
-	DLQPublisher       portevent.EventPublisher
 	UploadSubscriber   portevent.EventSubscriber
 	ProcessSubscriber  portevent.EventSubscriber
 	CompleteSubscriber portevent.EventSubscriber
-	DLQSubscriber      portevent.EventSubscriber
 
 	// Event Handlers
 	NewFileHandler              *apphandler.NewFileHandler
@@ -238,14 +236,7 @@ func (c *Container) initEventInfrastructure(ctx context.Context) error {
 	}
 	c.EventPublisher = publisher
 
-	// Create DLQ publisher (same as main publisher, different topic mapping)
-	dlqPublisher, err := pubsub.NewPubSubPublisher(ctx, c.Config.GCP.ProjectID, topicMapping)
-	if err != nil {
-		return fmt.Errorf("failed to create DLQ publisher: %w", err)
-	}
-	c.DLQPublisher = dlqPublisher
-
-	// Create subscribers with retry policies
+	// Create subscribers
 	uploadSub, err := pubsub.NewPubSubSubscriber(
 		ctx,
 		c.Config.GCP.ProjectID,
