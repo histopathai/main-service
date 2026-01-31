@@ -8,6 +8,7 @@ import (
 
 	"cloud.google.com/go/firestore"
 	"cloud.google.com/go/storage"
+	inmemorycache "github.com/histopathai/main-service/internal/adapter/cache"
 	"github.com/histopathai/main-service/internal/adapter/events/pubsub"
 	firestorerepo "github.com/histopathai/main-service/internal/adapter/repository/firestore"
 	"github.com/histopathai/main-service/internal/adapter/storage/gcs"
@@ -16,10 +17,12 @@ import (
 	"github.com/histopathai/main-service/internal/api/http/middleware"
 	"github.com/histopathai/main-service/internal/api/http/router"
 	apphandler "github.com/histopathai/main-service/internal/application/handler"
+	"github.com/histopathai/main-service/internal/application/proxy"
 	appquery "github.com/histopathai/main-service/internal/application/queries"
 	appusecase "github.com/histopathai/main-service/internal/application/usecase"
 	domainevent "github.com/histopathai/main-service/internal/domain/event"
 	"github.com/histopathai/main-service/internal/port"
+	"github.com/histopathai/main-service/internal/port/cache"
 	portevent "github.com/histopathai/main-service/internal/port/event"
 	"github.com/histopathai/main-service/pkg/config"
 )
@@ -31,6 +34,7 @@ type Container struct {
 	// Infrastructure
 	FirestoreClient *firestore.Client
 	StorageClient   *storage.Client
+	Cache           cache.Cache
 
 	// Repositories
 	WorkspaceRepo      port.WorkspaceRepository
@@ -40,6 +44,7 @@ type Container struct {
 	AnnotationRepo     port.AnnotationRepository
 	AnnotationTypeRepo port.AnnotationTypeRepository
 	UOW                port.UnitOfWorkFactory
+	TileServer         *proxy.TileServer
 
 	// Storages
 	OriginStorage    port.Storage
@@ -72,7 +77,6 @@ type Container struct {
 	NewFileHandler              *apphandler.NewFileHandler
 	ImageProcessHandler         *apphandler.ImageProcessHandler
 	ImageProcessCompleteHandler *apphandler.ImageProcessCompleteHandler
-	ImageProcessDlqHandler      *apphandler.ImageProcessDlqHandler
 
 	// Worker
 	ImageProcessingWorker port.ImageProcessingWorker
@@ -85,7 +89,7 @@ type Container struct {
 	AnnotationTypeHandler *handler.AnnotationTypeHandler
 	AuthMiddleware        *middleware.AuthMiddleware
 	TimeoutMiddleware     *middleware.TimeoutMiddleware
-	GCSProxyHandler       *handler.GCSProxyHandler
+	TileProxyHandler      *handler.TileProxyHandler
 	Router                *router.Router
 }
 
@@ -131,6 +135,10 @@ func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Contain
 		return nil, fmt.Errorf("failed to initialize subscribers: %w", err)
 	}
 
+	if err := c.initProxies(ctx); err != nil {
+		return nil, fmt.Errorf("failed to initialize proxies: %w", err)
+	}
+
 	if err := c.initHTTPLayer(ctx); err != nil {
 		return nil, fmt.Errorf("failed to initialize HTTP layer: %w", err)
 	}
@@ -164,6 +172,9 @@ func (c *Container) initInfrastructure(ctx context.Context) error {
 	c.StorageClient = client
 	c.Logger.Info("GCS client initialized")
 
+	// Initialize Cache
+	c.Cache = inmemorycache.NewMemoryCache(time.Minute * 10)
+	c.Logger.Info("Cache initialized")
 	return nil
 }
 
@@ -233,7 +244,6 @@ func (c *Container) initEventInfrastructure(ctx context.Context) error {
 		domainevent.NewFileExistEventType:         c.Config.PubSub.UploadStatus.Topic,
 		domainevent.ImageProcessReqEventType:      c.Config.PubSub.ImageProcessingRequest.Topic.Name,
 		domainevent.ImageProcessCompleteEventType: c.Config.PubSub.ImageProcessingResult.Topic.Name,
-		domainevent.ImageProcessDlqEventType:      c.Config.PubSub.ImageProcessDLQ.Topic.Name,
 	}
 
 	// Create main event publisher
@@ -290,19 +300,6 @@ func (c *Container) initEventInfrastructure(ctx context.Context) error {
 	}
 	c.CompleteSubscriber = completeSub
 
-	dlqSub, err := pubsub.NewPubSubSubscriber(
-		ctx,
-		c.Config.GCP.ProjectID,
-		c.Config.PubSub.ImageProcessDLQ.Subscription.Name,
-		nil,
-		nil, // no retries for DLQ
-		nil, // no DLQ for DLQ
-	)
-	if err != nil {
-		return fmt.Errorf("failed to create DLQ subscriber: %w", err)
-	}
-	c.DLQSubscriber = dlqSub
-
 	c.Logger.Info("Event infrastructure initialized")
 	return nil
 }
@@ -343,13 +340,6 @@ func (c *Container) initEventHandlers(ctx context.Context) error {
 		c.Logger.WithGroup("image_process_complete_handler"),
 	)
 
-	// Image Process DLQ Handler
-	c.ImageProcessDlqHandler = apphandler.NewImageProcessDlqHandler(
-		c.DLQSubscriber,
-		c.ImageRepo,
-		c.Logger.WithGroup("image_process_dlq_handler"),
-	)
-
 	c.Logger.Info("Event handlers initialized")
 	return nil
 }
@@ -382,16 +372,24 @@ func (c *Container) initSubscribers(ctx context.Context) error {
 		}
 	}()
 
-	// Start Image Process DLQ Handler
-	go func() {
-		c.Logger.Info("Starting image process DLQ handler",
-			slog.String("subscription", c.Config.PubSub.ImageProcessDLQ.Subscription.Name))
-		if err := c.ImageProcessDlqHandler.Start(ctx); err != nil {
-			c.Logger.Error("Image process DLQ handler error", slog.String("error", err.Error()))
-		}
-	}()
-
 	c.Logger.Info("All subscribers started")
+	return nil
+}
+
+func (c *Container) initProxies(ctx context.Context) error {
+	// Initialize KeyBuilder for TileServer
+	keyBuilder := cache.NewKeyBuilder("tile_server")
+
+	// Initialize TileServer
+	c.TileServer = proxy.NewTileServer(
+		c.Cache,
+		keyBuilder,
+		c.ContentRepo,
+		c.ImageRepo,
+		c.ProcessedStorage,
+	)
+
+	c.Logger.Info("Proxies initialized")
 	return nil
 }
 
@@ -436,15 +434,11 @@ func (c *Container) initHTTPLayer(ctx context.Context) error {
 		c.Logger,
 	)
 
-	gcsProxyHandler, err := handler.NewGCSProxyHandler(
-		c.Config.GCP.ProjectID,
-		c.Config.GCP.ProcessedBucketName,
+	// Tile Proxy Handler
+	c.TileProxyHandler = handler.NewTileProxyHandler(
+		c.TileServer,
 		c.Logger,
 	)
-	if err != nil {
-		return fmt.Errorf("failed to create GCS proxy handler: %w", err)
-	}
-	c.GCSProxyHandler = gcsProxyHandler
 
 	// Router
 	routerConfig := &router.RouterConfig{
@@ -459,7 +453,7 @@ func (c *Container) initHTTPLayer(ctx context.Context) error {
 		c.ImageHandler,
 		c.AnnotationHandler,
 		c.AnnotationTypeHandler,
-		c.GCSProxyHandler,
+		c.TileProxyHandler,
 		c.AuthMiddleware,
 		c.TimeoutMiddleware,
 	)
@@ -492,13 +486,6 @@ func (c *Container) Close() error {
 		if err := c.ImageProcessCompleteHandler.Stop(); err != nil {
 			c.Logger.Error("Error stopping image process complete handler", slog.String("error", err.Error()))
 			errs = append(errs, fmt.Errorf("image process complete handler stop: %w", err))
-		}
-	}
-
-	if c.ImageProcessDlqHandler != nil {
-		if err := c.ImageProcessDlqHandler.Stop(); err != nil {
-			c.Logger.Error("Error stopping image process DLQ handler", slog.String("error", err.Error()))
-			errs = append(errs, fmt.Errorf("image process DLQ handler stop: %w", err))
 		}
 	}
 

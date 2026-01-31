@@ -40,7 +40,6 @@ type GCPConfig struct {
 type PubSubConfig struct {
 	ImageProcessingRequest TopicSubscriptionConfig
 	ImageProcessingResult  TopicSubscriptionConfig
-	ImageProcessDLQ        TopicSubscriptionConfig // NEW: DLQ for failed image processing
 	ImageDeletion          TopicSubscriptionConfig
 	UploadStatus           SubscriptionConfig
 }
@@ -181,17 +180,6 @@ func Load() (*Config, error) {
 					DLQName: getEnv("IMAGE_DELETION_SUB_DLQ", "image-deletion-requests-sub-dlq"),
 				},
 			},
-			ImageProcessDLQ: TopicSubscriptionConfig{
-				Topic: TopicConfig{
-					Name:    getEnv("IMAGE_PROCESS_DLQ_TOPIC", "image-process-dlq"),
-					DLQName: "", // DLQ doesn't have its own DLQ
-				},
-				Subscription: SubscriptionConfig{
-					Name:    getEnv("IMAGE_PROCESS_DLQ_SUB", "image-process-dlq-sub"),
-					Topic:   getEnv("IMAGE_PROCESS_DLQ_TOPIC", "image-process-dlq"),
-					DLQName: "",
-				},
-			},
 		},
 		Logging: LoggingConfig{
 			Level:  getEnv("LOG_LEVEL", "info"),
@@ -276,12 +264,6 @@ func (c *Config) Validate() error {
 	if c.PubSub.ImageDeletion.Subscription.Name == "" {
 		return fmt.Errorf("IMAGE_DELETION_SUB is required")
 	}
-	if c.PubSub.ImageProcessDLQ.Topic.Name == "" {
-		return fmt.Errorf("IMAGE_PROCESS_DLQ_TOPIC is required")
-	}
-	if c.PubSub.ImageProcessDLQ.Subscription.Name == "" {
-		return fmt.Errorf("IMAGE_PROCESS_DLQ_SUB is required")
-	}
 
 	// Worker Configuration
 	if c.Worker.Type == "" {
@@ -352,10 +334,6 @@ func (c *Config) applyDevPrefixes() {
 		c.PubSub.ImageDeletion.Subscription.DLQName = devPrefix + c.PubSub.ImageDeletion.Subscription.DLQName
 	}
 
-	// Apply prefix to Image Process DLQ
-	c.PubSub.ImageProcessDLQ.Topic.Name = devPrefix + c.PubSub.ImageProcessDLQ.Topic.Name
-	c.PubSub.ImageProcessDLQ.Subscription.Name = devPrefix + c.PubSub.ImageProcessDLQ.Subscription.Name
-	c.PubSub.ImageProcessDLQ.Subscription.Topic = devPrefix + c.PubSub.ImageProcessDLQ.Subscription.Topic
 }
 
 func getEnv(key, defaultValue string) string {

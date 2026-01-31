@@ -72,23 +72,10 @@ func (h *ImageProcessCompleteHandler) Handle(ctx context.Context, event domainev
 
 	} else {
 
-		event := domainevent.ImageProcessDlqEvent{
-			BaseEvent: domainevent.BaseEvent{
-				EventID:   uuid.New().String(),
-				EventType: domainevent.ImageProcessDlqEventType,
-				Timestamp: time.Now(),
-			},
-			ImageID:           processCompleteEvent.ImageID,
-			ProcessingVersion: processCompleteEvent.ProcessingVersion,
-			FailureReason:     processCompleteEvent.FailureReason,
-			Retryable:         processCompleteEvent.Retryable,
-			RetryMetadata:     processCompleteEvent.RetryMetadata,
-			OriginalEventID:   processCompleteEvent.EventID,
-		}
-
-		if err := h.publisher.Publish(ctx, &event); err != nil {
-			return err
-		}
+		h.logger.Error("Image processing failed",
+			slog.String("image_id", processCompleteEvent.ImageID),
+			slog.String("reason", processCompleteEvent.FailureReason),
+		)
 
 	}
 
