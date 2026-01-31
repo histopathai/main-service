@@ -74,10 +74,6 @@ func (w *CloudRunWorker) ProcessImage(ctx context.Context, content model.Content
 							Name:   "INPUT_PROCESSING_VERSION",
 							Values: &runpb.EnvVar_Value{Value: processingVersion.String()},
 						},
-						{
-							Name:   "WORKER_TYPE_OVERRIDE",
-							Values: &runpb.EnvVar_Value{Value: w.getWorkerTypeLabel(content.Size)},
-						},
 					},
 				},
 			},
@@ -110,14 +106,4 @@ func (w *CloudRunWorker) determineJobName(size int64) string {
 	default:
 		return w.config.JobLarge
 	}
-}
-
-func (w *CloudRunWorker) getWorkerTypeLabel(size int64) string {
-	if size < Size128MB {
-		return "small"
-	}
-	if size < Size1GB {
-		return "medium"
-	}
-	return "large"
 }
