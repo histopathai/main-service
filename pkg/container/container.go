@@ -223,21 +223,6 @@ func (c *Container) initQueries(ctx context.Context) error {
 }
 
 func (c *Container) initEventInfrastructure(ctx context.Context) error {
-	// Build retry policies from config
-	retryPolicies := map[domainevent.EventType]pubsub.RetryPolicy{
-		domainevent.ImageProcessCompleteEventType: {
-			MaxAttempts:       c.Config.Retry.ImageProcessComplete.MaxAttempts,
-			BaseBackoff:       time.Duration(c.Config.Retry.ImageProcessComplete.BaseBackoffMs) * time.Millisecond,
-			MaxBackoff:        time.Duration(c.Config.Retry.ImageProcessComplete.MaxBackoffMs) * time.Millisecond,
-			BackoffMultiplier: c.Config.Retry.ImageProcessComplete.BackoffMultiplier,
-		},
-		domainevent.ImageProcessReqEventType: {
-			MaxAttempts:       c.Config.Retry.ImageProcess.MaxAttempts,
-			BaseBackoff:       time.Duration(c.Config.Retry.ImageProcess.BaseBackoffMs) * time.Millisecond,
-			MaxBackoff:        time.Duration(c.Config.Retry.ImageProcess.MaxBackoffMs) * time.Millisecond,
-			BackoffMultiplier: c.Config.Retry.ImageProcess.BackoffMultiplier,
-		},
-	}
 
 	// Topic mappings for publishers
 	topicMapping := map[domainevent.EventType]string{
@@ -266,8 +251,6 @@ func (c *Container) initEventInfrastructure(ctx context.Context) error {
 		c.Config.GCP.ProjectID,
 		c.Config.PubSub.UploadStatus.Name,
 		nil, // handler set later
-		nil, // no retries for upload
-		nil, // no DLQ for upload
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create upload subscriber: %w", err)
@@ -279,8 +262,6 @@ func (c *Container) initEventInfrastructure(ctx context.Context) error {
 		c.Config.GCP.ProjectID,
 		c.Config.PubSub.ImageProcessingRequest.Subscription.Name,
 		nil,
-		retryPolicies,
-		c.DLQPublisher,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create process subscriber: %w", err)
@@ -292,8 +273,6 @@ func (c *Container) initEventInfrastructure(ctx context.Context) error {
 		c.Config.GCP.ProjectID,
 		c.Config.PubSub.ImageProcessingResult.Subscription.Name,
 		nil,
-		retryPolicies,
-		c.DLQPublisher,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create complete subscriber: %w", err)

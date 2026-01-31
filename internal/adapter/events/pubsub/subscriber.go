@@ -4,7 +4,6 @@ package pubsub
 import (
 	"context"
 	"fmt"
-	"strconv"
 	"time"
 
 	"cloud.google.com/go/pubsub"
@@ -17,8 +16,6 @@ type PubSubSubscriber struct {
 	subscriptionID string
 	serializer     *EventSerializer
 	handler        portevent.EventHandler
-	retryPolicies  map[domainevent.EventType]RetryPolicy
-	dlqPublisher   portevent.EventPublisher
 }
 
 func NewPubSubSubscriber(
@@ -26,8 +23,7 @@ func NewPubSubSubscriber(
 	projectID string,
 	subscriptionID string,
 	handler portevent.EventHandler,
-	retryPolicies map[domainevent.EventType]RetryPolicy,
-	dlqPublisher portevent.EventPublisher,
+
 ) (*PubSubSubscriber, error) {
 	client, err := pubsub.NewClient(ctx, projectID)
 	if err != nil {
@@ -39,8 +35,6 @@ func NewPubSubSubscriber(
 		subscriptionID: subscriptionID,
 		serializer:     NewEventSerializer(),
 		handler:        handler,
-		retryPolicies:  retryPolicies,
-		dlqPublisher:   dlqPublisher,
 	}, nil
 }
 
@@ -77,18 +71,6 @@ func (s *PubSubSubscriber) Subscribe(ctx context.Context, handler portevent.Even
 
 		msg.Ack()
 	})
-}
-
-func (s *PubSubSubscriber) getRetryCount(msg *pubsub.Message) int {
-	if countStr, ok := msg.Attributes["retry_count"]; ok {
-		count, _ := strconv.Atoi(countStr)
-		return count
-	}
-	// Use delivery attempt from Pub/Sub
-	if msg.DeliveryAttempt != nil {
-		return int(*msg.DeliveryAttempt) - 1
-	}
-	return 0
 }
 
 func (s *PubSubSubscriber) Stop() error {
