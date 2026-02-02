@@ -25,7 +25,7 @@ type Router struct {
 	engine *gin.Engine
 	config *RouterConfig
 
-	//Handlers
+	// Handlers
 	workspaceHandler      *handler.WorkspaceHandler
 	patientHandler        *handler.PatientHandler
 	imageHandler          *handler.ImageHandler
@@ -70,15 +70,8 @@ func (r *Router) SetHealthChecker(hc HealthChecker) {
 	r.healthChecker = hc
 }
 
-func debugUserMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		c.Set("user_id", "local-debug-user-uuid")
-		c.Next()
-	}
-}
-
 func (r *Router) SetupRoutes() *gin.Engine {
-	//Global Middlewares
+	// Global Middlewares
 	r.engine.Use(middleware.RequestIDMiddleware())
 	r.engine.Use(r.timeoutMiddleware.Handler())
 
@@ -93,12 +86,7 @@ func (r *Router) SetupRoutes() *gin.Engine {
 	// API v1 routes
 	v1 := r.engine.Group("/api/v1")
 	{
-		//if gin.Mode() == gin.DebugMode {
-		//	r.config.Logger.Info("Running in debug mode, applying debug user middleware")
-		//	v1.Use(debugUserMiddleware())
-		//} else {
 		v1.Use(r.authMiddleware.RequireAuth())
-		//}
 
 		r.setupWorkspaceRoutes(v1)
 		r.setupPatientRoutes(v1)
@@ -106,6 +94,7 @@ func (r *Router) SetupRoutes() *gin.Engine {
 		r.setupAnnotationRoutes(v1)
 		r.setupAnnotationTypeRoutes(v1)
 
+		// Tile Proxy
 		v1.GET("/proxy/:imageId/*objectPath", r.tileProxyHandler.ProxyTile)
 	}
 
@@ -115,74 +104,106 @@ func (r *Router) SetupRoutes() *gin.Engine {
 func (r *Router) setupWorkspaceRoutes(rg *gin.RouterGroup) {
 	workspaces := rg.Group("/workspaces")
 	{
-		workspaces.POST("", r.workspaceHandler.Create)
-		workspaces.GET("", r.workspaceHandler.List)
-		workspaces.GET("/:id", r.workspaceHandler.Get)
-		workspaces.PUT("/:id", r.workspaceHandler.Update)
+		// CRUD Operations
+		workspaces.POST("", r.workspaceHandler.Create)    // Create
+		workspaces.GET("", r.workspaceHandler.List)       // List (with query params)
+		workspaces.GET("/:id", r.workspaceHandler.Get)    // Get by ID
+		workspaces.PUT("/:id", r.workspaceHandler.Update) // Update (changed from PATCH to PUT)
+
+		// Soft Delete
 		workspaces.DELETE("/:id/soft-delete", r.workspaceHandler.SoftDelete)
-		workspaces.GET("/:id/patients", r.patientHandler.GetByParentID)
-		workspaces.GET("/count", r.workspaceHandler.Count)
 		workspaces.DELETE("/soft-delete-many", r.workspaceHandler.SoftDeleteMany)
+
+		// Queries
+		workspaces.GET("/count", r.workspaceHandler.Count) // Count (changed from POST to GET)
+
+		// Sub-resources
+		workspaces.GET("/:parent_id/patients", r.patientHandler.GetByParentID)
 	}
 }
 
 func (r *Router) setupPatientRoutes(rg *gin.RouterGroup) {
 	patients := rg.Group("/patients")
 	{
-		patients.POST("", r.patientHandler.CreateNewPatient)
-		patients.POST("/list", r.patientHandler.List)
-		patients.GET("/:id", r.patientHandler.Get)
-		patients.PUT("/:id", r.patientHandler.Update)
+		// CRUD Operations
+		patients.POST("", r.patientHandler.Create)    // Create
+		patients.GET("", r.patientHandler.List)       // List (changed from POST to GET, query params)
+		patients.GET("/:id", r.patientHandler.Get)    // Get by ID
+		patients.PUT("/:id", r.patientHandler.Update) // Update
+
+		// Soft Delete
 		patients.DELETE("/:id/soft-delete", r.patientHandler.SoftDelete)
-		patients.PUT("/:id/transfer/:workspace_id", r.patientHandler.Transfer)
-		patients.GET("/:id/images", r.imageHandler.List)
-		patients.POST("/count", r.patientHandler.Count)
 		patients.DELETE("/soft-delete-many", r.patientHandler.SoftDeleteMany)
+
+		// Transfer
+		patients.PUT("/:id/transfer/:workspace_id", r.patientHandler.Transfer)
 		patients.PUT("/transfer-many/:workspace_id", r.patientHandler.TransferMany)
+
+		// Queries
+		patients.GET("/count", r.patientHandler.Count) // Count (changed from POST to GET)
+
+		// Sub-resources
+		patients.GET("/:id/images", r.imageHandler.List)
 	}
 }
 
 func (r *Router) setupImageRoutes(rg *gin.RouterGroup) {
 	images := rg.Group("/images")
 	{
-		images.POST("", r.imageHandler.UploadImage)
-		images.GET("/:id", r.imageHandler.Get)
-		images.PUT("/:id", r.imageHandler.Update)
+		// CRUD Operations
+		images.POST("", r.imageHandler.UploadImage) // Upload
+		images.GET("/:id", r.imageHandler.Get)      // Get by ID
+		images.PUT("/:id", r.imageHandler.Update)   // Update
+
+		// Soft Delete
 		images.DELETE("/:id/soft-delete", r.imageHandler.SoftDelete)
+		images.DELETE("/soft-delete-many", r.imageHandler.SoftDeleteMany)
+
+		// Transfer
+		images.PUT("/:id/transfer/:patient_id", r.imageHandler.Transfer)
+		images.PUT("/transfer-many/:patient_id", r.imageHandler.TransferMany)
+
+		// Queries
 		images.GET("/parent/:parent_id", r.imageHandler.GetByParentID)
 		images.GET("/workspace/:workspace_id", r.imageHandler.GetByWorkspaceID)
-		images.POST("/list", r.imageHandler.List)
-		images.POST("/count", r.imageHandler.Count)
-		images.PUT("/:id/transfer/:patient_id", r.imageHandler.Transfer)
-		images.PUT("/transfer-many/:workspace_id", r.imageHandler.TransferMany)
-		images.DELETE("/soft-delete-many", r.imageHandler.SoftDeleteMany)
+		images.GET("/count", r.imageHandler.Count) // Count (changed from POST to GET)
 	}
 }
 
 func (r *Router) setupAnnotationRoutes(rg *gin.RouterGroup) {
 	annotations := rg.Group("/annotations")
 	{
-		annotations.POST("", r.annotationHandler.Create)
-		annotations.GET("/:id", r.annotationHandler.Get)
-		annotations.PUT("/:id", r.annotationHandler.Update)
+		// CRUD Operations
+		annotations.POST("", r.annotationHandler.Create)    // Create
+		annotations.GET("/:id", r.annotationHandler.Get)    // Get by ID
+		annotations.PUT("/:id", r.annotationHandler.Update) // Update
+
+		// Soft Delete
 		annotations.DELETE("/:id/soft-delete", r.annotationHandler.SoftDelete)
+		annotations.DELETE("/soft-delete-many", r.annotationHandler.SoftDeleteMany)
+
+		// Queries
 		annotations.GET("/image/:image_id", r.annotationHandler.GetByParentID)
 		annotations.GET("/workspace/:workspace_id", r.annotationHandler.GetByWsID)
-		annotations.POST("/count", r.annotationHandler.Count)
-		annotations.DELETE("/soft-delete-many", r.annotationHandler.SoftDeleteMany)
+		annotations.GET("/count", r.annotationHandler.Count) // Count (changed from POST to GET)
 	}
 }
 
 func (r *Router) setupAnnotationTypeRoutes(rg *gin.RouterGroup) {
 	annotationTypes := rg.Group("/annotation-types")
 	{
-		annotationTypes.POST("", r.annotationTypeHandler.Create)
-		annotationTypes.GET("", r.annotationTypeHandler.List)
-		annotationTypes.GET("/:id", r.annotationTypeHandler.Get)
-		annotationTypes.PUT("/:id", r.annotationTypeHandler.Update)
+		// CRUD Operations
+		annotationTypes.POST("", r.annotationTypeHandler.Create)    // Create
+		annotationTypes.GET("", r.annotationTypeHandler.List)       // List (with query params)
+		annotationTypes.GET("/:id", r.annotationTypeHandler.Get)    // Get by ID
+		annotationTypes.PUT("/:id", r.annotationTypeHandler.Update) // Update
+
+		// Soft Delete
 		annotationTypes.DELETE("/:id/soft-delete", r.annotationTypeHandler.SoftDelete)
-		annotationTypes.POST("/count", r.annotationTypeHandler.Count)
 		annotationTypes.DELETE("/soft-delete-many", r.annotationTypeHandler.SoftDeleteMany)
+
+		// Queries
+		annotationTypes.GET("/count", r.annotationTypeHandler.Count) // Count (changed from POST to GET)
 	}
 }
 
