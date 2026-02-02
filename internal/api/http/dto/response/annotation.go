@@ -22,19 +22,20 @@ func NewPointResponse(points []vobj.Point) []PointResponse {
 }
 
 type AnnotationResponse struct {
-	ID         string             `json:"id" example:"anno-123"`
-	EntityType string             `json:"entity_type" example:"annotation"`
-	CreatorID  string             `json:"creator_id" example:"user-123"`
-	Parent     *ParentRefResponse `json:"parent,omitempty"`
-	WsID       string             `json:"ws_id" example:"ws-123"`
-	Name       string             `json:"name" example:"Tumor Region"`
-	TagType    string             `json:"tag_type" example:"number"`
-	Value      interface{}        `json:"value" swaggertype:"string" example:"3.5"`
-	IsGlobal   bool               `json:"is_global" example:"false"`
-	Color      *string            `json:"color,omitempty" example:"#FF0000"`
-	Polygon    []PointResponse    `json:"polygon,omitempty"`
-	CreatedAt  time.Time          `json:"created_at" example:"2024-01-01T12:00:00Z"`
-	UpdatedAt  time.Time          `json:"updated_at" example:"2024-01-02T12:00:00Z"`
+	ID               string             `json:"id" example:"anno-123"`
+	EntityType       string             `json:"entity_type" example:"annotation"`
+	CreatorID        string             `json:"creator_id" example:"user-123"`
+	Parent           *ParentRefResponse `json:"parent,omitempty"`
+	AnnotationTypeID string             `json:"annotation_type_id" example:"anno_type-123"`
+	WsID             string             `json:"ws_id" example:"ws-123"`
+	Name             string             `json:"name" example:"Tumor Region"`
+	TagType          string             `json:"tag_type" example:"number"`
+	Value            interface{}        `json:"value" swaggertype:"string" example:"3.5"`
+	IsGlobal         bool               `json:"is_global" example:"false"`
+	Color            *string            `json:"color,omitempty" example:"#FF0000"`
+	Polygon          []PointResponse    `json:"polygon,omitempty"`
+	CreatedAt        time.Time          `json:"created_at" example:"2024-01-01T12:00:00Z"`
+	UpdatedAt        time.Time          `json:"updated_at" example:"2024-01-02T12:00:00Z"`
 }
 
 func NewAnnotationResponse(a *model.Annotation) *AnnotationResponse {

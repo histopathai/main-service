@@ -64,17 +64,8 @@ type ImageResponse struct {
 	// Magnification
 	Magnification *MagnificationResponse `json:"magnification,omitempty"`
 
-	// Content references
-	OriginContentID    *string `json:"origin_content_id,omitempty" example:"content-123"`
-	DziContentID       *string `json:"dzi_content_id,omitempty" example:"content-124"`
-	ThumbnailContentID *string `json:"thumbnail_content_id,omitempty" example:"content-125"`
-	IndexmapContentID  *string `json:"indexmap_content_id,omitempty" example:"content-126"`
-	TilesContentID     *string `json:"tiles_content_id,omitempty" example:"content-127"`
-	ZipTilesContentID  *string `json:"ziptiles_content_id,omitempty" example:"content-128"`
-
 	// Processing
-	Processing ProcessingInfoResponse `json:"processing"`
-
+	Status string `json:"status" example:"processed"`
 	// Timestamps
 	CreatedAt time.Time `json:"created_at" example:"2024-01-01T12:00:00Z"`
 	UpdatedAt time.Time `json:"updated_at" example:"2024-01-02T12:00:00Z"`
@@ -82,25 +73,19 @@ type ImageResponse struct {
 
 func NewImageResponse(img *model.Image) *ImageResponse {
 	return &ImageResponse{
-		ID:                 img.ID,
-		EntityType:         img.EntityType.String(),
-		CreatorID:          img.CreatorID,
-		Parent:             NewParentRefResponse(&img.Parent),
-		WsID:               img.WsID,
-		Name:               img.Name,
-		Format:             img.Format,
-		Width:              img.Width,
-		Height:             img.Height,
-		Magnification:      newMagnificationResponse(img.Magnification),
-		OriginContentID:    img.OriginContentID,
-		DziContentID:       img.DziContentID,
-		ThumbnailContentID: img.ThumbnailContentID,
-		IndexmapContentID:  img.IndexmapContentID,
-		TilesContentID:     img.TilesContentID,
-		ZipTilesContentID:  img.ZipTilesContentID,
-		Processing:         newProcessingInfoResponse(img.Processing),
-		CreatedAt:          img.CreatedAt,
-		UpdatedAt:          img.UpdatedAt,
+		ID:            img.ID,
+		EntityType:    img.EntityType.String(),
+		CreatorID:     img.CreatorID,
+		Parent:        NewParentRefResponse(&img.Parent),
+		WsID:          img.WsID,
+		Name:          img.Name,
+		Format:        img.Format,
+		Width:         img.Width,
+		Height:        img.Height,
+		Magnification: newMagnificationResponse(img.Magnification),
+		Status:        img.Processing.Status.String(),
+		CreatedAt:     img.CreatedAt,
+		UpdatedAt:     img.UpdatedAt,
 	}
 }
 
