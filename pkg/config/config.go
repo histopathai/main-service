@@ -334,6 +334,17 @@ func (c *Config) applyDevPrefixes() {
 		c.PubSub.ImageDeletion.Subscription.DLQName = devPrefix + c.PubSub.ImageDeletion.Subscription.DLQName
 	}
 
+	// Apply suffix to Cloud Run Jobs
+	const devSuffix = "-dev"
+	if c.Worker.JobSmall != "" {
+		c.Worker.JobSmall += devSuffix
+	}
+	if c.Worker.JobMedium != "" {
+		c.Worker.JobMedium += devSuffix
+	}
+	if c.Worker.JobLarge != "" {
+		c.Worker.JobLarge += devSuffix
+	}
 }
 
 func getEnv(key, defaultValue string) string {
