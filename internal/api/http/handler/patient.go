@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"io"
 	"log/slog"
 	"net/http"
 
@@ -34,7 +35,7 @@ func NewPatientHandler(patientQuery port.PatientQuery, useCase port.PatientUseCa
 	}
 }
 
-// CreateNewPatient godoc
+// Create godoc
 // @Summary Create a new patient
 // @Tags Patients
 // @Accept json
@@ -46,17 +47,17 @@ func NewPatientHandler(patientQuery port.PatientQuery, useCase port.PatientUseCa
 // @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
 // @Router /patients [post]
-func (ph *PatientHandler) CreateNewPatient(c *gin.Context) {
-
-	creator_id, err := middleware.GetAuthenticatedUserID(c)
+func (ph *PatientHandler) Create(c *gin.Context) {
+	creatorID, err := middleware.GetAuthenticatedUserID(c)
 	if err != nil {
 		ph.HandleError(c, err)
 		return
 	}
-	var req request.CreatePatientRequest
 
-	if err := c.ShouldBind(&req); err != nil {
-		ph.HandleError(c, err)
+	var req request.CreatePatientRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		ph.HandleError(c, errors.NewValidationError("invalid request payload",
+			map[string]interface{}{"error": err.Error()}))
 		return
 	}
 
@@ -65,7 +66,7 @@ func (ph *PatientHandler) CreateNewPatient(c *gin.Context) {
 		CreateEntityCommand: command.CreateEntityCommand{
 			Name:       req.Name,
 			EntityType: vobj.EntityTypePatient.String(),
-			CreatorID:  creator_id,
+			CreatorID:  creatorID,
 			ParentID:   req.Parent.ID,
 			ParentType: vobj.ParentTypeWorkspace.String(),
 		},
@@ -90,11 +91,10 @@ func (ph *PatientHandler) CreateNewPatient(c *gin.Context) {
 		return
 	}
 
-	ph.Response.Success(c, http.StatusCreated, response.NewPatientResponse(patient))
-
+	ph.Response.Created(c, response.NewPatientResponse(patient))
 }
 
-// Get [get] godoc
+// Get godoc
 // @Summary Get patient by ID
 // @Tags Patients
 // @Accept json
@@ -108,7 +108,6 @@ func (ph *PatientHandler) CreateNewPatient(c *gin.Context) {
 // @Security BearerAuth
 // @Router /patients/{id} [get]
 func (ph *PatientHandler) Get(c *gin.Context) {
-
 	patient, err := ph.PQuery.Get(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		ph.HandleError(c, err)
@@ -118,74 +117,28 @@ func (ph *PatientHandler) Get(c *gin.Context) {
 	ph.Response.Success(c, http.StatusOK, response.NewPatientResponse(patient))
 }
 
-// GetByParentID [get] godoc
-// @Summary Get patients by workspace ID
+// List godoc
+// @Summary List patients
+// @Description List patients with optional filtering, sorting, and pagination via query parameters
 // @Tags Patients
 // @Accept json
 // @Produce json
-// @Param id path string true "Workspace ID"
-// @Param request body request.ListRequest false "List request"
-// @Success 200 {object} response.PatientListResponse
+// @Param limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Number of items to skip" default(0) minimum(0)
+// @Param sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name, age, disease)
+// @Param sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
+// @Success 200 {object} response.PatientListResponseDoc
 // @Failure 400 {object} response.ErrorResponse
-// @Failure 500 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /workspaces/{parent_id}/patients [get]
-func (ph *PatientHandler) GetByParentID(c *gin.Context) {
-	var req request.ListRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		req = request.ListRequest{}
-	}
-
-	spec, err := req.ToSpecification()
-	if err != nil {
-		ph.HandleError(c, errors.NewValidationError(err.Error(), nil))
-		return
-	}
-
-	if err := ph.PValidator.ValidateSpec(spec); err != nil {
-		ph.HandleError(c, err)
-		return
-	}
-
-	result, err := ph.PQuery.GetByParentID(c.Request.Context(), spec, c.Param("parent_id"))
-	if err != nil {
-		ph.HandleError(c, err)
-		return
-	}
-
-	paginationResp := response.PaginationResponse{
-		Limit:   result.Limit,
-		Offset:  result.Offset,
-		HasMore: result.HasMore,
-	}
-
-	// Service Output -> DTO
-	patientResponses := make([]response.PatientResponse, len(result.Data))
-	for i, patient := range result.Data {
-		patientResponses[i] = *response.NewPatientResponse(patient)
-	}
-
-	ph.Response.SuccessList(c, patientResponses, &paginationResp)
-
-}
-
-// List [post] godoc
-// @Summary      List patients
-// @Tags         Patients
-// @Accept       json
-// @Produce      json
-// @Param        request body request.ListRequest
-// @Success      200 {object} response.PatientListResponse
-// @Failure      400 {object} response.ErrorResponse
-// @Failure      401 {object} response.ErrorResponse
-// @Failure      500 {object} response.ErrorResponse
-// @Security     BearerAuth
-// @Router       /patients/list [post]
+// @Router /patients [get]
 func (ph *PatientHandler) List(c *gin.Context) {
 	var req request.ListRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ph.HandleError(c, errors.NewValidationError("invalid request payload",
+
+	// Bind query parameters
+	if err := c.ShouldBindQuery(&req); err != nil {
+		ph.HandleError(c, errors.NewValidationError("invalid query parameters",
 			map[string]interface{}{"error": err.Error()}))
 		return
 	}
@@ -207,36 +160,43 @@ func (ph *PatientHandler) List(c *gin.Context) {
 		return
 	}
 
-	paginationResp := response.PaginationResponse{
+	paginationResp := &response.PaginationResponse{
 		Limit:   result.Limit,
 		Offset:  result.Offset,
 		HasMore: result.HasMore,
 	}
+
 	patientResponses := make([]response.PatientResponse, len(result.Data))
 	for i, patient := range result.Data {
 		patientResponses[i] = *response.NewPatientResponse(patient)
 	}
 
-	ph.Response.SuccessList(c, patientResponses, &paginationResp)
-
+	ph.Response.SuccessList(c, patientResponses, paginationResp)
 }
 
-// Count [post]	godoc
-// @Summary Count patients
+// GetByParentID godoc
+// @Summary Get patients by workspace ID
+// @Description Get patients belonging to a specific workspace with optional filtering, sorting, and pagination
 // @Tags Patients
 // @Accept json
 // @Produce json
-// @Param request body request.ListRequest
-// @Success 200 {object} response.CountResponse
+// @Param parent_id path string true "Workspace ID"
+// @Param limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Number of items to skip" default(0) minimum(0)
+// @Param sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name, age, disease)
+// @Param sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
+// @Success 200 {object} response.PatientListResponseDoc
+// @Failure 400 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /patients/count [post]
-func (ph *PatientHandler) Count(c *gin.Context) {
+// @Router /workspaces/{parent_id}/patients [get]
+func (ph *PatientHandler) GetByParentID(c *gin.Context) {
 	var req request.ListRequest
-	// Optional bind
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ph.HandleError(c, errors.NewValidationError("invalid request payload",
+
+	// Bind query parameters
+	if err := c.ShouldBindQuery(&req); err != nil {
+		ph.HandleError(c, errors.NewValidationError("invalid query parameters",
 			map[string]interface{}{"error": err.Error()}))
 		return
 	}
@@ -247,20 +207,75 @@ func (ph *PatientHandler) Count(c *gin.Context) {
 		return
 	}
 
+	if err := ph.PValidator.ValidateSpec(spec); err != nil {
+		ph.HandleError(c, err)
+		return
+	}
+
+	result, err := ph.PQuery.GetByParentID(c.Request.Context(), spec, c.Param("parent_id"))
+	if err != nil {
+		ph.HandleError(c, err)
+		return
+	}
+
+	paginationResp := &response.PaginationResponse{
+		Limit:   result.Limit,
+		Offset:  result.Offset,
+		HasMore: result.HasMore,
+	}
+
+	patientResponses := make([]response.PatientResponse, len(result.Data))
+	for i, patient := range result.Data {
+		patientResponses[i] = *response.NewPatientResponse(patient)
+	}
+
+	ph.Response.SuccessList(c, patientResponses, paginationResp)
+}
+
+// Count godoc
+// @Summary Count patients
+// @Description Count patients with optional filters via query parameters
+// @Tags Patients
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.CountResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /patients/count [get]
+func (ph *PatientHandler) Count(c *gin.Context) {
+	var req request.ListRequest
+	var spec validator.Specification
+
+	// Try to bind query parameters (optional for count)
+	if err := c.ShouldBindQuery(&req); err != nil && err != io.EOF {
+		ph.HandleError(c, errors.NewValidationError("invalid query parameters",
+			map[string]interface{}{"error": err.Error()}))
+		return
+	}
+
+	spec, err := req.ToSpecification()
+	if err != nil {
+		ph.HandleError(c, errors.NewValidationError(err.Error(), nil))
+		return
+	}
+
+	if err := ph.PValidator.ValidateSpec(spec); err != nil {
+		ph.HandleError(c, err)
+		return
+	}
+
 	count, err := ph.PQuery.Count(c.Request.Context(), spec)
 	if err != nil {
 		ph.HandleError(c, err)
 		return
 	}
 
-	countResp := response.CountResponse{
-		Count: count,
-	}
-
-	ph.Response.Success(c, http.StatusOK, countResp)
+	ph.Response.Success(c, http.StatusOK, response.CountResponse{Count: count})
 }
 
-// Update [put] godoc
+// Update godoc
 // @Summary Update patient by ID
 // @Tags Patients
 // @Accept json
@@ -275,6 +290,7 @@ func (ph *PatientHandler) Count(c *gin.Context) {
 // @Security BearerAuth
 // @Router /patients/{id} [put]
 func (ph *PatientHandler) Update(c *gin.Context) {
+	id := c.Param("id")
 
 	var req request.UpdatePatientRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -284,10 +300,9 @@ func (ph *PatientHandler) Update(c *gin.Context) {
 	}
 
 	// DTO -> Command
-
 	cmd := command.UpdatePatientCommand{
 		UpdateEntityCommand: command.UpdateEntityCommand{
-			ID:        c.Param("id"),
+			ID:        id,
 			Name:      req.Name,
 			CreatorID: req.CreatorID,
 		},
@@ -307,7 +322,6 @@ func (ph *PatientHandler) Update(c *gin.Context) {
 	}
 
 	ph.Response.NoContent(c)
-
 }
 
 // Transfer godoc
@@ -358,6 +372,11 @@ func (ph *PatientHandler) Transfer(c *gin.Context) {
 // @Router /patients/transfer-many/{workspace_id} [put]
 func (ph *PatientHandler) TransferMany(c *gin.Context) {
 	ids := c.QueryArray("patient_ids")
+	if len(ids) == 0 {
+		ph.HandleError(c, errors.NewValidationError("patient_ids parameter is required", nil))
+		return
+	}
+
 	workspaceID := c.Param("workspace_id")
 
 	cmd := command.TransferManyCommand{
@@ -412,8 +431,11 @@ func (ph *PatientHandler) SoftDelete(c *gin.Context) {
 // @Security BearerAuth
 // @Router /patients/soft-delete-many [delete]
 func (ph *PatientHandler) SoftDeleteMany(c *gin.Context) {
-
 	ids := c.QueryArray("ids")
+	if len(ids) == 0 {
+		ph.HandleError(c, errors.NewValidationError("ids parameter is required", nil))
+		return
+	}
 
 	err := ph.PQuery.SoftDeleteMany(c.Request.Context(), ids)
 	if err != nil {

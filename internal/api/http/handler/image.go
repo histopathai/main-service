@@ -33,12 +33,12 @@ func NewImageHandler(query port.ImageQuery, useCase port.ImageUseCase, logger *s
 	}
 }
 
-// UploadImage [post] godoc
+// UploadImage godoc
 // @Summary Upload a new image
 // @Tags Images
 // @Accept json
 // @Produce json
-// @Param        request body request.UploadImageRequest true "Image upload request"
+// @Param request body request.UploadImageRequest true "Image upload request"
 // @Success 201 {object} response.UploadImageResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
@@ -46,7 +46,7 @@ func NewImageHandler(query port.ImageQuery, useCase port.ImageUseCase, logger *s
 // @Security BearerAuth
 // @Router /images [post]
 func (ih *ImageHandler) UploadImage(c *gin.Context) {
-	creator_id, err := middleware.GetAuthenticatedUserID(c)
+	creatorID, err := middleware.GetAuthenticatedUserID(c)
 	if err != nil {
 		ih.HandleError(c, err)
 		return
@@ -61,7 +61,6 @@ func (ih *ImageHandler) UploadImage(c *gin.Context) {
 	}
 
 	// DTO -> Command
-
 	contents := make([]struct {
 		ContentType string
 		Name        string
@@ -83,7 +82,7 @@ func (ih *ImageHandler) UploadImage(c *gin.Context) {
 		CreateEntityCommand: command.CreateEntityCommand{
 			Name:       req.Name,
 			EntityType: vobj.EntityTypeImage.String(),
-			CreatorID:  creator_id,
+			CreatorID:  creatorID,
 			ParentID:   req.Parent.ID,
 			ParentType: req.Parent.Type,
 		},
@@ -100,7 +99,6 @@ func (ih *ImageHandler) UploadImage(c *gin.Context) {
 	}
 
 	payload, err := ih.IUseCase.Upload(c.Request.Context(), cmd)
-
 	if err != nil {
 		ih.HandleError(c, err)
 		return
@@ -119,7 +117,7 @@ func (ih *ImageHandler) UploadImage(c *gin.Context) {
 	ih.Response.Success(c, http.StatusCreated, respPayload)
 }
 
-// Get [get] godoc
+// Get godoc
 // @Summary Get image by ID
 // @Description Retrieve image details by its ID
 // @Tags Images
@@ -134,7 +132,6 @@ func (ih *ImageHandler) UploadImage(c *gin.Context) {
 // @Security BearerAuth
 // @Router /images/{id} [get]
 func (ih *ImageHandler) Get(c *gin.Context) {
-
 	image, err := ih.IQuery.Get(c.Request.Context(), c.Param("id"))
 	if err != nil {
 		ih.HandleError(c, err)
@@ -145,23 +142,63 @@ func (ih *ImageHandler) Get(c *gin.Context) {
 	ih.Response.Success(c, http.StatusOK, imageResp)
 }
 
-// GetByParentID [get] godoc
+func (ih *ImageHandler) List(c *gin.Context) {
+	var req request.ListRequest
+
+	// Bind query parameters
+	if err := c.ShouldBindQuery(&req); err != nil {
+		ih.HandleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
+	}
+
+	spec, err := req.ToSpecification()
+	if err != nil {
+		ih.HandleError(c, errors.NewValidationError(err.Error(), nil))
+		return
+	}
+
+	if err := ih.IValidator.ValidateSpec(spec); err != nil {
+		ih.HandleError(c, err)
+		return
+	}
+
+	images, err := ih.IQuery.List(c.Request.Context(), spec)
+	if err != nil {
+		ih.HandleError(c, err)
+		return
+	}
+
+	ih.Response.Success(c, http.StatusOK, response.NewImageListResponse(images))
+}
+
+// GetByParentID godoc
 // @Summary Get images by Parent ID
-// @Description Retrieve images details by its Parent ID
+// @Description Get images belonging to a specific parent with optional filtering, sorting, and pagination
 // @Tags Images
 // @Accept json
 // @Produce json
 // @Param parent_id path string true "Parent ID"
-// @Success 200 {object} response.ImageListResponse
+// @Param limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Number of items to skip" default(0) minimum(0)
+// @Param sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name, format)
+// @Param sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
+// @Success 200 {object} response.ImageListResponseDoc
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /images/{parent_id} [get]
+// @Router /images/parent/{parent_id} [get]
 func (ih *ImageHandler) GetByParentID(c *gin.Context) {
 	var req request.ListRequest
+
+	// Bind query parameters
 	if err := c.ShouldBindQuery(&req); err != nil {
-		req = request.ListRequest{}
+		ih.HandleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
 	}
 
 	spec, err := req.ToSpecification()
@@ -184,23 +221,32 @@ func (ih *ImageHandler) GetByParentID(c *gin.Context) {
 	ih.Response.Success(c, http.StatusOK, response.NewImageListResponse(images))
 }
 
-// GetByWorkspaceID [get] godoc
+// GetByWorkspaceID godoc
 // @Summary Get images by Workspace ID
-// @Description Retrieve images details by its Workspace ID
+// @Description Get images belonging to a specific workspace with optional filtering, sorting, and pagination
 // @Tags Images
 // @Accept json
 // @Produce json
 // @Param workspace_id path string true "Workspace ID"
-// @Success 200 {object} response.ImageListResponse
+// @Param limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Number of items to skip" default(0) minimum(0)
+// @Param sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name, format)
+// @Param sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
+// @Success 200 {object} response.ImageListResponseDoc
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /images/{workspace_id} [get]
+// @Router /images/workspace/{workspace_id} [get]
 func (ih *ImageHandler) GetByWorkspaceID(c *gin.Context) {
 	var req request.ListRequest
+
+	// Bind query parameters
 	if err := c.ShouldBindQuery(&req); err != nil {
-		req = request.ListRequest{}
+		ih.HandleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
 	}
 
 	spec, err := req.ToSpecification()
@@ -223,23 +269,24 @@ func (ih *ImageHandler) GetByWorkspaceID(c *gin.Context) {
 	ih.Response.Success(c, http.StatusOK, response.NewImageListResponse(images))
 }
 
-// ListImageByPatientID [get] godoc
-// @Summary List images by Patient ID
-// @Description Retrieve a list of images associated with a specific Patient ID
+// Count godoc
+// @Summary Count images
+// @Description Count images with optional filters via query parameters
 // @Tags Images
 // @Accept json
 // @Produce json
-// @Success 200 {object} response.ImageListResponse
+// @Success 200 {object} response.CountResponse
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /patients/{id}/images [get]
-func (ih *ImageHandler) List(c *gin.Context) {
+// @Router /images/count [get]
+func (ih *ImageHandler) Count(c *gin.Context) {
 	var req request.ListRequest
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ih.HandleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+	// Bind query parameters (optional for count)
+	if err := c.ShouldBindQuery(&req); err != nil {
+		ih.HandleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
 			"error": err.Error(),
 		}))
 		return
@@ -256,24 +303,26 @@ func (ih *ImageHandler) List(c *gin.Context) {
 		return
 	}
 
-	images, err := ih.IQuery.List(c.Request.Context(), spec)
+	count, err := ih.IQuery.Count(c.Request.Context(), spec)
 	if err != nil {
 		ih.HandleError(c, err)
 		return
 	}
 
-	ih.Response.Success(c, http.StatusOK, response.NewImageListResponse(images))
+	respPayload := response.CountResponse{Count: count}
+	ih.Response.Success(c, http.StatusOK, respPayload)
 }
 
 // Update godoc
-// @Summary update images
+// @Summary Update images
 // @Tags Images
 // @Accept json
 // @Produce json
 // @Param id path string true "Image ID"
 // @Param request body request.UpdateImageRequest true "Image update request"
-// @Success 200 {object} response.UpdateImageResponse
+// @Success 204
 // @Failure 400 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
@@ -283,7 +332,9 @@ func (ih *ImageHandler) Update(c *gin.Context) {
 
 	var req request.UpdateImageRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ih.HandleError(c, err)
+		ih.HandleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+			"error": err.Error(),
+		}))
 		return
 	}
 
@@ -320,47 +371,6 @@ func (ih *ImageHandler) Update(c *gin.Context) {
 	}
 
 	ih.Response.NoContent(c)
-
-}
-
-// CountImages V1  [get] godoc
-// @Summary Count images
-// @Description Get the total count of images in the system
-// @Tags Images
-// @Accept json
-// @Produce json
-// @Success 200 {object} response.CountResponse
-// @Failure 500 {object} response.ErrorResponse
-// @Failure 401 {object} response.ErrorResponse
-// @Security BearerAuth
-// @Router /images/count [post]
-func (ih *ImageHandler) Count(c *gin.Context) {
-	var req request.ListRequest
-	if err := c.ShouldBindQuery(&req); err != nil {
-		req = request.ListRequest{}
-	}
-
-	spec, err := req.ToSpecification()
-	if err != nil {
-		ih.HandleError(c, err)
-		return
-	}
-
-	if err := ih.IValidator.ValidateSpec(spec); err != nil {
-		ih.HandleError(c, err)
-		return
-	}
-
-	count, err := ih.IQuery.Count(c.Request.Context(), spec)
-	if err != nil {
-		ih.HandleError(c, err)
-		return
-	}
-
-	respPayload := response.CountResponse{
-		Count: count,
-	}
-	ih.Response.Success(c, http.StatusOK, respPayload)
 }
 
 // Transfer godoc
@@ -372,6 +382,7 @@ func (ih *ImageHandler) Count(c *gin.Context) {
 // @Param patient_id path string true "New Patient ID"
 // @Success 204
 // @Failure 400 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
@@ -391,6 +402,7 @@ func (ih *ImageHandler) Transfer(c *gin.Context) {
 		ih.HandleError(c, err)
 		return
 	}
+
 	ih.Response.NoContent(c)
 }
 
@@ -400,27 +412,21 @@ func (ih *ImageHandler) Transfer(c *gin.Context) {
 // @Accept json
 // @Produce json
 // @Param ids query []string true "Image IDs"
-// @Param workspace_id path string true "Target Workspace ID"
+// @Param patient_id path string true "Target Patient ID"
 // @Success 204
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /images/transfer-many/{workspace_id} [put]
+// @Router /images/transfer-many/{patient_id} [put]
 func (ih *ImageHandler) TransferMany(c *gin.Context) {
-
 	ids := c.QueryArray("ids")
-	patientID := c.Param("patient_id")
-
 	if len(ids) == 0 {
-		ih.HandleError(c, errors.NewValidationError("ids is required", nil))
+		ih.HandleError(c, errors.NewValidationError("ids parameter is required", nil))
 		return
 	}
 
-	if patientID == "" {
-		ih.HandleError(c, errors.NewValidationError("patient_id is required", nil))
-		return
-	}
+	patientID := c.Param("patient_id")
 
 	cmd := command.TransferManyCommand{
 		IDs:        ids,
@@ -453,7 +459,7 @@ func (ih *ImageHandler) TransferMany(c *gin.Context) {
 func (ih *ImageHandler) SoftDelete(c *gin.Context) {
 	id := c.Param("id")
 	if id == "" {
-		ih.HandleError(c, errors.NewValidationError("id is required", nil))
+		ih.HandleError(c, errors.NewValidationError("id parameter is required", nil))
 		return
 	}
 
@@ -479,10 +485,9 @@ func (ih *ImageHandler) SoftDelete(c *gin.Context) {
 // @Security BearerAuth
 // @Router /images/soft-delete-many [delete]
 func (ih *ImageHandler) SoftDeleteMany(c *gin.Context) {
-
 	ids := c.QueryArray("ids")
 	if len(ids) == 0 {
-		ih.HandleError(c, errors.NewValidationError("ids is required", nil))
+		ih.HandleError(c, errors.NewValidationError("ids parameter is required", nil))
 		return
 	}
 

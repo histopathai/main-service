@@ -96,7 +96,6 @@ func (wh *WorkspaceHandler) Create(c *gin.Context) {
 }
 
 // Get godoc
-// Get godoc
 // @Summary Get workspace by ID
 // @Tags Workspaces
 // @Accept json
@@ -120,17 +119,17 @@ func (wh *WorkspaceHandler) Get(c *gin.Context) {
 
 }
 
-// List [get] godoc
 // List godoc
 // @Summary List workspaces
+// @Description List workspaces with optional filtering, sorting, and pagination via query parameters
 // @Tags Workspaces
 // @Accept json
 // @Produce json
 // @Param limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
 // @Param offset query int false "Number of items to skip" default(0) minimum(0)
-// @Param sort_by query string false "Field to sort by" default(created_at)
+// @Param sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name, organ_type)
 // @Param sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
-// @Success 200 {object} response.WorkspaceListResponse
+// @Success 200 {object} response.WorkspaceListResponseDoc
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
@@ -138,13 +137,18 @@ func (wh *WorkspaceHandler) Get(c *gin.Context) {
 // @Router /workspaces [get]
 func (wh *WorkspaceHandler) List(c *gin.Context) {
 	var req request.ListRequest
+
+	// Bind query parameters
 	if err := c.ShouldBindQuery(&req); err != nil {
-		req = request.ListRequest{}
+		wh.HandleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
 	}
 
 	spec, err := req.ToSpecification()
 	if err != nil {
-		wh.HandleError(c, err)
+		wh.HandleError(c, errors.NewValidationError(err.Error(), nil))
 		return
 	}
 
@@ -175,13 +179,15 @@ func (wh *WorkspaceHandler) List(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /workspaces/{id} [patch]
+// @Router /workspaces/{id} [put]
 func (wh *WorkspaceHandler) Update(c *gin.Context) {
 	id := c.Param("id")
 
 	var req request.UpdateWorkspaceRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		wh.HandleError(c, err)
+		wh.HandleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+			"error": err.Error(),
+		}))
 		return
 	}
 
@@ -240,6 +246,7 @@ func (wh *WorkspaceHandler) SoftDelete(c *gin.Context) {
 
 // Count godoc
 // @Summary Count workspaces
+// @Description Count workspaces with optional filters via query parameters
 // @Tags Workspaces
 // @Accept json
 // @Produce json
@@ -248,26 +255,32 @@ func (wh *WorkspaceHandler) SoftDelete(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /workspaces/count [post]
+// @Router /workspaces/count [get]
 func (wh *WorkspaceHandler) Count(c *gin.Context) {
 	var req request.ListRequest
 	var spec validator.Specification
 
-	if err := c.ShouldBindJSON(&req); err != nil {
+	// Try to bind query parameters (for GET requests)
+	if err := c.ShouldBindQuery(&req); err != nil {
+		// If binding fails, check if it's because of empty query params
 		if err != io.EOF {
-			wh.HandleError(c, err)
+			wh.HandleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
+				"error": err.Error(),
+			}))
 			return
 		}
-	} else {
-		spec, err = req.ToSpecification()
-		if err != nil {
-			wh.HandleError(c, err)
-			return
-		}
-		if err := wh.WsValidator.ValidateSpec(spec); err != nil {
-			wh.HandleError(c, err)
-			return
-		}
+	}
+
+	// Convert to specification
+	spec, err := req.ToSpecification()
+	if err != nil {
+		wh.HandleError(c, errors.NewValidationError(err.Error(), nil))
+		return
+	}
+
+	if err := wh.WsValidator.ValidateSpec(spec); err != nil {
+		wh.HandleError(c, err)
+		return
 	}
 
 	count, err := wh.WsQuery.Count(c.Request.Context(), spec)
@@ -291,7 +304,13 @@ func (wh *WorkspaceHandler) Count(c *gin.Context) {
 // @Security BearerAuth
 // @Router /workspaces/soft-delete-many [delete]
 func (wh *WorkspaceHandler) SoftDeleteMany(c *gin.Context) {
-	err := wh.WsQuery.SoftDeleteMany(c.Request.Context(), c.QueryArray("ids"))
+	ids := c.QueryArray("ids")
+	if len(ids) == 0 {
+		wh.HandleError(c, errors.NewValidationError("ids parameter is required", nil))
+		return
+	}
+
+	err := wh.WsQuery.SoftDeleteMany(c.Request.Context(), ids)
 	if err != nil {
 		wh.HandleError(c, err)
 		return

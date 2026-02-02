@@ -38,7 +38,7 @@ func NewAnnotationTypeHandler(query port.AnnotationTypeQuery, useCase port.Annot
 // @Tags Annotation Types
 // @Accept json
 // @Produce json
-// @Param        request body request.CreateAnnotationTypeRequest true "Annotation Type creation request"
+// @Param request body request.CreateAnnotationTypeRequest true "Annotation Type creation request"
 // @Success 201 {object} response.AnnotationTypeDataResponse "Annotation Type created successfully"
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 409 {object} response.ErrorResponse
@@ -47,7 +47,7 @@ func NewAnnotationTypeHandler(query port.AnnotationTypeQuery, useCase port.Annot
 // @Security BearerAuth
 // @Router /annotation-types [post]
 func (ath *AnnotationTypeHandler) Create(c *gin.Context) {
-	creator_id, err := middleware.GetAuthenticatedUserID(c)
+	creatorID, err := middleware.GetAuthenticatedUserID(c)
 	if err != nil {
 		ath.HandleError(c, err)
 		return
@@ -65,7 +65,7 @@ func (ath *AnnotationTypeHandler) Create(c *gin.Context) {
 		CreateEntityCommand: command.CreateEntityCommand{
 			Name:       req.Name,
 			EntityType: vobj.EntityTypeAnnotationType.String(),
-			CreatorID:  creator_id,
+			CreatorID:  creatorID,
 			ParentID:   "",
 			ParentType: vobj.ParentTypeNone.String(),
 		},
@@ -90,11 +90,11 @@ func (ath *AnnotationTypeHandler) Create(c *gin.Context) {
 		return
 	}
 
-	annotation_resp := response.NewAnnotationTypeResponse(result)
-	ath.Response.Created(c, annotation_resp)
+	annotationResp := response.NewAnnotationTypeResponse(result)
+	ath.Response.Created(c, annotationResp)
 }
 
-// Get [get] godoc
+// Get godoc
 // @Summary Get an annotation type by ID
 // @Description Retrieve the details of an annotation type using its ID
 // @Tags Annotation Types
@@ -122,29 +122,35 @@ func (ath *AnnotationTypeHandler) Get(c *gin.Context) {
 		return
 	}
 
-	annotation_resp := response.NewAnnotationTypeResponse(result)
-	ath.Response.Success(c, http.StatusOK, annotation_resp)
+	annotationResp := response.NewAnnotationTypeResponse(result)
+	ath.Response.Success(c, http.StatusOK, annotationResp)
 }
 
-// List [get] godoc
+// List godoc
 // @Summary List all annotation types
-// @Description Retrieve a list of all annotation types
+// @Description List annotation types with optional filtering, sorting, and pagination via query parameters
 // @Tags Annotation Types
 // @Accept json
 // @Produce json
-// @Param        limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
-// @Param        offset query int false "Number of items to skip" default(0) minimum(0)
-// @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
-// @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
-// @Success 200 {object} response.AnnotationTypeListResponse "List of annotation types retrieved successfully"
+// @Param limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Number of items to skip" default(0) minimum(0)
+// @Param sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name, tag_type)
+// @Param sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
+// @Success 200 {object} response.AnnotationTypeListResponseDoc "List of annotation types retrieved successfully"
+// @Failure 400 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
 // @Router /annotation-types [get]
 func (ath *AnnotationTypeHandler) List(c *gin.Context) {
 	var req request.ListRequest
+
+	// Bind query parameters
 	if err := c.ShouldBindQuery(&req); err != nil {
-		req = request.ListRequest{}
+		ath.HandleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
 	}
 
 	spec, err := req.ToSpecification()
@@ -180,18 +186,25 @@ func (ath *AnnotationTypeHandler) List(c *gin.Context) {
 
 // Count godoc
 // @Summary Count annotation types
+// @Description Count annotation types with optional filters via query parameters
 // @Tags Annotation Types
 // @Accept json
 // @Produce json
 // @Success 200 {object} response.CountResponse
+// @Failure 400 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /annotation-types/count [post]
+// @Router /annotation-types/count [get]
 func (ath *AnnotationTypeHandler) Count(c *gin.Context) {
 	var req request.ListRequest
+
+	// Bind query parameters (optional for count)
 	if err := c.ShouldBindQuery(&req); err != nil {
-		req = request.ListRequest{}
+		ath.HandleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
 	}
 
 	spec, err := req.ToSpecification()
@@ -211,14 +224,11 @@ func (ath *AnnotationTypeHandler) Count(c *gin.Context) {
 		return
 	}
 
-	countResp := &response.CountResponse{
-		Count: count,
-	}
-
+	countResp := &response.CountResponse{Count: count}
 	ath.Response.Success(c, http.StatusOK, countResp)
 }
 
-// Update [put] godoc
+// Update godoc
 // @Summary Update an annotation type
 // @Tags Annotation Types
 // @Accept json
@@ -303,10 +313,9 @@ func (ath *AnnotationTypeHandler) SoftDelete(c *gin.Context) {
 // @Security BearerAuth
 // @Router /annotation-types/soft-delete-many [delete]
 func (ath *AnnotationTypeHandler) SoftDeleteMany(c *gin.Context) {
-
 	ids := c.QueryArray("ids")
 	if len(ids) == 0 {
-		ath.HandleError(c, errors.NewValidationError("ids is required", nil))
+		ath.HandleError(c, errors.NewValidationError("ids parameter is required", nil))
 		return
 	}
 

@@ -33,12 +33,12 @@ func NewAnnotationHandler(query port.AnnotationQuery, useCase port.AnnotationUse
 	}
 }
 
-// Create [post] godoc
+// Create godoc
 // @Summary Create a new annotation
 // @Tags Annotations
 // @Accept json
 // @Produce json
-// @Param        request body request.CreateAnnotationRequest true "Annotation creation request"
+// @Param request body request.CreateAnnotationRequest true "Annotation creation request"
 // @Success 201 {object} response.AnnotationDataResponse "Annotation created successfully"
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
@@ -46,7 +46,7 @@ func NewAnnotationHandler(query port.AnnotationQuery, useCase port.AnnotationUse
 // @Security BearerAuth
 // @Router /annotations [post]
 func (ah *AnnotationHandler) Create(c *gin.Context) {
-	annotator_id, err := middleware.GetAuthenticatedUserID(c)
+	annotatorID, err := middleware.GetAuthenticatedUserID(c)
 	if err != nil {
 		ah.HandleError(c, err)
 		return
@@ -73,7 +73,7 @@ func (ah *AnnotationHandler) Create(c *gin.Context) {
 		CreateEntityCommand: command.CreateEntityCommand{
 			Name:       req.Name,
 			EntityType: vobj.EntityTypeAnnotation.String(),
-			CreatorID:  annotator_id,
+			CreatorID:  annotatorID,
 			ParentID:   req.Parent.ID,
 			ParentType: req.Parent.Type,
 		},
@@ -100,7 +100,7 @@ func (ah *AnnotationHandler) Create(c *gin.Context) {
 	ah.Response.Created(c, annotationResp)
 }
 
-// Get [get] godoc
+// Get godoc
 // @Summary Get an annotation by ID
 // @Tags Annotations
 // @Accept json
@@ -131,17 +131,18 @@ func (ah *AnnotationHandler) Get(c *gin.Context) {
 	ah.Response.Success(c, http.StatusOK, annotationResp)
 }
 
-// GetByParentID [get] godoc
+// GetByParentID godoc
 // @Summary Get annotations by Image ID
+// @Description Get annotations belonging to a specific image with optional filtering, sorting, and pagination
 // @Tags Annotations
 // @Accept json
 // @Produce json
 // @Param image_id path string true "Image ID"
-// @Param        limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
-// @Param        offset query int false "Number of items to skip" default(0) minimum(0)
-// @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
-// @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
-// @Success 200 {object} response.AnnotationListResponse
+// @Param limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Number of items to skip" default(0) minimum(0)
+// @Param sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
+// @Param sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
+// @Success 200 {object} response.AnnotationListResponseDoc
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
@@ -158,7 +159,10 @@ func (ah *AnnotationHandler) GetByParentID(c *gin.Context) {
 
 	var req request.ListRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		req = request.ListRequest{}
+		ah.HandleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
 	}
 
 	spec, err := req.ToSpecification()
@@ -192,17 +196,18 @@ func (ah *AnnotationHandler) GetByParentID(c *gin.Context) {
 	ah.Response.SuccessList(c, annotationsResp, paginationResp)
 }
 
-// GetByWsID [get] godoc
+// GetByWsID godoc
 // @Summary Get annotations by Workspace ID
+// @Description Get annotations belonging to a specific workspace with optional filtering, sorting, and pagination
 // @Tags Annotations
 // @Accept json
 // @Produce json
 // @Param workspace_id path string true "Workspace ID"
-// @Param        limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
-// @Param        offset query int false "Number of items to skip" default(0) minimum(0)
-// @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
-// @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
-// @Success 200 {object} response.AnnotationListResponse
+// @Param limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Number of items to skip" default(0) minimum(0)
+// @Param sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
+// @Param sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
+// @Success 200 {object} response.AnnotationListResponseDoc
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
@@ -219,7 +224,10 @@ func (ah *AnnotationHandler) GetByWsID(c *gin.Context) {
 
 	var req request.ListRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		req = request.ListRequest{}
+		ah.HandleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
 	}
 
 	spec, err := req.ToSpecification()
@@ -253,8 +261,9 @@ func (ah *AnnotationHandler) GetByWsID(c *gin.Context) {
 	ah.Response.SuccessList(c, annotationsResp, paginationResp)
 }
 
-// CountAnnotations [get] godoc
+// Count godoc
 // @Summary Count annotations
+// @Description Count annotations with optional filters via query parameters
 // @Tags Annotations
 // @Accept json
 // @Produce json
@@ -262,11 +271,14 @@ func (ah *AnnotationHandler) GetByWsID(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /annotations/count [post]
+// @Router /annotations/count [get]
 func (ah *AnnotationHandler) Count(c *gin.Context) {
 	var req request.ListRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
-		req = request.ListRequest{}
+		ah.HandleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
 	}
 
 	spec, err := req.ToSpecification()
@@ -286,20 +298,17 @@ func (ah *AnnotationHandler) Count(c *gin.Context) {
 		return
 	}
 
-	countResp := response.CountResponse{
-		Count: count,
-	}
-
+	countResp := response.CountResponse{Count: count}
 	ah.Response.Success(c, http.StatusOK, countResp)
 }
 
-// Update [put] godoc
+// Update godoc
 // @Summary Update an annotation by ID
 // @Tags Annotations
 // @Accept json
 // @Produce json
 // @Param id path string true "Annotation ID"
-// @Param        request body request.UpdateAnnotationRequest true "Annotation update request"
+// @Param request body request.UpdateAnnotationRequest true "Annotation update request"
 // @Success 204 "Annotation updated successfully"
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
@@ -386,11 +395,9 @@ func (ah *AnnotationHandler) SoftDelete(c *gin.Context) {
 // @Security BearerAuth
 // @Router /annotations/soft-delete-many [delete]
 func (ah *AnnotationHandler) SoftDeleteMany(c *gin.Context) {
-
 	ids := c.QueryArray("ids")
-
 	if len(ids) == 0 {
-		ah.HandleError(c, errors.NewValidationError("ids is required", nil))
+		ah.HandleError(c, errors.NewValidationError("ids parameter is required", nil))
 		return
 	}
 
