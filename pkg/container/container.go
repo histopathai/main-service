@@ -241,7 +241,9 @@ func (c *Container) initEventInfrastructure(ctx context.Context) error {
 		ctx,
 		c.Config.GCP.ProjectID,
 		c.Config.PubSub.UploadStatus.Name,
-		nil, // handler set later
+		nil, // handler set later,
+		c.Cache,
+		c.Logger,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create upload subscriber: %w", err)
@@ -252,7 +254,9 @@ func (c *Container) initEventInfrastructure(ctx context.Context) error {
 		ctx,
 		c.Config.GCP.ProjectID,
 		c.Config.PubSub.ImageProcessingRequest.Subscription.Name,
-		nil,
+		nil, // handler set later,
+		c.Cache,
+		c.Logger,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create process subscriber: %w", err)
@@ -263,7 +267,9 @@ func (c *Container) initEventInfrastructure(ctx context.Context) error {
 		ctx,
 		c.Config.GCP.ProjectID,
 		c.Config.PubSub.ImageProcessingResult.Subscription.Name,
-		nil,
+		nil, // handler set later,
+		c.Cache,
+		c.Logger,
 	)
 	if err != nil {
 		return fmt.Errorf("failed to create complete subscriber: %w", err)
