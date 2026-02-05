@@ -118,7 +118,7 @@ func (r *Router) setupWorkspaceRoutes(rg *gin.RouterGroup) {
 		workspaces.GET("/count", r.workspaceHandler.Count) // Count (changed from POST to GET)
 
 		// Sub-resources
-		workspaces.GET("/:parent_id/patients", r.patientHandler.GetByParentID)
+		workspaces.GET("/:id/patients", r.patientHandler.GetByParentID)
 	}
 }
 
@@ -143,7 +143,7 @@ func (r *Router) setupPatientRoutes(rg *gin.RouterGroup) {
 		patients.GET("/count", r.patientHandler.Count) // Count (changed from POST to GET)
 
 		// Sub-resources
-		patients.GET("/:id/images", r.imageHandler.List)
+		patients.GET("/:id/images", r.imageHandler.GetByParentID)
 	}
 }
 
