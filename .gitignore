@@ -4,3 +4,6 @@
 **/docs/*
 
 *.env
+
+**/.terraform/*
+.terraform.lock.hcl
