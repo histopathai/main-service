@@ -167,7 +167,7 @@ func (uc *ImageUseCase) generatePresignedURLS(ctx context.Context, cmd command.U
 			Provider:      uc.originStorage.Provider(),
 			ContentType:   currentContentType,
 			Size:          partialContent.Size,
-			Path:          fmt.Sprintf("%s/%s", imageID, partialContent.Name),
+			Path:          fmt.Sprintf("%s-%s", imageID, partialContent.Name),
 			UploadPending: true,
 		}
 
