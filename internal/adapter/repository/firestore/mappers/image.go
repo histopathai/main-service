@@ -86,6 +86,9 @@ func (im *ImageMapper) ToFirestoreMap(entity *model.Image) map[string]interface{
 	if !entity.Processing.LastProcessedAt.IsZero() {
 		processingMap["last_processed_at"] = entity.Processing.LastProcessedAt
 	}
+	if entity.Processing.ActiveEventID != "" {
+		processingMap["active_event_id"] = entity.Processing.ActiveEventID
+	}
 	m["processing"] = processingMap
 
 	return m
@@ -161,6 +164,11 @@ func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model
 
 	// Processing info
 	if procInfo, ok := data["processing"].(map[string]interface{}); ok {
+		// Initialize Processing struct if nil
+		if image.Processing == nil {
+			image.Processing = &vobj.ProcessingInfo{}
+		}
+
 		if statusStr, ok := procInfo["status"].(string); ok {
 			image.Processing.Status, err = vobj.NewImageStatusFromString(statusStr)
 			if err != nil {
@@ -182,6 +190,9 @@ func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model
 
 		if lastProcessedAt, ok := procInfo["last_processed_at"].(time.Time); ok {
 			image.Processing.LastProcessedAt = lastProcessedAt
+		}
+		if activeEventID, ok := procInfo["active_event_id"].(string); ok {
+			image.Processing.ActiveEventID = activeEventID
 		}
 	}
 
@@ -293,49 +304,87 @@ func (im *ImageMapper) MapUpdates(updates map[string]interface{}) (map[string]in
 				return nil, errors.NewValidationError("invalid type for ziptiles_content_id field", nil)
 			}
 
+		// Helper to properly get or create nested map
 		case fields.ImageProcessingStatus.DomainName():
+			procMap, ok := mappedUpdates["processing"].(map[string]interface{})
+			if !ok {
+				procMap = make(map[string]interface{})
+				mappedUpdates["processing"] = procMap
+			}
 			if status, ok := v.(vobj.ImageStatus); ok {
-				mappedUpdates[fields.ImageProcessingStatus.FirestoreName()] = status.String()
+				procMap["status"] = status.String()
 			} else if statusStr, ok := v.(string); ok {
-				mappedUpdates[fields.ImageProcessingStatus.FirestoreName()] = statusStr
+				procMap["status"] = statusStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for processing.status field", nil)
 			}
 
 		case fields.ImageProcessingVersion.DomainName():
+			procMap, ok := mappedUpdates["processing"].(map[string]interface{})
+			if !ok {
+				procMap = make(map[string]interface{})
+				mappedUpdates["processing"] = procMap
+			}
 			if version, ok := v.(vobj.ProcessingVersion); ok {
-				mappedUpdates[fields.ImageProcessingVersion.FirestoreName()] = version.String()
+				procMap["version"] = version.String()
 			} else if versionStr, ok := v.(string); ok {
-				mappedUpdates[fields.ImageProcessingVersion.FirestoreName()] = versionStr
+				procMap["version"] = versionStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for processing.version field", nil)
 			}
 
 		case fields.ImageProcessingFailureReason.DomainName():
+			procMap, ok := mappedUpdates["processing"].(map[string]interface{})
+			if !ok {
+				procMap = make(map[string]interface{})
+				mappedUpdates["processing"] = procMap
+			}
 			if reason, ok := v.(*string); ok {
-				mappedUpdates[fields.ImageProcessingFailureReason.FirestoreName()] = *reason
+				procMap["failure_reason"] = *reason
 			} else if reasonStr, ok := v.(string); ok {
-				mappedUpdates[fields.ImageProcessingFailureReason.FirestoreName()] = reasonStr
+				procMap["failure_reason"] = reasonStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for processing.failure_reason field", nil)
 			}
 
 		case fields.ImageProcessingRetryCount.DomainName():
+			procMap, ok := mappedUpdates["processing"].(map[string]interface{})
+			if !ok {
+				procMap = make(map[string]interface{})
+				mappedUpdates["processing"] = procMap
+			}
 			if retryCount, ok := v.(*int); ok {
-				mappedUpdates[fields.ImageProcessingRetryCount.FirestoreName()] = *retryCount
+				procMap["retry_count"] = *retryCount
 			} else if retryCountInt, ok := v.(int); ok {
-				mappedUpdates[fields.ImageProcessingRetryCount.FirestoreName()] = retryCountInt
+				procMap["retry_count"] = retryCountInt
 			} else {
 				return nil, errors.NewValidationError("invalid type for processing.retry_count field", nil)
 			}
 
 		case fields.ImageProcessingLastProcessedAt.DomainName():
+			procMap, ok := mappedUpdates["processing"].(map[string]interface{})
+			if !ok {
+				procMap = make(map[string]interface{})
+				mappedUpdates["processing"] = procMap
+			}
 			if lastProcessedAt, ok := v.(*time.Time); ok {
-				mappedUpdates[fields.ImageProcessingLastProcessedAt.FirestoreName()] = *lastProcessedAt
+				procMap["last_processed_at"] = *lastProcessedAt
 			} else if lastProcessedAtTime, ok := v.(time.Time); ok {
-				mappedUpdates[fields.ImageProcessingLastProcessedAt.FirestoreName()] = lastProcessedAtTime
+				procMap["last_processed_at"] = lastProcessedAtTime
 			} else {
 				return nil, errors.NewValidationError("invalid type for processing.last_processed_at field", nil)
+			}
+
+		case fields.ImageProcessingActiveEventID.DomainName():
+			procMap, ok := mappedUpdates["processing"].(map[string]interface{})
+			if !ok {
+				procMap = make(map[string]interface{})
+				mappedUpdates["processing"] = procMap
+			}
+			if eventID, ok := v.(string); ok {
+				procMap["active_event_id"] = eventID
+			} else {
+				return nil, errors.NewValidationError("invalid type for processing.active_event_id field", nil)
 			}
 
 		case fields.ImageWsID.DomainName():
