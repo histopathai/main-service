@@ -52,8 +52,9 @@ func (w *CloudRunWorker) ProcessImage(ctx context.Context, content model.Content
 		slog.String("version", processingVersion.String()),
 	)
 
+	fullJobName := fmt.Sprintf("projects/%s/locations/%s/jobs/%s", w.gcpConfig.ProjectID, w.gcpConfig.Region, jobName)
 	req := &runpb.RunJobRequest{
-		Name: jobName,
+		Name: fullJobName,
 		Overrides: &runpb.RunJobRequest_Overrides{
 			ContainerOverrides: []*runpb.RunJobRequest_Overrides_ContainerOverride{
 				{
