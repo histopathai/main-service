@@ -2,6 +2,7 @@ package proxy
 
 import (
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,8 +17,17 @@ import (
 )
 
 type IndexMap struct {
-	Version string                `json:"version"`
-	Tiles   map[string]TileOffset `json:"tiles"`
+	Version interface{}           `json:"version"`
+	Entries []IndexMapEntry       `json:"entries"`
+	Tiles   map[string]TileOffset `json:"-"`
+}
+
+type IndexMapEntry struct {
+	Name             string `json:"name"`
+	Offset           int64  `json:"offset"`
+	CompressedSize   int64  `json:"compressed_size"`
+	UncompressedSize int64  `json:"uncompressed_size"`
+	Method           int    `json:"method"`
 }
 
 type TileOffset struct {
@@ -206,7 +216,34 @@ func (s *TileServer) serveTileFromArchive(ctx context.Context, imageID, archiveC
 		return nil, errors.NewNotFoundError(fmt.Sprintf("tile not found in index map: %s", tilePath))
 	}
 
-	return s.storage.GetRange(ctx, *archiveContent, tileOffset.Offset, tileOffset.Length)
+	// The offset in the index map typically points to the ZIP Local File Header.
+	// We need to read this header to find the start of the actual data.
+	// Local File Header fixed size is 30 bytes.
+	headerReader, err := s.storage.GetRange(ctx, *archiveContent, tileOffset.Offset, 30)
+	if err != nil {
+		return nil, errors.NewInternalError("failed to verify zip header", err)
+	}
+
+	header, err := io.ReadAll(headerReader)
+	_ = headerReader.Close()
+	if err != nil {
+		return nil, errors.NewInternalError("failed to read zip header bytes", err)
+	}
+
+	dataOffset := tileOffset.Offset
+
+	// Check signature: 0x04034b50 (PK\x03\x04)
+	if len(header) == 30 && header[0] == 0x50 && header[1] == 0x4b && header[2] == 0x03 && header[3] == 0x04 {
+		// Offset 26: Filename length (2 bytes)
+		// Offset 28: Extra field length (2 bytes)
+		nameLen := int64(binary.LittleEndian.Uint16(header[26:28]))
+		extraLen := int64(binary.LittleEndian.Uint16(header[28:30]))
+
+		// Total header size = 30 + nameLen + extraLen
+		dataOffset += 30 + nameLen + extraLen
+	}
+
+	return s.storage.GetRange(ctx, *archiveContent, dataOffset, tileOffset.Length)
 }
 
 func (s *TileServer) getImage(ctx context.Context, imageID string) (*model.Image, error) {
@@ -279,6 +316,30 @@ func (s *TileServer) getIndexMap(ctx context.Context, imageID string) (*IndexMap
 	var indexMap IndexMap
 	if err := json.NewDecoder(reader).Decode(&indexMap); err != nil {
 		return nil, errors.NewInternalError("failed to parse index map JSON", err)
+	}
+
+	// Populate lookup map
+	indexMap.Tiles = make(map[string]TileOffset)
+	for _, entry := range indexMap.Entries {
+		// Normalize key: remove "image/" prefix if exists, and remove extension
+		// Entry name example: "image/image_files/12/2_0.jpg"
+		// Request path: "image_files/12/2_0.jpg" -> Key: "image_files/12/2_0"
+
+		key := entry.Name
+		if strings.HasPrefix(key, "image/") {
+			key = strings.TrimPrefix(key, "image/")
+		}
+
+		// Remove extension
+		ext := filepath.Ext(key)
+		if ext != "" {
+			key = strings.TrimSuffix(key, ext)
+		}
+
+		indexMap.Tiles[key] = TileOffset{
+			Offset: entry.Offset,
+			Length: entry.CompressedSize, // Use CompressedSize for reading from zip
+		}
 	}
 
 	_ = s.cache.Set(ctx, cacheKey, &indexMap, 30*time.Minute)
