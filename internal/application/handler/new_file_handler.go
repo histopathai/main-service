@@ -47,6 +47,7 @@ func (h *NewFileHandler) Stop() error {
 }
 
 func (h *NewFileHandler) Handle(ctx context.Context, event domainevent.Event) error {
+	h.logger.Info("NewFileHandler: received event", "event", event)
 	newFileEvent, ok := event.(*domainevent.NewFileExistEvent)
 	if !ok {
 		h.logger.Warn("NewFileHandler: received unsupported event type")
@@ -54,63 +55,109 @@ func (h *NewFileHandler) Handle(ctx context.Context, event domainevent.Event) er
 	}
 
 	content := &newFileEvent.Content
+	shouldPublish := false
+	eventID := uuid.New().String()
 
+	// ... inside WithTx ...
 	uowerr := h.uow.WithTx(ctx, func(ctx context.Context) error {
 
 		imageRepo := h.uow.GetImageRepo()
 
+		// 1. Read (Allowed at start)
 		imageEntity, err := imageRepo.Read(ctx, content.Parent.ID)
-
 		if err != nil {
 			return err
 		}
-
 		if imageEntity == nil {
 			h.logger.Error("NewFileHandler: image entity not found", "error", err)
 			return errors.New("image entity not found")
 		}
 
-		// Save Content
+		// Prepare updates map
+		imageUpdates := make(map[string]interface{})
 
-		created, err := h.uow.GetContentRepo().Create(ctx, content)
+		// 2. Determine updates based on content type
+		if content.ContentType.IsThumbnail() {
+			imageUpdates[fields.ImageThumbnailContentID.DomainName()] = content.ID
+			imageEntity.ThumbnailContentID = &content.ID // Update local model for completion check
+
+		} else if content.ContentType.IsDZI() {
+			imageUpdates[fields.ImageDziContentID.DomainName()] = content.ID
+			imageEntity.DziContentID = &content.ID
+
+		} else if content.ContentType.IsArchive() {
+			imageUpdates[fields.ImageZipTilesContentID.DomainName()] = content.ID
+			imageEntity.ZipTilesContentID = &content.ID
+
+		} else if content.ContentType.IsOriginImage() {
+			// Idempotency Check
+			if imageEntity.Processing != nil && (imageEntity.Processing.Status == vobj.StatusProcessing || imageEntity.Processing.Status == vobj.StatusProcessed) {
+				h.logger.Info("NewFileHandler: image already processing or processed, skipping request",
+					"image_id", content.Parent.ID,
+					"status", imageEntity.Processing.Status)
+				return nil
+			}
+
+			imageUpdates[fields.ImageOriginContentID.DomainName()] = content.ID
+			imageUpdates[fields.ImageProcessingStatus.DomainName()] = vobj.StatusProcessing
+			imageUpdates[fields.ImageProcessingVersion.DomainName()] = vobj.ProcessingV2
+			imageUpdates[fields.ImageProcessingActiveEventID.DomainName()] = eventID
+
+			// Update local model
+			imageEntity.OriginContentID = &content.ID
+			// Note: Processing struct might be nil
+			if imageEntity.Processing == nil {
+				imageEntity.Processing = &vobj.ProcessingInfo{}
+			}
+			imageEntity.Processing.Status = vobj.StatusProcessing
+			imageEntity.Processing.Version = vobj.ProcessingV2
+			imageEntity.Processing.ActiveEventID = eventID
+
+			shouldPublish = true
+
+		} else if content.ContentType.IsIndexMap() {
+			imageUpdates[fields.ImageIndexmapContentID.DomainName()] = content.ID
+			imageEntity.IndexmapContentID = &content.ID
+		}
+
+		// 3. Check completion logic (using in-memory imageEntity)
+		isComplete := false
+		if imageEntity.Processing != nil && !content.ContentType.IsOriginImage() {
+			// Only check completion for generated files, not when origin uploads (unless it somehow completes everything immediately which is impossible)
+			// Actually origin upload sets status to Processing, so we shouldn't overwrite it to Processed here anyway.
+
+			if imageEntity.Processing.Version == vobj.ProcessingV1 {
+				// v1: thumbnail, dzi, tiles
+				if imageEntity.ThumbnailContentID != nil && imageEntity.DziContentID != nil && imageEntity.TilesContentID != nil {
+					isComplete = true
+				}
+			} else if imageEntity.Processing.Version == vobj.ProcessingV2 {
+				// v2: thumbnail, dzi, zip, indexmap
+				if imageEntity.ThumbnailContentID != nil && imageEntity.DziContentID != nil && imageEntity.ZipTilesContentID != nil && imageEntity.IndexmapContentID != nil {
+					isComplete = true
+				}
+			}
+		}
+
+		if isComplete {
+			imageUpdates[fields.ImageProcessingStatus.DomainName()] = vobj.StatusProcessed
+		}
+
+		// 4. Perform Writes (Create Content + Update Image)
+		// Writes must come after all reads.
+
+		content.CreatorID = imageEntity.ID
+		_, err = h.uow.GetContentRepo().Create(ctx, content)
 		if err != nil {
 			return err
 		}
-		if created.ContentType.IsThumbnail() {
 
-			if err := imageRepo.Update(ctx, created.Parent.ID, map[string]interface{}{
-				fields.ImageThumbnailContentID.DomainName(): created.ID}); err != nil {
+		if len(imageUpdates) > 0 {
+			if err := imageRepo.Update(ctx, content.Parent.ID, imageUpdates); err != nil {
 				return err
 			}
-
-		} else if created.ContentType.IsDZI() {
-			if err := imageRepo.Update(ctx, created.Parent.ID, map[string]interface{}{
-				fields.ImageDziContentID.DomainName(): created.ID}); err != nil {
-				return err
-			}
-
-		} else if created.ContentType.IsArchive() {
-			if err := imageRepo.Update(ctx, created.Parent.ID, map[string]interface{}{
-				fields.ImageZipTilesContentID.DomainName(): created.ID}); err != nil {
-				return err
-			}
-
-		} else if created.ContentType.IsOriginImage() {
-			if err := imageRepo.Update(ctx, created.Parent.ID, map[string]interface{}{
-				fields.ImageOriginContentID.DomainName():   created.ID,
-				fields.ImageProcessingStatus.DomainName():  vobj.StatusProcessing,
-				fields.ImageProcessingVersion.DomainName(): vobj.ProcessingV2,
-			}); err != nil {
-				return err
-			}
-
-		} else if created.ContentType.IsIndexMap() {
-			if err := imageRepo.Update(ctx, created.Parent.ID, map[string]interface{}{
-				fields.ImageIndexmapContentID.DomainName(): created.ID}); err != nil {
-				return err
-			}
-
 		}
+
 		return nil
 	})
 
@@ -118,10 +165,11 @@ func (h *NewFileHandler) Handle(ctx context.Context, event domainevent.Event) er
 		return uowerr
 	}
 
-	if content.ContentType.IsOriginImage() {
-		err := h.publisher.Publish(ctx, domainevent.ImageProcessReqEvent{
+	if shouldPublish {
+		// ... publish event ...
+		err := h.publisher.Publish(ctx, &domainevent.ImageProcessReqEvent{
 			BaseEvent: domainevent.BaseEvent{
-				EventID:   uuid.New().String(),
+				EventID:   eventID,
 				EventType: domainevent.ImageProcessReqEventType,
 				Timestamp: time.Now(),
 			},
@@ -131,26 +179,8 @@ func (h *NewFileHandler) Handle(ctx context.Context, event domainevent.Event) er
 		if err != nil {
 			return err
 		}
-	} else {
-		// if image thumbnail, dzi, archive, indexmap are set,
-		// then update image status to ready
 
-		imageEntity, err := h.uow.GetImageRepo().Read(ctx, content.Parent.ID)
-		if err != nil {
-			return err
-		}
-		if imageEntity == nil {
-			h.logger.Error("NewFileHandler: image entity not found", "error", err)
-			return errors.New("image entity not found")
-		}
-
-		if imageEntity.ThumbnailContentID != nil && imageEntity.DziContentID != nil && imageEntity.ZipTilesContentID != nil && imageEntity.IndexmapContentID != nil {
-			if err := h.uow.GetImageRepo().Update(ctx, content.Parent.ID, map[string]interface{}{
-				fields.ImageProcessingStatus.DomainName(): vobj.StatusProcessed}); err != nil {
-				return err
-			}
-		}
-
+		h.logger.Info("NewFileHandler: published image process request event", "event_id", eventID)
 	}
 
 	return nil
