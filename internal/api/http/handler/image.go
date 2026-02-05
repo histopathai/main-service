@@ -90,6 +90,7 @@ func (ih *ImageHandler) UploadImage(c *gin.Context) {
 		Width:    req.Width,
 		Height:   req.Height,
 		Contents: contents,
+		WsID:     req.WsID,
 	}
 
 	errDetails, ok := cmd.Validate()
@@ -212,7 +213,12 @@ func (ih *ImageHandler) GetByParentID(c *gin.Context) {
 		return
 	}
 
-	images, err := ih.IQuery.GetByParentID(c.Request.Context(), spec, c.Param("parent_id"))
+	parentID := c.Param("parent_id")
+	if parentID == "" {
+		parentID = c.Param("id")
+	}
+
+	images, err := ih.IQuery.GetByParentID(c.Request.Context(), spec, parentID)
 	if err != nil {
 		ih.HandleError(c, err)
 		return

@@ -180,7 +180,7 @@ func (ph *PatientHandler) List(c *gin.Context) {
 // @Tags Patients
 // @Accept json
 // @Produce json
-// @Param parent_id path string true "Workspace ID"
+// @Param id path string true "Workspace ID"
 // @Param limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
 // @Param offset query int false "Number of items to skip" default(0) minimum(0)
 // @Param sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name, age, disease)
@@ -212,7 +212,7 @@ func (ph *PatientHandler) GetByParentID(c *gin.Context) {
 		return
 	}
 
-	result, err := ph.PQuery.GetByParentID(c.Request.Context(), spec, c.Param("parent_id"))
+	result, err := ph.PQuery.GetByParentID(c.Request.Context(), spec, c.Param("id"))
 	if err != nil {
 		ph.HandleError(c, err)
 		return
