@@ -47,6 +47,7 @@ func (h *ImageProcessCompleteHandler) Stop() error {
 }
 
 func (h *ImageProcessCompleteHandler) Handle(ctx context.Context, event domainevent.Event) error {
+	h.logger.Info("ImageProcessCompleteHandler: received event", "event", event)
 	processCompleteEvent, ok := event.(*domainevent.ImageProcessCompleteEvent)
 	if !ok {
 		h.logger.Warn("ImageProcessCompleteHandler: received unsupported event type")
