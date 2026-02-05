@@ -167,11 +167,17 @@ type processingResultDTO struct {
 	Size   int64 `json:"size"`
 }
 
+type parentDTO struct {
+	ID   string `json:"id"`
+	Type string `json:"type"`
+}
+
 type contentDTO struct {
 	ID          string            `json:"id"`
 	Name        string            `json:"name"`
 	ParentID    string            `json:"parent_id"`
 	ParentType  string            `json:"parent_type"`
+	Parent      *parentDTO        `json:"parent,omitempty"`
 	CreatorID   string            `json:"creator_id"`
 	EntityType  string            `json:"entity_type"`
 	Provider    string            `json:"provider"`
@@ -195,10 +201,14 @@ type imageProcessDlqDTO struct {
 
 func contentToDTO(c model.Content) contentDTO {
 	return contentDTO{
-		ID:          c.ID,
-		Name:        c.Name,
-		ParentID:    c.Parent.ID,
-		ParentType:  string(c.Parent.Type),
+		ID:         c.ID,
+		Name:       c.Name,
+		ParentID:   c.Parent.ID,
+		ParentType: string(c.Parent.Type),
+		Parent: &parentDTO{
+			ID:   c.Parent.ID,
+			Type: string(c.Parent.Type),
+		},
 		CreatorID:   c.CreatorID,
 		EntityType:  string(c.EntityType),
 		Provider:    string(c.Provider),
@@ -209,6 +219,14 @@ func contentToDTO(c model.Content) contentDTO {
 }
 
 func dtoToContent(dto contentDTO) model.Content {
+	parentID := dto.ParentID
+	parentType := dto.ParentType
+
+	if dto.Parent != nil {
+		parentID = dto.Parent.ID
+		parentType = dto.Parent.Type
+	}
+
 	return model.Content{
 		Entity: vobj.Entity{
 			ID:         dto.ID,
@@ -216,8 +234,8 @@ func dtoToContent(dto contentDTO) model.Content {
 			CreatorID:  dto.CreatorID,
 			EntityType: vobj.EntityType(dto.EntityType),
 			Parent: vobj.ParentRef{
-				ID:   dto.ParentID,
-				Type: vobj.ParentType(dto.ParentType),
+				ID:   parentID,
+				Type: vobj.ParentType(parentType),
 			},
 		},
 		Provider:    vobj.ContentProvider(dto.Provider),
