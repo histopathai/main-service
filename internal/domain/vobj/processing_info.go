@@ -30,6 +30,7 @@ type ProcessingInfo struct {
 	FailureReason   *string
 	RetryCount      int
 	LastProcessedAt time.Time
+	ActiveEventID   string
 }
 
 func (pi *ProcessingInfo) IsRetryable(maxRetries int) bool {
