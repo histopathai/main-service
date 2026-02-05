@@ -15,6 +15,7 @@ const (
 	ImageProcessingFailureReason   ImageField = "processing.failure_reason"
 	ImageProcessingRetryCount      ImageField = "processing.retry_count"
 	ImageProcessingLastProcessedAt ImageField = "processing.last_processed_at"
+	ImageProcessingActiveEventID   ImageField = "processing.active_event_id"
 
 	// Content IDs
 	ImageOriginContentID    ImageField = "origin_content_id"
@@ -80,6 +81,8 @@ func (f ImageField) DomainName() string {
 		return "ProcessingRetryCount"
 	case ImageProcessingLastProcessedAt:
 		return "ProcessingLastProcessedAt"
+	case ImageProcessingActiveEventID:
+		return "ProcessingActiveEventID"
 	case ImageOriginContentID:
 		return "OriginContentID"
 	case ImageThumbnailContentID:
@@ -111,7 +114,7 @@ func (f ImageField) IsValid() bool {
 	switch f {
 	case ImageFormat, ImageWidth, ImageHeight, ImageWsID,
 		ImageProcessingStatus, ImageProcessingVersion, ImageProcessingFailureReason,
-		ImageProcessingRetryCount, ImageProcessingLastProcessedAt,
+		ImageProcessingRetryCount, ImageProcessingLastProcessedAt, ImageProcessingActiveEventID,
 		ImageOriginContentID, ImageThumbnailContentID, ImageDziContentID,
 		ImageIndexmapContentID, ImageTilesContentID, ImageZipTilesContentID,
 		ImageSize, ImageMagnification,
