@@ -159,6 +159,13 @@ jobs:
 
       - name: Cleanup Orphaned State
         run: |
+          export TF_VAR_project_id="${{ env.PROJECT_ID }}"
+          export TF_VAR_region="${{ env.REGION }}"
+          export TF_VAR_environment="${{ steps.env-select.outputs.env }}"
+          export TF_VAR_artifact_registry_repo="${{ env.ARTIFACT_REGISTRY_REPO_NAME }}"
+          export TF_VAR_tf_state_bucket="${{ env.STATE_BUCKET }}"
+          export TF_VAR_image_tag="${{ needs.build-and-push.outputs.image_tag }}"
+
           chmod +x cleanup_state.sh
           ./cleanup_state.sh || true
         working-directory: ./infrastructure
