@@ -266,10 +266,10 @@ resource "google_cloud_run_v2_service_iam_member" "auth_service_access" {
 
 resource "google_pubsub_topic_iam_member" "main_service_publishers" {
   for_each = toset([
-    google_pubsub_topic.image_processing_request.name,
-    google_pubsub_topic.image_processing_result.name,
-    google_pubsub_topic.image_deletion.name,
-    google_pubsub_topic.image_process_dlq.name,
+    "${local.pubsub_prefix}image-processing-request",
+    "${local.pubsub_prefix}image-processing-results",
+    "${local.pubsub_prefix}image-deletion-requests",
+    "${local.pubsub_prefix}image-process-dlq",
   ])
 
   topic  = each.key

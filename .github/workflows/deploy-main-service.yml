@@ -157,24 +157,6 @@ jobs:
             -backend-config="bucket=${{ env.STATE_BUCKET }}" \
             -backend-config="prefix=$PREFIX"
 
-      - name: Import Existing Resources
-        run: |
-          # Export Terraform variables as environment variables
-          export TF_VAR_project_id="${{ env.PROJECT_ID }}"
-          export TF_VAR_region="${{ env.REGION }}"
-          export TF_VAR_environment="${{ steps.env-select.outputs.env }}"
-          export TF_VAR_artifact_registry_repo="${{ env.ARTIFACT_REGISTRY_REPO_NAME }}"
-          export TF_VAR_tf_state_bucket="${{ env.STATE_BUCKET }}"
-          export TF_VAR_image_tag="${{ needs.build-and-push.outputs.image_tag }}"
-
-          # Make import script executable
-          chmod +x import_existing_resources.sh
-
-          # Run import script (it will skip resources already in state)
-          ./import_existing_resources.sh "${{ env.PROJECT_ID }}" "${{ steps.env-select.outputs.env }}" || true
-
-          echo "Import step completed (errors are non-fatal)"
-
       - name: Terraform Plan
         run: |
           terraform plan \
