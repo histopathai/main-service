@@ -213,11 +213,6 @@ func Load() (*Config, error) {
 		},
 	}
 
-	// Apply environment-based prefixes for dev environment
-	if cfg.IsDevelopment() || cfg.IsLocal() {
-		cfg.applyDevPrefixes()
-	}
-
 	if err := cfg.Validate(); err != nil {
 		return nil, fmt.Errorf("config validation failed: %w", err)
 	}
