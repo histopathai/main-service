@@ -4,8 +4,8 @@ on:
   push:
     branches: [main, dev]
     paths:
-      - 'main-service/**'
-      - '.github/workflows/**'
+      - "main-service/**"
+      - ".github/workflows/**"
 
   workflow_dispatch:
     inputs:
@@ -18,7 +18,7 @@ on:
 
 # -------- GLOBAL ENV (all jobs can read) --------
 env:
-  TF_VERSION: '1.5.0'
+  TF_VERSION: "1.5.0"
   REPO_NAME: main-service
   WIF_PROVIDER: ${{ secrets.WIF_PROVIDER }}
   WIF_SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT }}
@@ -67,7 +67,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25.1'
+          go-version: "1.25.1"
 
       - name: Install Tools
         run: |
@@ -150,12 +150,22 @@ jobs:
           else
             PREFIX="services/main-service-dev"
           fi
-          
+
           echo "Selected Backend Prefix: $PREFIX"
 
           terraform init \
             -backend-config="bucket=${{ env.STATE_BUCKET }}" \
             -backend-config="prefix=$PREFIX"
+
+      - name: Import Existing Resources
+        run: |
+          # Make import script executable
+          chmod +x import_existing_resources.sh
+
+          # Run import script (it will skip resources already in state)
+          ./import_existing_resources.sh "${{ env.PROJECT_ID }}" "${{ steps.env-select.outputs.env }}" || true
+
+          echo "Import step completed (errors are non-fatal)"
 
       - name: Terraform Plan
         run: |
