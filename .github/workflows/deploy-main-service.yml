@@ -71,14 +71,10 @@ jobs:
 
       - name: Install Tools
         run: |
-          go install go.uber.org/mock/mockgen@v0.6.0
           go install github.com/swaggo/swag/cmd/swag@latest
 
-      - name: Generate Mocks & Swagger
+      - name: Swagger
         run: |
-          go generate ./...
-          export PATH=$PATH:$(go env GOPATH)/bin
-          go generate ./...
           swag init -g cmd/main.go
 
       - name: Unit Tests
