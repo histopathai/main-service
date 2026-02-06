@@ -157,6 +157,12 @@ jobs:
             -backend-config="bucket=${{ env.STATE_BUCKET }}" \
             -backend-config="prefix=$PREFIX"
 
+      - name: Cleanup Orphaned State
+        run: |
+          chmod +x cleanup_state.sh
+          ./cleanup_state.sh || true
+        working-directory: ./infrastructure
+
       - name: Terraform Plan
         run: |
           terraform plan \
