@@ -13,12 +13,12 @@ NC='\033[0m' # No Color
 
 echo -e "${YELLOW}Starting import of existing Pub/Sub resources...${NC}"
 
-# Get the project ID and environment from terraform variables
-PROJECT_ID="${1:-$(terraform output -raw project_id 2>/dev/null || echo "")}"
-ENVIRONMENT="${2:-dev}"
+# Get the project ID and environment from arguments or environment variables
+PROJECT_ID="${1:-${TF_VAR_project_id:-}}"
+ENVIRONMENT="${2:-${TF_VAR_environment:-dev}}"
 
 if [ -z "$PROJECT_ID" ]; then
-    echo -e "${RED}Error: PROJECT_ID not provided and could not be determined from terraform output${NC}"
+    echo -e "${RED}Error: PROJECT_ID not provided${NC}"
     echo "Usage: $0 <PROJECT_ID> [ENVIRONMENT]"
     exit 1
 fi
@@ -33,6 +33,25 @@ else
     PREFIX=""
 fi
 
+# Build terraform var-file arguments to avoid interactive prompts
+# Use environment variables if available (from GitHub Actions)
+TF_VARS=""
+if [ -n "${TF_VAR_artifact_registry_repo:-}" ]; then
+    TF_VARS="$TF_VARS -var=artifact_registry_repo=${TF_VAR_artifact_registry_repo}"
+fi
+if [ -n "${TF_VAR_region:-}" ]; then
+    TF_VARS="$TF_VARS -var=region=${TF_VAR_region}"
+fi
+if [ -n "${TF_VAR_tf_state_bucket:-}" ]; then
+    TF_VARS="$TF_VARS -var=tf_state_bucket=${TF_VAR_tf_state_bucket}"
+fi
+if [ -n "${TF_VAR_image_tag:-}" ]; then
+    TF_VARS="$TF_VARS -var=image_tag=${TF_VAR_image_tag}"
+fi
+
+# Always set these from our arguments
+TF_VARS="$TF_VARS -var=project_id=${PROJECT_ID} -var=environment=${ENVIRONMENT}"
+
 # Function to import a resource if it doesn't exist in state
 import_if_not_exists() {
     local resource_type=$1
@@ -44,7 +63,7 @@ import_if_not_exists() {
         echo -e "${YELLOW}Resource $resource_type.$resource_name already in state, skipping...${NC}"
     else
         echo -e "${GREEN}Importing $resource_type.$resource_name...${NC}"
-        if terraform import "$resource_type.$resource_name" "$resource_id"; then
+        if terraform import $TF_VARS "$resource_type.$resource_name" "$resource_id"; then
             echo -e "${GREEN}✓ Successfully imported $resource_type.$resource_name${NC}"
         else
             echo -e "${RED}✗ Failed to import $resource_type.$resource_name${NC}"
