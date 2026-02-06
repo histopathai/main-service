@@ -149,6 +149,8 @@ func (ph *PatientHandler) List(c *gin.Context) {
 		return
 	}
 
+	ph.ApplyVisibilityFilters(c, &spec)
+
 	if err := ph.PValidator.ValidateSpec(spec); err != nil {
 		ph.HandleError(c, err)
 		return
@@ -206,6 +208,8 @@ func (ph *PatientHandler) GetByParentID(c *gin.Context) {
 		ph.HandleError(c, errors.NewValidationError(err.Error(), nil))
 		return
 	}
+
+	ph.ApplyVisibilityFilters(c, &spec)
 
 	if err := ph.PValidator.ValidateSpec(spec); err != nil {
 		ph.HandleError(c, err)

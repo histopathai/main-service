@@ -171,6 +171,8 @@ func (ah *AnnotationHandler) GetByParentID(c *gin.Context) {
 		return
 	}
 
+	ah.ApplyVisibilityFilters(c, &spec)
+
 	if err := ah.AValidator.ValidateSpec(spec); err != nil {
 		ah.HandleError(c, err)
 		return
@@ -235,6 +237,8 @@ func (ah *AnnotationHandler) GetByWsID(c *gin.Context) {
 		ah.HandleError(c, errors.NewValidationError(err.Error(), nil))
 		return
 	}
+
+	ah.ApplyVisibilityFilters(c, &spec)
 
 	if err := ah.AValidator.ValidateSpec(spec); err != nil {
 		ah.HandleError(c, err)

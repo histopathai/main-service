@@ -160,6 +160,8 @@ func (ih *ImageHandler) List(c *gin.Context) {
 		return
 	}
 
+	ih.ApplyVisibilityFilters(c, &spec)
+
 	if err := ih.IValidator.ValidateSpec(spec); err != nil {
 		ih.HandleError(c, err)
 		return
@@ -207,6 +209,8 @@ func (ih *ImageHandler) GetByParentID(c *gin.Context) {
 		ih.HandleError(c, errors.NewValidationError(err.Error(), nil))
 		return
 	}
+
+	ih.ApplyVisibilityFilters(c, &spec)
 
 	if err := ih.IValidator.ValidateSpec(spec); err != nil {
 		ih.HandleError(c, err)
@@ -260,6 +264,8 @@ func (ih *ImageHandler) GetByWorkspaceID(c *gin.Context) {
 		ih.HandleError(c, errors.NewValidationError(err.Error(), nil))
 		return
 	}
+
+	ih.ApplyVisibilityFilters(c, &spec)
 
 	if err := ih.IValidator.ValidateSpec(spec); err != nil {
 		ih.HandleError(c, err)
