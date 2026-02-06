@@ -362,16 +362,16 @@ func (s *EventSerializer) parseGCSNotificationToNewFileExistEvent(data []byte) (
 		Entity: vobj.Entity{
 			ID:         gcsNotif.Metadata["id"],
 			Name:       gcsNotif.Metadata["name"],
-			CreatorID:  gcsNotif.Metadata["creator_id"],
-			EntityType: vobj.EntityType(gcsNotif.Metadata["entity_type"]),
+			CreatorID:  gcsNotif.Metadata["creator-id"],
+			EntityType: vobj.EntityType(gcsNotif.Metadata["entity-type"]),
 			Parent: vobj.ParentRef{
-				ID:   gcsNotif.Metadata["parent_id"],
-				Type: vobj.ParentType(gcsNotif.Metadata["parent_type"]),
+				ID:   gcsNotif.Metadata["parent-id"],
+				Type: vobj.ParentType(gcsNotif.Metadata["parent-type"]),
 			},
 		},
 		Provider:    vobj.ContentProvider(gcsNotif.Metadata["provider"]),
 		Path:        gcsNotif.Metadata["path"],
-		ContentType: vobj.ContentType(gcsNotif.Metadata["content_type"]),
+		ContentType: vobj.ContentType(gcsNotif.Metadata["content-type"]),
 		Size:        size,
 	}
 
