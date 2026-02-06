@@ -257,6 +257,7 @@ resource "google_cloud_run_v2_service" "main_service" {
     environment = var.environment
     service     = "main-service"
     managed_by  = "terraform"
+    version     = "2" # Force update to apply FIRESTORE_DATABASE env var
   }
 }
 
