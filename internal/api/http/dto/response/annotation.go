@@ -14,40 +14,31 @@ type PointResponse struct {
 }
 
 func NewPointResponse(points []vobj.Point) []PointResponse {
-	jsonPoints := make([]PointResponse, len(points))
-	for i, point := range points {
-		jsonPoints[i] = PointResponse{
-			X: point.X,
-			Y: point.Y,
-		}
+	result := make([]PointResponse, len(points))
+	for i, p := range points {
+		result[i] = PointResponse{X: p.X, Y: p.Y}
 	}
-	return jsonPoints
+	return result
 }
 
 type AnnotationResponse struct {
-	ID         string             `json:"id" example:"anno-123"`
-	Name       string             `json:"name" example:"Tumor Region"`
-	EntityType string             `json:"entity_type" example:"annotation"`
-	CreatorID  string             `json:"creator_id" example:"user-123"`
-	Parent     *ParentRefResponse `json:"parent,omitempty"`
-	Polygon    []PointResponse    `json:"polygon"`
-	Type       string             `json:"type" example:"NUMBER"`
-	Value      any                `json:"value"`
-	Color      *string            `json:"color,omitempty" example:"#FF0000"`
-	Global     bool               `json:"global" example:"false"`
-	CreatedAt  time.Time          `json:"created_at" example:"2024-01-01T12:00:00Z"`
-	UpdatedAt  time.Time          `json:"updated_at" example:"2024-01-02T12:00:00Z"`
+	ID               string             `json:"id" example:"anno-123"`
+	EntityType       string             `json:"entity_type" example:"annotation"`
+	CreatorID        string             `json:"creator_id" example:"user-123"`
+	Parent           *ParentRefResponse `json:"parent,omitempty"`
+	AnnotationTypeID string             `json:"annotation_type_id" example:"anno_type-123"`
+	WsID             string             `json:"ws_id" example:"ws-123"`
+	Name             string             `json:"name" example:"Tumor Region"`
+	TagType          string             `json:"tag_type" example:"number"`
+	Value            interface{}        `json:"value" swaggertype:"string" example:"3.5"`
+	IsGlobal         bool               `json:"is_global" example:"false"`
+	Color            *string            `json:"color,omitempty" example:"#FF0000"`
+	Polygon          []PointResponse    `json:"polygon,omitempty"`
+	CreatedAt        time.Time          `json:"created_at" example:"2024-01-01T12:00:00Z"`
+	UpdatedAt        time.Time          `json:"updated_at" example:"2024-01-02T12:00:00Z"`
 }
 
 func NewAnnotationResponse(a *model.Annotation) *AnnotationResponse {
-	var parent *ParentRefResponse
-	if a.Parent != nil {
-		parent = &ParentRefResponse{
-			ID:   a.Parent.ID,
-			Type: a.Parent.Type.String(),
-		}
-	}
-
 	var polygon []PointResponse
 	if a.Polygon != nil {
 		polygon = NewPointResponse(*a.Polygon)
@@ -56,44 +47,42 @@ func NewAnnotationResponse(a *model.Annotation) *AnnotationResponse {
 	return &AnnotationResponse{
 		ID:         a.ID,
 		EntityType: a.EntityType.String(),
-		Name:       *a.Name,
-		CreatorID:  a.Entity.CreatorID,
-		Parent:     parent,
+		CreatorID:  a.CreatorID,
+		Parent:     NewParentRefResponse(&a.Parent),
+		WsID:       a.WsID,
+		Name:       a.Name,
+		TagType:    a.TagType.String(),
+		Value:      a.Value,
+		IsGlobal:   a.IsGlobal,
+		Color:      a.Color,
 		Polygon:    polygon,
-		Type:       a.TagValue.Type.String(),
-		Value:      a.TagValue.Value,
-		Color:      a.TagValue.Color,
-		Global:     a.TagValue.Global,
-		CreatedAt:  a.Entity.CreatedAt,
-		UpdatedAt:  a.Entity.UpdatedAt,
+		CreatedAt:  a.CreatedAt,
+		UpdatedAt:  a.UpdatedAt,
 	}
 }
 
-func NewAnnotationListResponse(result *query.Result[*model.Annotation]) *ListResponse[*AnnotationResponse] {
-	data := make([]*AnnotationResponse, len(result.Data))
+func NewAnnotationListResponse(result *query.Result[*model.Annotation]) *ListResponse[AnnotationResponse] {
+	data := make([]AnnotationResponse, len(result.Data))
 	for i, a := range result.Data {
-		dto := NewAnnotationResponse(a)
-		data[i] = dto
+		data[i] = *NewAnnotationResponse(a)
 	}
 
-	pagination := PaginationResponse{
-		Limit:   result.Limit,
-		Offset:  result.Offset,
-		HasMore: result.HasMore,
-	}
-
-	return &ListResponse[*AnnotationResponse]{
-		Data:       data,
-		Pagination: &pagination,
+	return &ListResponse[AnnotationResponse]{
+		Data: data,
+		Pagination: &PaginationResponse{
+			Limit:   result.Limit,
+			Offset:  result.Offset,
+			HasMore: result.HasMore,
+		},
 	}
 }
 
-// Added DTOs for swagger responses. Swagger requires a concrete type for response schemas.
+// Swagger docs
 type AnnotationDataResponse struct {
 	Data AnnotationResponse `json:"data"`
 }
 
-type AnnotationListResponse struct {
+type AnnotationListResponseDoc struct {
 	Data       []AnnotationResponse `json:"data"`
 	Pagination *PaginationResponse  `json:"pagination,omitempty"`
 }

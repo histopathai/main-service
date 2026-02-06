@@ -1,0 +1,5 @@
+environment            = "dev"
+project_id             = "histopathai-478716"
+tf_state_bucket        = "histopathai-478716-terraform-state"
+region                 = "europe-west1"
+artifact_registry_repo = "histopathai-docker-repo"

@@ -4,34 +4,86 @@ import (
 	"time"
 
 	"github.com/histopathai/main-service/internal/domain/model"
+	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/shared/query"
 )
 
+type MagnificationResponse struct {
+	Objective         *float64 `json:"objective,omitempty" example:"40"`
+	NativeLevel       *int     `json:"native_level,omitempty" example:"0"`
+	ScanMagnification *float64 `json:"scan_magnification,omitempty" example:"40"`
+}
+
+func newMagnificationResponse(mag *vobj.OpticalMagnification) *MagnificationResponse {
+	if mag == nil {
+		return nil
+	}
+	return &MagnificationResponse{
+		Objective:         mag.Objective,
+		NativeLevel:       mag.NativeLevel,
+		ScanMagnification: mag.ScanMagnification,
+	}
+}
+
+type ProcessingInfoResponse struct {
+	Status          string     `json:"status" example:"processed"`
+	Version         string     `json:"version" example:"v1"`
+	FailureReason   *string    `json:"failure_reason,omitempty"`
+	RetryCount      int        `json:"retry_count" example:"0"`
+	LastProcessedAt *time.Time `json:"last_processed_at,omitempty" example:"2024-01-01T12:00:00Z"`
+}
+
+func newProcessingInfoResponse(pi *vobj.ProcessingInfo) ProcessingInfoResponse {
+	var lastProcessedAt *time.Time
+	if !pi.LastProcessedAt.IsZero() {
+		lastProcessedAt = &pi.LastProcessedAt
+	}
+
+	return ProcessingInfoResponse{
+		Status:          pi.Status.String(),
+		Version:         pi.Version.String(),
+		FailureReason:   pi.FailureReason,
+		RetryCount:      pi.RetryCount,
+		LastProcessedAt: lastProcessedAt,
+	}
+}
+
 type ImageResponse struct {
-	ID            string             `json:"id"`
-	Parent        *ParentRefResponse `json:"parent"`
-	CreatorID     string             `json:"creator_id"`
-	Name          string             `json:"name"`
-	Format        string             `json:"format"`
-	Width         *int               `json:"width,omitempty"`
-	Height        *int               `json:"height,omitempty"`
-	Size          *int64             `json:"size,omitempty"`
-	ProcessedPath *string            `json:"processed_path,omitempty"`
-	CreatedAt     time.Time          `json:"created_at"`
-	UpdatedAt     time.Time          `json:"updated_at"`
+	ID         string             `json:"id" example:"img-123"`
+	EntityType string             `json:"entity_type" example:"image"`
+	CreatorID  string             `json:"creator_id" example:"user-123"`
+	Parent     *ParentRefResponse `json:"parent,omitempty"`
+	WsID       string             `json:"ws_id" example:"ws-123"`
+	Name       string             `json:"name" example:"slide1.svs"`
+
+	// Basic properties
+	Format string `json:"format" example:"svs"`
+	Width  *int   `json:"width,omitempty" example:"40000"`
+	Height *int   `json:"height,omitempty" example:"30000"`
+
+	// Magnification
+	Magnification *MagnificationResponse `json:"magnification,omitempty"`
+
+	// Processing
+	Status string `json:"status" example:"processed"`
+	// Timestamps
+	CreatedAt time.Time `json:"created_at" example:"2024-01-01T12:00:00Z"`
+	UpdatedAt time.Time `json:"updated_at" example:"2024-01-02T12:00:00Z"`
 }
 
 func NewImageResponse(img *model.Image) *ImageResponse {
 	return &ImageResponse{
 		ID:            img.ID,
-		Parent:        NewParentRefResponse(img.Parent),
+		EntityType:    img.EntityType.String(),
 		CreatorID:     img.CreatorID,
-		Name:          *img.Name,
+		Parent:        NewParentRefResponse(&img.Parent),
+		WsID:          img.WsID,
+		Name:          img.Name,
 		Format:        img.Format,
 		Width:         img.Width,
 		Height:        img.Height,
-		Size:          img.Size,
-		ProcessedPath: img.ProcessedPath,
+		Magnification: newMagnificationResponse(img.Magnification),
+		Status:        img.Processing.Status.String(),
 		CreatedAt:     img.CreatedAt,
 		UpdatedAt:     img.UpdatedAt,
 	}
@@ -40,38 +92,37 @@ func NewImageResponse(img *model.Image) *ImageResponse {
 func NewImageListResponse(result *query.Result[*model.Image]) *ListResponse[ImageResponse] {
 	data := make([]ImageResponse, len(result.Data))
 	for i, img := range result.Data {
-		dto := NewImageResponse(img)
-		data[i] = *dto
-	}
-
-	pagination := PaginationResponse{
-		Limit:   result.Limit,
-		Offset:  result.Offset,
-		HasMore: result.HasMore,
+		data[i] = *NewImageResponse(img)
 	}
 
 	return &ListResponse[ImageResponse]{
-		Data:       data,
-		Pagination: &pagination,
+		Data: data,
+		Pagination: &PaginationResponse{
+			Limit:   result.Limit,
+			Offset:  result.Offset,
+			HasMore: result.HasMore,
+		},
 	}
 }
 
+// Special responses for image upload
 type UploadImagePayload struct {
-	UploadURL string            `json:"upload_url"`
-	Headers   map[string]string `json:"headers"`
-	Message   string            `json:"message"`
+	ImageID   string            `json:"image_id" example:"img-123"`
+	UploadURL string            `json:"upload_url" example:"https://storage.googleapis.com/..."`
+	Headers   map[string]string `json:"headers,omitempty"`
+	Message   string            `json:"message" example:"Upload the image to this URL"`
 }
 
 type UploadImageResponse struct {
 	Data UploadImagePayload `json:"data"`
 }
 
-// Added DTOs for swagger responses. Swagger requires a concrete type for response schemas.
+// Swagger docs
 type ImageDataResponse struct {
 	Data ImageResponse `json:"data"`
 }
 
-type ImageListResponse struct {
+type ImageListResponseDoc struct {
 	Data       []ImageResponse     `json:"data"`
 	Pagination *PaginationResponse `json:"pagination,omitempty"`
 }

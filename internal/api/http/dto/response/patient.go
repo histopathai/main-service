@@ -8,45 +8,39 @@ import (
 )
 
 type PatientResponse struct {
-	ID        string             `json:"id"`
-	Parent    *ParentRefResponse `json:"parent"` // Artık WorkspaceID yerine bu var
-	Name      string             `json:"name"`
-	Age       *int               `json:"age,omitempty"`
-	Gender    *string            `json:"gender,omitempty"`
-	Race      *string            `json:"race,omitempty"`
-	Disease   *string            `json:"disease,omitempty"`
-	Subtype   *string            `json:"subtype,omitempty"`
-	Grade     *int               `json:"grade,omitempty"`
-	History   *string            `json:"history,omitempty"`
-	CreatedAt time.Time          `json:"created_at"`
-	UpdatedAt time.Time          `json:"updated_at"`
+	ID         string             `json:"id" example:"patient-123"`
+	EntityType string             `json:"entity_type" example:"patient"`
+	CreatorID  string             `json:"creator_id" example:"user-123"`
+	Parent     *ParentRefResponse `json:"parent,omitempty"`
+	Name       string             `json:"name" example:"Patient_001"`
+	Age        *int               `json:"age,omitempty" example:"45"`
+	Gender     *string            `json:"gender,omitempty" example:"Female"`
+	Race       *string            `json:"race,omitempty" example:"Asian"`
+	Disease    *string            `json:"disease,omitempty" example:"Glioblastoma"`
+	Subtype    *string            `json:"subtype,omitempty" example:"IDH-wildtype"`
+	Grade      *int               `json:"grade,omitempty" example:"3"`
+	History    *string            `json:"history,omitempty" example:"No prior history"`
+	CreatedAt  time.Time          `json:"created_at" example:"2024-01-01T12:00:00Z"`
+	UpdatedAt  time.Time          `json:"updated_at" example:"2024-01-02T12:00:00Z"`
 }
 
 func NewPatientResponse(p *model.Patient) *PatientResponse {
 	return &PatientResponse{
-		ID:        p.ID,
-		Parent:    NewParentRefResponse(p.Parent),
-		Name:      *p.Name,
-		Age:       p.Age,
-		Gender:    p.Gender,
-		Race:      p.Race,
-		Disease:   p.Disease,
-		Subtype:   p.Subtype,
-		Grade:     p.Grade,
-		History:   p.History,
-		CreatedAt: p.CreatedAt,
-		UpdatedAt: p.UpdatedAt,
+		ID:         p.ID,
+		EntityType: p.EntityType.String(),
+		CreatorID:  p.CreatorID,
+		Parent:     NewParentRefResponse(&p.Parent),
+		Name:       p.Name,
+		Age:        p.Age,
+		Gender:     p.Gender,
+		Race:       p.Race,
+		Disease:    p.Disease,
+		Subtype:    p.Subtype,
+		Grade:      p.Grade,
+		History:    p.History,
+		CreatedAt:  p.CreatedAt,
+		UpdatedAt:  p.UpdatedAt,
 	}
-}
-
-// Swagger documentation helper
-type PatientDataResponse struct {
-	Data PatientResponse `json:"data"`
-}
-
-type PatientListResponse struct {
-	Data       []PatientResponse   `json:"data"`
-	Pagination *PaginationResponse `json:"pagination,omitempty"`
 }
 
 func NewPatientListResponse(result *query.Result[*model.Patient]) *ListResponse[PatientResponse] {
@@ -63,4 +57,14 @@ func NewPatientListResponse(result *query.Result[*model.Patient]) *ListResponse[
 			HasMore: result.HasMore,
 		},
 	}
+}
+
+// Swagger docs
+type PatientDataResponse struct {
+	Data PatientResponse `json:"data"`
+}
+
+type PatientListResponseDoc struct {
+	Data       []PatientResponse   `json:"data"`
+	Pagination *PaginationResponse `json:"pagination,omitempty"`
 }

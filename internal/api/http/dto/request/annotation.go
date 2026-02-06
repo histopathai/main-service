@@ -5,34 +5,20 @@ type PointRequest struct {
 	Y float64 `json:"y" binding:"required" example:"200.3"`
 }
 
-// TagValueRequest - swagger compatible version
-type TagValueRequest struct {
-	TagType string `json:"tag_type" binding:"required,oneof=NUMBER TEXT BOOLEAN SELECT MULTI_SELECT" example:"NUMBER"`
-	TagName string `json:"tag_name" binding:"required" example:"Grade"`
-	// swaggertype: string - This tells swagger to treat it as string in docs
-	Value  interface{} `json:"value" binding:"required" swaggertype:"string" example:"3.5"`
-	Color  *string     `json:"color,omitempty" example:"#FF0000"`
-	Global bool        `json:"global" example:"false"`
-}
-
 type CreateAnnotationRequest struct {
-	Parent  ParentRefRequest `json:"parent" binding:"required"`
-	Polygon *[]PointRequest  `json:"polygon" binding:"omitempty,min=3,dive"`
-	Tag     TagValueRequest  `json:"tag" binding:"required"`
+	Parent   ParentRefRequest `json:"parent" binding:"required"`
+	Name     string           `json:"name" binding:"required" example:"Tumor Region"`
+	TagType  string           `json:"tag_type" binding:"required,oneof=number text boolean select multi_select" example:"number"`
+	Value    interface{}      `json:"value" binding:"required" swaggertype:"string" example:"3.5"`
+	IsGlobal bool             `json:"is_global" example:"false"`
+	Color    *string          `json:"color,omitempty" example:"#FF0000"`
+	Polygon  *[]PointRequest  `json:"polygon,omitempty" binding:"omitempty,min=3,dive"`
 }
 
 type UpdateAnnotationRequest struct {
-	Parent  *ParentRefRequest `json:"parent,omitempty" binding:"omitempty"`
-	Polygon *[]PointRequest   `json:"polygon,omitempty" binding:"omitempty,min=3,dive"`
-	Tag     *TagValueRequest  `json:"tag,omitempty"`
-}
-
-type ListAnnotationRequest struct {
-	Filters    []JSONFilterRequest   `json:"filters,omitempty" binding:"omitempty,dive"`
-	Pagination JSONPaginationRequest `json:"pagination"`
-}
-
-var ValidAnnotationSortFields = map[string]bool{
-	"created_at": true,
-	"updated_at": true,
+	CreatorID *string         `json:"creator_id" binding:"required" example:"1"`
+	Value     interface{}     `json:"value,omitempty" swaggertype:"string" example:"4.2"`
+	Color     *string         `json:"color,omitempty" example:"#00FF00"`
+	IsGlobal  *bool           `json:"is_global,omitempty" example:"true"`
+	Polygon   *[]PointRequest `json:"polygon,omitempty" binding:"omitempty,min=3,dive"`
 }
