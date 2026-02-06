@@ -141,6 +141,11 @@ resource "google_cloud_run_v2_service" "main_service" {
         value = var.idle_timeout
       }
 
+      env {
+        name  = "FIRESTORE_DATABASE"
+        value = var.environment == "prod" ? "(default)" : "dev-db"
+      }
+
       # --- Platform specific env variables ---
       env {
         name  = "ORIGINAL_BUCKET_NAME"
