@@ -413,6 +413,23 @@ func (im *ImageMapper) MapFilters(filters []query.Filter) ([]query.Filter, error
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
+		} else {
+			// Check if it's a domain name
+			found := false
+			for _, imF := range fields.ImageFields {
+				if imF.DomainName() == f.Field {
+					firestoreFilters = append(firestoreFilters, query.Filter{
+						Field:    imF.FirestoreName(),
+						Operator: f.Operator,
+						Value:    f.Value,
+					})
+					found = true
+					break
+				}
+			}
+			if found {
+				continue
+			}
 		}
 	}
 

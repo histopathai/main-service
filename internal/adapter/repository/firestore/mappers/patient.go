@@ -186,6 +186,23 @@ func (pm *PatientMapper) MapFilters(filters []query.Filter) ([]query.Filter, err
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
+		} else {
+			// Check if it's a domain name
+			found := false
+			for _, pf := range fields.PatientFields {
+				if pf.DomainName() == f.Field {
+					mappedFilters = append(mappedFilters, query.Filter{
+						Field:    pf.FirestoreName(),
+						Operator: f.Operator,
+						Value:    f.Value,
+					})
+					found = true
+					break
+				}
+			}
+			if found {
+				continue
+			}
 		}
 	}
 

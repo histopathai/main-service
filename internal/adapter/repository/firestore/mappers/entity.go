@@ -199,6 +199,23 @@ func (em *EntityMapper[T]) MapFilters(filters []query.Filter) ([]query.Filter, e
 				Value:    filter.Value,
 			})
 		} else {
+			// Check if it's a domain name
+			found := false
+			for _, ef := range fields.EntityFields {
+				if ef.DomainName() == filter.Field {
+					mappedFilters = append(mappedFilters, query.Filter{
+						Field:    ef.FirestoreName(),
+						Operator: filter.Operator,
+						Value:    filter.Value,
+					})
+					found = true
+					break
+				}
+			}
+			if found {
+				continue
+			}
+
 			// Let concrete mappers handle other fields
 			continue
 		}

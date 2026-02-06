@@ -164,13 +164,32 @@ func (am *AnnotationMapper) MapFilters(filters []query.Filter) ([]query.Filter, 
 				Operator: f.Operator,
 				Value:    f.Value,
 			})
-		} else if f.Field == fields.ImageWsID.APIName() || f.Field == fields.ImageWsID.DomainName() {
+		} else {
+			// Check if it's a domain name
+			found := false
+			for _, af := range fields.AnnotationFields {
+				if af.DomainName() == f.Field {
+					mappedFilters = append(mappedFilters, query.Filter{
+						Field:    af.FirestoreName(),
+						Operator: f.Operator,
+						Value:    f.Value,
+					})
+					found = true
+					break
+				}
+			}
+			if found {
+				continue
+			}
+
 			// Handle ws_id explicitly if not in AnnotationFields
-			mappedFilters = append(mappedFilters, query.Filter{
-				Field:    fields.ImageWsID.FirestoreName(),
-				Operator: f.Operator,
-				Value:    f.Value,
-			})
+			if f.Field == fields.ImageWsID.APIName() || f.Field == fields.ImageWsID.DomainName() {
+				mappedFilters = append(mappedFilters, query.Filter{
+					Field:    fields.ImageWsID.FirestoreName(),
+					Operator: f.Operator,
+					Value:    f.Value,
+				})
+			}
 		}
 	}
 
