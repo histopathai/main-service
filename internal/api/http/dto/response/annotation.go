@@ -45,19 +45,20 @@ func NewAnnotationResponse(a *model.Annotation) *AnnotationResponse {
 	}
 
 	return &AnnotationResponse{
-		ID:         a.ID,
-		EntityType: a.EntityType.String(),
-		CreatorID:  a.CreatorID,
-		Parent:     NewParentRefResponse(&a.Parent),
-		WsID:       a.WsID,
-		Name:       a.Name,
-		TagType:    a.TagType.String(),
-		Value:      a.Value,
-		IsGlobal:   a.IsGlobal,
-		Color:      a.Color,
-		Polygon:    polygon,
-		CreatedAt:  a.CreatedAt,
-		UpdatedAt:  a.UpdatedAt,
+		ID:               a.ID,
+		EntityType:       a.EntityType.String(),
+		CreatorID:        a.CreatorID,
+		Parent:           NewParentRefResponse(&a.Parent),
+		AnnotationTypeID: a.AnnotationTypeID,
+		WsID:             a.WsID,
+		Name:             a.Name,
+		TagType:          a.TagType.String(),
+		Value:            a.Value,
+		IsGlobal:         a.IsGlobal,
+		Color:            a.Color,
+		Polygon:          polygon,
+		CreatedAt:        a.CreatedAt,
+		UpdatedAt:        a.UpdatedAt,
 	}
 }
 

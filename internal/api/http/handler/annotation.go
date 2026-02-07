@@ -77,6 +77,7 @@ func (ah *AnnotationHandler) Create(c *gin.Context) {
 			ParentID:   req.Parent.ID,
 			ParentType: req.Parent.Type,
 		},
+		WsID:     &req.WsID,
 		TagType:  req.TagType,
 		Value:    req.Value,
 		Points:   polygon,

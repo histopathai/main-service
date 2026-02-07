@@ -35,6 +35,7 @@ func (am *AnnotationMapper) ToFirestoreMap(entity *model.Annotation) map[string]
 	// Using ImageWsID for consistency if allowable, otherwise string "ws_id".
 	// The file uses "ws_id". field_set.go showed ImageWsID = "ws_id".
 	m[fields.ImageWsID.FirestoreName()] = entity.WsID
+	m[fields.AnnotationTypeID.FirestoreName()] = entity.AnnotationTypeID
 
 	return m
 }
@@ -90,6 +91,10 @@ func (am *AnnotationMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*
 		annotation.WsID = wsID
 	}
 
+	if typeID, ok := data[fields.AnnotationTypeID.FirestoreName()].(string); ok {
+		annotation.AnnotationTypeID = typeID
+	}
+
 	return annotation, nil
 }
 
@@ -143,6 +148,12 @@ func (am *AnnotationMapper) MapUpdates(updates map[string]interface{}) (map[stri
 				mappedUpdates[fields.ImageWsID.FirestoreName()] = wsID
 			} else {
 				return nil, errors.NewValidationError("invalid type for ws_id field", nil)
+			}
+		case fields.AnnotationTypeID.DomainName():
+			if typeID, ok := v.(string); ok {
+				mappedUpdates[fields.AnnotationTypeID.FirestoreName()] = typeID
+			} else {
+				return nil, errors.NewValidationError("invalid type for annotation_type_id field", nil)
 			}
 		}
 	}

@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/histopathai/main-service/internal/application/command"
+	"github.com/histopathai/main-service/internal/application/usecase/helper"
 	"github.com/histopathai/main-service/internal/application/usecase/validator"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/port"
@@ -33,6 +34,20 @@ func (uc *AnnotationUseCase) Create(ctx context.Context, cmd command.CreateAnnot
 
 	var createdAnnotation *model.Annotation
 	err = uc.uow.WithTx(ctx, func(txCtx context.Context) error {
+
+		// Lookup annotation type ID by name and workspace ID
+		annotationTypeID, err := helper.FindAnnotationTypeByNameAndWsID(
+			txCtx,
+			uc.uow.GetAnnotationTypeRepo(),
+			entity.Name,
+			entity.WsID,
+		)
+		if err != nil {
+			return errors.NewInternalError("failed to find annotation type", err)
+		}
+
+		// Set the annotation type ID
+		entity.AnnotationTypeID = annotationTypeID
 
 		// Validate
 		if err := uc.validator.ValidateCreate(txCtx, entity); err != nil {
