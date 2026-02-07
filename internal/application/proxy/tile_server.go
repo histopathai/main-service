@@ -193,7 +193,13 @@ func (s *TileServer) serveTileFromDirectory(ctx context.Context, tilesContentID,
 	}
 
 	tileContent := *content
-	tileContent.Path = fmt.Sprintf("%s/%s", content.Path, tilePath)
+	// For v1 tiles, the content.Path ends with "image_files/" and tilePath starts with "image_files/"
+	// We need to strip the "image_files/" prefix from tilePath to avoid duplication
+	// Example: content.Path = "33b51936-4789-4d5e-b3c4-68e8b77bb799/image_files/"
+	//          tilePath = "image_files/9/0_0.jpg"
+	//          Result should be: "33b51936-4789-4d5e-b3c4-68e8b77bb799/image_files/9/0_0.jpg"
+	cleanTilePath := strings.TrimPrefix(tilePath, "image_files/")
+	tileContent.Path = fmt.Sprintf("%s%s", content.Path, cleanTilePath)
 
 	return s.storage.Get(ctx, tileContent)
 }

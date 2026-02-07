@@ -143,7 +143,7 @@ resource "google_cloud_run_v2_service" "main_service" {
 
       env {
         name  = "FIRESTORE_DATABASE"
-        value = var.environment == "prod" ? "(default)" : "dev-db"
+        value = var.environment == "prod" ? "(default)" : "dev-database"
       }
 
       # --- Platform specific env variables ---
