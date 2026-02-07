@@ -72,7 +72,9 @@ func (wm *WorkspaceMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*m
 	if resourceURL, ok := data[fields.WorkspaceResourceURL.FirestoreName()].(string); ok {
 		workspace.ResourceURL = &resourceURL
 	}
-	if releaseYear, ok := data[fields.WorkspaceReleaseYear.FirestoreName()].(int); ok {
+	// Firestore stores integers as int64
+	if releaseYear64, ok := data[fields.WorkspaceReleaseYear.FirestoreName()].(int64); ok {
+		releaseYear := int(releaseYear64)
 		workspace.ReleaseYear = &releaseYear
 	}
 	if annotationTypesRaw, ok := data[fields.WorkspaceAnnotationTypes.FirestoreName()].([]interface{}); ok {

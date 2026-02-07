@@ -61,7 +61,9 @@ func (pm *PatientMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*mod
 
 	data := doc.Data()
 
-	if age, ok := data[fields.PatientAge.FirestoreName()].(int); ok {
+	// Firestore stores integers as int64
+	if age64, ok := data[fields.PatientAge.FirestoreName()].(int64); ok {
+		age := int(age64)
 		patient.Age = &age
 	}
 	if gender, ok := data[fields.PatientGender.FirestoreName()].(string); ok {
@@ -76,7 +78,9 @@ func (pm *PatientMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*mod
 	if subtype, ok := data[fields.PatientSubtype.FirestoreName()].(string); ok {
 		patient.Subtype = &subtype
 	}
-	if grade, ok := data[fields.PatientGrade.FirestoreName()].(int); ok {
+	// Firestore stores integers as int64
+	if grade64, ok := data[fields.PatientGrade.FirestoreName()].(int64); ok {
+		grade := int(grade64)
 		patient.Grade = &grade
 	}
 	if history, ok := data[fields.PatientHistory.FirestoreName()].(string); ok {

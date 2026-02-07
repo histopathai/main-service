@@ -13,7 +13,7 @@ type CreatePatientRequest struct {
 }
 
 type UpdatePatientRequest struct {
-	CreatorID *string `json:"creator_id" binding:"required" example:"1"`
+	CreatorID *string `json:"creator_id" binding:"omitempty" example:"1"`
 	Name      *string `json:"name,omitempty" example:"Patient_001"`
 	Age       *int    `json:"age,omitempty" example:"45"`
 	Gender    *string `json:"gender,omitempty" example:"Female"`
