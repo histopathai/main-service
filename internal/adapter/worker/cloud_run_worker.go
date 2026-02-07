@@ -39,7 +39,8 @@ func NewCloudRunWorker(ctx context.Context, cfg config.WorkerConfig, gcpCfg conf
 }
 
 func (w *CloudRunWorker) ProcessImage(ctx context.Context, content model.Content, processingVersion vobj.ProcessingVersion) error {
-	jobName := w.determineJobName(content.Size)
+	// Config already contains full job path: projects/{project}/locations/{region}/jobs/{job-name}
+	fullJobName := w.determineJobName(content.Size)
 
 	// Determine image ID from content parent
 	// Assuming content parent is the image
@@ -48,11 +49,10 @@ func (w *CloudRunWorker) ProcessImage(ctx context.Context, content model.Content
 	w.logger.Info("Selected Cloud Run Job based on size",
 		slog.String("image_id", imageID),
 		slog.Int64("size_bytes", content.Size),
-		slog.String("job_name", jobName),
+		slog.String("job_name", fullJobName),
 		slog.String("version", processingVersion.String()),
 	)
 
-	fullJobName := fmt.Sprintf("projects/%s/locations/%s/jobs/%s", w.gcpConfig.ProjectID, w.gcpConfig.Region, jobName)
 	req := &runpb.RunJobRequest{
 		Name: fullJobName,
 		Overrides: &runpb.RunJobRequest_Overrides{
@@ -83,12 +83,12 @@ func (w *CloudRunWorker) ProcessImage(ctx context.Context, content model.Content
 
 	op, err := w.client.RunJob(ctx, req)
 	if err != nil {
-		return fmt.Errorf("failed to run job (%s): %w", jobName, err)
+		return fmt.Errorf("failed to run job (%s): %w", fullJobName, err)
 	}
 
 	w.logger.Info("Cloud Run job triggered successfully",
 		slog.String("operation", op.Name()),
-		slog.String("target_job", jobName))
+		slog.String("target_job", fullJobName))
 
 	return nil
 }
