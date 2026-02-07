@@ -71,3 +71,40 @@ func CountAnnotationsByType(
 
 	return count, nil
 }
+
+// FindAnnotationTypeByNameAndWsID finds annotation type by name and workspace ID
+func FindAnnotationTypeByNameAndWsID(
+	ctx context.Context,
+	annotationTypeRepo port.AnnotationTypeRepository,
+	name string,
+	wsID string,
+) (string, error) {
+	builder := query.NewBuilder()
+	builder.Where(fields.EntityName.DomainName(), query.OpEqual, name)
+	builder.Where(fields.EntityIsDeleted.DomainName(), query.OpEqual, false)
+	builder.Paginate(10, 0)
+
+	result, err := annotationTypeRepo.Find(ctx, builder.Build())
+	if err != nil {
+		return "", fmt.Errorf("failed to find annotation type: %w", err)
+	}
+
+	if len(result.Data) == 0 {
+		return "", fmt.Errorf("annotation type not found with name: %s", name)
+	}
+
+	// Find the one that matches workspace or is global
+	for _, at := range result.Data {
+		// Check if it's global or belongs to the workspace
+		if at.IsGlobal {
+			return at.GetID(), nil
+		}
+		// Check if it belongs to the workspace by checking parent
+		if at.Parent.ID == wsID {
+			return at.GetID(), nil
+		}
+	}
+
+	// If no match found, return the first one (fallback)
+	return result.Data[0].GetID(), nil
+}

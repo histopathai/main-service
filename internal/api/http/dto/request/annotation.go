@@ -7,6 +7,7 @@ type PointRequest struct {
 
 type CreateAnnotationRequest struct {
 	Parent   ParentRefRequest `json:"parent" binding:"required"`
+	WsID     string           `json:"ws_id" binding:"required" example:"ws-123"`
 	Name     string           `json:"name" binding:"required" example:"Tumor Region"`
 	TagType  string           `json:"tag_type" binding:"required,oneof=number text boolean select multi_select" example:"number"`
 	Value    interface{}      `json:"value" binding:"required" swaggertype:"string" example:"3.5"`

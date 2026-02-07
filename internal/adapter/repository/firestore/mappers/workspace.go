@@ -57,7 +57,8 @@ func (wm *WorkspaceMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*m
 	if organTypeStr, ok := data[fields.WorkspaceOrganType.FirestoreName()].(string); ok {
 		workspace.OrganType, err = vobj.NewOrganTypeFromString(organTypeStr)
 		if err != nil {
-			return nil, err
+			// Fallback to unknown instead of erroring
+			workspace.OrganType = vobj.OrganUnknown
 		}
 	}
 	if organization, ok := data[fields.WorkspaceOrganization.FirestoreName()].(string); ok {
