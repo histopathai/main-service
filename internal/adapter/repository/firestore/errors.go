@@ -7,6 +7,8 @@ import (
 	"google.golang.org/api/iterator"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
+
+	apperrors "github.com/histopathai/main-service/internal/shared/errors"
 )
 
 var (
@@ -30,13 +32,11 @@ func mapFirestoreError(err error) error {
 	if ok {
 		switch st.Code() {
 		case codes.NotFound:
-			return ErrNotFound
+			return apperrors.NewNotFoundError("document not found")
 		case codes.AlreadyExists:
-			return ErrAlreadyExists
+			return apperrors.NewConflictError("document already exists", nil)
 		case codes.Aborted:
 			return ErrTransactionAborted
-		default:
-			return errors.Join(ErrInternal, err)
 		}
 	}
 
