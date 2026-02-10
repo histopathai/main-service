@@ -7,195 +7,183 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/histopathai/main-service/internal/api/http/dto/request"
 	"github.com/histopathai/main-service/internal/api/http/dto/response"
+	"github.com/histopathai/main-service/internal/api/http/handler/helper"
 	"github.com/histopathai/main-service/internal/api/http/middleware"
-	"github.com/histopathai/main-service/internal/api/http/validator"
-	"github.com/histopathai/main-service/internal/domain/port"
+	"github.com/histopathai/main-service/internal/application/command"
+	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/vobj"
+	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/errors"
-	"github.com/histopathai/main-service/internal/shared/query"
+	validator "github.com/histopathai/main-service/internal/shared/query"
 )
 
 type AnnotationHandler struct {
-	annotationService port.IAnnotationService
-	validator         *validator.RequestValidator
-	BaseHandler       // Embed the BaseHandler
+	helper.BaseHandler
+	AQuery     port.AnnotationQuery
+	AUseCase   port.AnnotationUseCase
+	AValidator *validator.Validator
 }
 
-func NewAnnotationHandler(annotationService port.IAnnotationService, validator *validator.RequestValidator, logger *slog.Logger) *AnnotationHandler {
+func NewAnnotationHandler(query port.AnnotationQuery, useCase port.AnnotationUseCase, logger *slog.Logger) *AnnotationHandler {
 	return &AnnotationHandler{
-		annotationService: annotationService,
-		validator:         validator,
-		BaseHandler:       BaseHandler{logger: logger},
+		AQuery:      query,
+		AUseCase:    useCase,
+		AValidator:  validator.NewValidator(fields.NewAnnotationFieldSet()),
+		BaseHandler: helper.NewBaseHandler(logger),
 	}
 }
 
-// CreateNewAnnotation [post] godoc
+// Create godoc
 // @Summary Create a new annotation
-// @Description Create a new annotation with the provided details
 // @Tags Annotations
 // @Accept json
 // @Produce json
-// @Param        request body request.CreateAnnotationRequest true "Annotation creation request"
+// @Param request body request.CreateAnnotationRequest true "Annotation creation request"
 // @Success 201 {object} response.AnnotationDataResponse "Annotation created successfully"
-// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
 // @Router /annotations [post]
-func (ah *AnnotationHandler) CreateNewAnnotation(c *gin.Context) {
-	annotator_id, err := middleware.GetAuthenticatedUserID(c)
+func (ah *AnnotationHandler) Create(c *gin.Context) {
+	annotatorID, err := middleware.GetAuthenticatedUserID(c)
 	if err != nil {
-		ah.handleError(c, err)
+		ah.HandleError(c, err)
 		return
 	}
 
 	var req request.CreateAnnotationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ah.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+		ah.HandleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
 			"error": err.Error(),
 		}))
 		return
 	}
 
-	if err := ah.validator.ValidateStruct(&req); err != nil {
-		ah.handleError(c, err)
-		return
-	}
-
-	// DTO -> Service Input
-	entityInput := port.CreateEntityInput{
-		Name: req.Tag.TagName,
-		Type: vobj.EntityTypeAnnotation,
-		Parent: &vobj.ParentRef{
-			ID:   req.Parent.ID,
-			Type: vobj.ParentTypeImage,
-		},
-		CreatorID: annotator_id,
-	}
-
-	tagInput := vobj.TagValue{
-		Type:   vobj.TagType(req.Tag.TagType),
-		Value:  req.Tag.Value,
-		Color:  req.Tag.Color,
-		Global: req.Tag.Global,
-	}
-
-	var polygon *[]vobj.Point
+	var polygon []command.CommandPoint
 	if req.Polygon != nil && len(*req.Polygon) > 0 {
-		points := make([]vobj.Point, len(*req.Polygon))
+		points := make([]command.CommandPoint, len(*req.Polygon))
 		for i, pr := range *req.Polygon {
-			points[i] = vobj.NewPoint(pr.X, pr.Y)
+			points[i] = command.CommandPoint{X: pr.X, Y: pr.Y}
 		}
-		polygon = &points
+		polygon = points
 	}
 
-	input := port.CreateAnnotationInput{
-		CreateEntityInput: entityInput,
-		TagValue:          tagInput,
-		Polygon:           polygon,
+	cmd := command.CreateAnnotationCommand{
+		CreateEntityCommand: command.CreateEntityCommand{
+			Name:       req.Name,
+			EntityType: vobj.EntityTypeAnnotation.String(),
+			CreatorID:  annotatorID,
+			ParentID:   req.Parent.ID,
+			ParentType: req.Parent.Type,
+		},
+		WsID:     &req.WsID,
+		TagType:  req.TagType,
+		Value:    req.Value,
+		Points:   polygon,
+		Color:    req.Color,
+		IsGlobal: req.IsGlobal,
 	}
 
-	createdAnnotation, err := ah.annotationService.CreateNewAnnotation(c.Request.Context(), &input)
-	if err != nil {
-		ah.handleError(c, err)
+	errDetails, ok := cmd.Validate()
+	if !ok {
+		ah.HandleError(c, errors.NewValidationError("invalid command payload", errDetails))
 		return
 	}
 
-	ah.logger.Info("Annotation created successfully",
-		slog.String("annotation_id", createdAnnotation.ID),
-	)
+	createdAnnotation, err := ah.AUseCase.Create(c.Request.Context(), cmd)
+	if err != nil {
+		ah.HandleError(c, err)
+		return
+	}
 
-	// Service Output -> DTO
 	annotationResp := response.NewAnnotationResponse(createdAnnotation)
-
-	ah.response.Created(c, annotationResp)
-
+	ah.Response.Created(c, annotationResp)
 }
 
-// GetAnnotationByID [get] godoc
+// Get godoc
 // @Summary Get an annotation by ID
-// @Description Retrieve an annotation using its unique ID
 // @Tags Annotations
 // @Accept json
 // @Produce json
 // @Param id path string true "Annotation ID"
-// @Success 200 {object} response.AnnotationDataResponse "Annotation retrieved successfully"
-// @Failure 400 {object} response.ErrorResponse "Invalid annotation ID"
-// @Failure 404 {object} response.ErrorResponse "Annotation not found"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Success 200 {object} response.AnnotationDataResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /annotations/{annotation_id} [get]
-func (ah *AnnotationHandler) GetAnnotationByID(c *gin.Context) {
-	annotationID := c.Param("annotation_id")
+// @Router /annotations/{id} [get]
+func (ah *AnnotationHandler) Get(c *gin.Context) {
+	annotationID := c.Param("id")
 	if annotationID == "" {
-		ah.handleError(c, errors.NewValidationError("invalid annotation ID", map[string]interface{}{
-			"annotation_id": "Annotation ID cannot be empty",
+		ah.HandleError(c, errors.NewValidationError("invalid annotation ID", map[string]interface{}{
+			"id": "Annotation ID cannot be empty",
 		}))
 		return
 	}
 
-	annotation, err := ah.annotationService.GetAnnotationByID(c.Request.Context(), annotationID)
+	annotation, err := ah.AQuery.Get(c.Request.Context(), annotationID)
 	if err != nil {
-		ah.handleError(c, err)
+		ah.HandleError(c, err)
 		return
 	}
 
-	// Service Output -> DTO
 	annotationResp := response.NewAnnotationResponse(annotation)
-
-	ah.response.Success(c, http.StatusOK, annotationResp)
+	ah.Response.Success(c, http.StatusOK, annotationResp)
 }
 
-// GetAnnotationsByImageID [get] godoc
+// GetByParentID godoc
 // @Summary Get annotations by Image ID
-// @Description Retrieve annotations associated with a specific image ID
+// @Description Get annotations belonging to a specific image with optional filtering, sorting, and pagination
 // @Tags Annotations
 // @Accept json
 // @Produce json
 // @Param image_id path string true "Image ID"
-// @Param        limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
-// @Param        offset query int false "Number of items to skip" default(0) minimum(0)
-// @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
-// @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
-// @Success 200 {object} response.AnnotationListResponse "List of annotations retrieved successfully"
-// @Failure 400 {object} response.ErrorResponse "Invalid request parameters"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Param limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Number of items to skip" default(0) minimum(0)
+// @Param sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
+// @Param sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
+// @Success 200 {object} response.AnnotationListResponseDoc
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
 // @Router /annotations/image/{image_id} [get]
-func (ah *AnnotationHandler) GetAnnotationsByImageID(c *gin.Context) {
+func (ah *AnnotationHandler) GetByParentID(c *gin.Context) {
 	imageID := c.Param("image_id")
 	if imageID == "" {
-		ah.handleError(c, errors.NewValidationError("invalid image ID", map[string]interface{}{
+		ah.HandleError(c, errors.NewValidationError("invalid image ID", map[string]interface{}{
 			"image_id": "Image ID cannot be empty",
 		}))
 		return
 	}
 
-	var queryReq request.QueryPaginationRequest
-	if err := c.ShouldBindQuery(&queryReq); err != nil {
-		ah.handleError(c, errors.NewValidationError("invalid query parameters",
-			map[string]interface{}{"error": err.Error()}))
+	var req request.ListRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		ah.HandleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
+			"error": err.Error(),
+		}))
 		return
 	}
 
-	pagination := queryReq.ToPagination()
-
-	pagination.ApplyDefaults()
-
-	if err := pagination.ValidateSortFields(request.ValidAnnotationSortFields); err != nil {
-		ah.handleError(c, err)
-		return
-	}
-
-	result, err := ah.annotationService.GetAnnotationsByImageID(c.Request.Context(), imageID, pagination)
+	spec, err := req.ToSpecification()
 	if err != nil {
-		ah.handleError(c, err)
+		ah.HandleError(c, errors.NewValidationError(err.Error(), nil))
 		return
 	}
 
-	// Service Output -> DTO
+	ah.ApplyVisibilityFilters(c, &spec)
+
+	if err := ah.AValidator.ValidateSpec(spec); err != nil {
+		ah.HandleError(c, err)
+		return
+	}
+
+	result, err := ah.AQuery.GetByParentID(c.Request.Context(), spec, imageID)
+	if err != nil {
+		ah.HandleError(c, err)
+		return
+	}
 
 	paginationResp := &response.PaginationResponse{
 		Limit:   result.Limit,
@@ -208,207 +196,221 @@ func (ah *AnnotationHandler) GetAnnotationsByImageID(c *gin.Context) {
 		annotationsResp[i] = *response.NewAnnotationResponse(at)
 	}
 
-	ah.response.SuccessList(c, annotationsResp, paginationResp)
+	ah.Response.SuccessList(c, annotationsResp, paginationResp)
 }
 
-// CountAnnotations [get] godoc
-// @Summary Count annotations
-// @Description Get the total count of annotations in the system
+// GetByWsID godoc
+// @Summary Get annotations by Workspace ID
+// @Description Get annotations belonging to a specific workspace with optional filtering, sorting, and pagination
 // @Tags Annotations
 // @Accept json
 // @Produce json
-// @Success 200 {object} response.CountResponse "Total count of annotations"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Param workspace_id path string true "Workspace ID"
+// @Param limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Number of items to skip" default(0) minimum(0)
+// @Param sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
+// @Param sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
+// @Success 200 {object} response.AnnotationListResponseDoc
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /annotations/count-v1 [get]
-func (ah *AnnotationHandler) CountV1Annotations(c *gin.Context) {
-	count, err := ah.annotationService.CountAnnotations(c.Request.Context(), []query.Filter{})
-	if err != nil {
-		ah.handleError(c, err)
+// @Router /annotations/workspace/{workspace_id} [get]
+func (ah *AnnotationHandler) GetByWsID(c *gin.Context) {
+	workspaceID := c.Param("workspace_id")
+	if workspaceID == "" {
+		ah.HandleError(c, errors.NewValidationError("invalid workspace ID", map[string]interface{}{
+			"workspace_id": "Workspace ID cannot be empty",
+		}))
 		return
 	}
 
-	countResp := response.CountResponse{
-		Count: count,
+	var req request.ListRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		ah.HandleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
 	}
 
-	ah.response.Success(c, http.StatusOK, countResp)
+	spec, err := req.ToSpecification()
+	if err != nil {
+		ah.HandleError(c, errors.NewValidationError(err.Error(), nil))
+		return
+	}
+
+	ah.ApplyVisibilityFilters(c, &spec)
+
+	if err := ah.AValidator.ValidateSpec(spec); err != nil {
+		ah.HandleError(c, err)
+		return
+	}
+
+	result, err := ah.AQuery.GetByWsID(c.Request.Context(), spec, workspaceID)
+	if err != nil {
+		ah.HandleError(c, err)
+		return
+	}
+
+	paginationResp := &response.PaginationResponse{
+		Limit:   result.Limit,
+		Offset:  result.Offset,
+		HasMore: result.HasMore,
+	}
+
+	annotationsResp := make([]response.AnnotationResponse, len(result.Data))
+	for i, at := range result.Data {
+		annotationsResp[i] = *response.NewAnnotationResponse(at)
+	}
+
+	ah.Response.SuccessList(c, annotationsResp, paginationResp)
 }
 
-// UpdateAnnotation [put] godoc
+// Count godoc
+// @Summary Count annotations
+// @Description Count annotations with optional filters via query parameters
+// @Tags Annotations
+// @Accept json
+// @Produce json
+// @Success 200 {object} response.CountResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /annotations/count [get]
+func (ah *AnnotationHandler) Count(c *gin.Context) {
+	var req request.ListRequest
+	if err := c.ShouldBindQuery(&req); err != nil {
+		ah.HandleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
+	}
+
+	spec, err := req.ToSpecification()
+	if err != nil {
+		ah.HandleError(c, errors.NewValidationError(err.Error(), nil))
+		return
+	}
+
+	if err := ah.AValidator.ValidateSpec(spec); err != nil {
+		ah.HandleError(c, err)
+		return
+	}
+
+	count, err := ah.AQuery.Count(c.Request.Context(), spec)
+	if err != nil {
+		ah.HandleError(c, err)
+		return
+	}
+
+	countResp := response.CountResponse{Count: count}
+	ah.Response.Success(c, http.StatusOK, countResp)
+}
+
+// Update godoc
 // @Summary Update an annotation by ID
-// @Description Update an annotation's details using its unique ID
 // @Tags Annotations
 // @Accept json
 // @Produce json
 // @Param id path string true "Annotation ID"
-// @Param        request body request.UpdateAnnotationRequest true "Annotation update request"
+// @Param request body request.UpdateAnnotationRequest true "Annotation update request"
 // @Success 204 "Annotation updated successfully"
-// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
-// @Failure 404 {object} response.ErrorResponse "Annotation not found"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /annotations/{annotation_id} [put]
-func (ah *AnnotationHandler) UpdateAnnotation(c *gin.Context) {
-	annotationID := c.Param("annotation_id")
+// @Router /annotations/{id} [put]
+func (ah *AnnotationHandler) Update(c *gin.Context) {
+	annotationID := c.Param("id")
 	if annotationID == "" {
-		ah.handleError(c, errors.NewValidationError("invalid annotation ID", map[string]interface{}{
-			"annotation_id": "Annotation ID cannot be empty",
+		ah.HandleError(c, errors.NewValidationError("invalid annotation ID", map[string]interface{}{
+			"id": "Annotation ID cannot be empty",
 		}))
 		return
 	}
 
 	var req request.UpdateAnnotationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ah.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+		ah.HandleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
 			"error": err.Error(),
 		}))
 		return
 	}
 
-	if err := ah.validator.ValidateStruct(&req); err != nil {
-		ah.handleError(c, err)
-		return
+	cmd := command.UpdateAnnotationCommand{
+		UpdateEntityCommand: command.UpdateEntityCommand{
+			ID:   annotationID,
+			Name: nil,
+		},
+		Value:    req.Value,
+		IsGlobal: req.IsGlobal,
 	}
 
-	// Entity input oluştur
-	updateEntityInput := port.UpdateEntityInput{}
-
-	// Parent varsa ekle
-	if req.Parent != nil {
-		parentRef, err := vobj.NewParentRef(req.Parent.ID, vobj.ParentType(req.Parent.Type))
-		if err != nil {
-			ah.handleError(c, errors.NewValidationError("invalid parent reference", map[string]interface{}{
-				"error": err.Error(),
-			}))
-			return
-		}
-		updateEntityInput.Parent = parentRef
-	}
-
-	updateTagValue := port.UpdateTagValue{}
-	if req.Tag != nil {
-		if req.Tag.TagType != "" {
-			tagType := vobj.TagType(req.Tag.TagType)
-			updateTagValue.TagType = &tagType
-		}
-		if req.Tag.TagName != "" {
-			updateTagValue.TagName = &req.Tag.TagName
-		}
-		if req.Tag.Value != nil {
-			updateTagValue.Value = &req.Tag.Value
-		}
-		updateTagValue.Color = req.Tag.Color
-		if req.Tag.Global {
-			updateTagValue.Global = &req.Tag.Global
-		}
-	}
-
-	var polygon *[]vobj.Point
-	if req.Polygon != nil && len(*req.Polygon) > 0 {
-		points := make([]vobj.Point, len(*req.Polygon))
-		for i, pr := range *req.Polygon {
-			points[i] = vobj.NewPoint(pr.X, pr.Y)
-		}
-		polygon = &points
-	}
-
-	input := port.UpdateAnnotationInput{
-		UpdateEntityInput: updateEntityInput,
-		Polygon:           polygon,
-		UpdateTagValue:    updateTagValue,
-	}
-
-	err := ah.annotationService.UpdateAnnotation(c.Request.Context(), annotationID, &input)
+	err := ah.AUseCase.Update(c.Request.Context(), cmd)
 	if err != nil {
-		ah.handleError(c, err)
+		ah.HandleError(c, err)
 		return
 	}
 
-	ah.logger.Info("Annotation updated successfully",
-		slog.String("annotation_id", annotationID),
-	)
-
-	// No content to return
-	ah.response.NoContent(c)
+	ah.Response.NoContent(c)
 }
 
-// DeleteAnnotation [delete] godoc
-// @Summary Delete an annotation by ID
-// @Description Delete an annotation using its unique ID
+// SoftDelete godoc
+// @Summary Soft delete annotation by ID
 // @Tags Annotations
 // @Accept json
 // @Produce json
 // @Param id path string true "Annotation ID"
-// @Success 204 "Annotation deleted successfully"
-// @Failure 400 {object} response.ErrorResponse "Invalid annotation ID"
-// @Failure 404 {object} response.ErrorResponse "Annotation not found"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Success 204
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /annotations/{annotation_id} [delete]
-func (ah *AnnotationHandler) DeleteAnnotation(c *gin.Context) {
-	annotationID := c.Param("annotation_id")
+// @Router /annotations/{id}/soft-delete [delete]
+func (ah *AnnotationHandler) SoftDelete(c *gin.Context) {
+	annotationID := c.Param("id")
 	if annotationID == "" {
-		ah.handleError(c, errors.NewValidationError("invalid annotation ID", map[string]interface{}{
-			"annotation_id": "Annotation ID cannot be empty",
+		ah.HandleError(c, errors.NewValidationError("invalid annotation ID", map[string]interface{}{
+			"id": "Annotation ID cannot be empty",
 		}))
 		return
 	}
 
-	err := ah.annotationService.DeleteAnnotation(c.Request.Context(), annotationID)
+	err := ah.AQuery.SoftDelete(c.Request.Context(), annotationID)
 	if err != nil {
-		ah.handleError(c, err)
+		ah.HandleError(c, err)
 		return
 	}
 
-	ah.logger.Info("Annotation deleted successfully",
-		slog.String("annotation_id", annotationID),
-	)
-
-	// No content to return
-	ah.response.NoContent(c)
+	ah.Response.NoContent(c)
 }
 
-// BatchDeleteAnnotations [post] godoc
-// @Summary Batch delete annotations by IDs
-// @Description Delete multiple annotations using their unique IDs
+// SoftDeleteMany godoc
+// @Summary Batch soft delete annotations by IDs
 // @Tags Annotations
 // @Accept json
 // @Produce json
-// @Param        request body request.BatchDeleteRequest true "Batch delete request"
-// @Success 204 "Annotations deleted successfully"
-// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Param ids query []string true "Annotation IDs"
+// @Success 204
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /annotations/batch-delete [post]
-func (ah *AnnotationHandler) BatchDeleteAnnotations(c *gin.Context) {
-	var req request.BatchDeleteRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ah.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
-			"error": err.Error(),
-		}))
+// @Router /annotations/soft-delete-many [delete]
+func (ah *AnnotationHandler) SoftDeleteMany(c *gin.Context) {
+	ids := c.QueryArray("ids")
+	if len(ids) == 0 {
+		ah.HandleError(c, errors.NewValidationError("ids parameter is required", nil))
 		return
 	}
 
-	if err := ah.validator.ValidateStruct(&req); err != nil {
-		ah.handleError(c, err)
-		return
-	}
-
-	err := ah.annotationService.BatchDeleteAnnotations(c.Request.Context(), req.IDs)
+	err := ah.AQuery.SoftDeleteMany(c.Request.Context(), ids)
 	if err != nil {
-		ah.handleError(c, err)
+		ah.HandleError(c, err)
 		return
 	}
 
-	ah.logger.Info("Batch annotations deleted successfully",
-		slog.Int("count", len(req.IDs)),
-	)
-
-	// No content to return
-	ah.response.NoContent(c)
+	ah.Response.NoContent(c)
 }

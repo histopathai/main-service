@@ -1,0 +1,166 @@
+package helper
+
+import (
+	"context"
+	"fmt"
+
+	"github.com/histopathai/main-service/internal/domain/fields"
+	"github.com/histopathai/main-service/internal/domain/vobj"
+	"github.com/histopathai/main-service/internal/port"
+	"github.com/histopathai/main-service/internal/shared/errors"
+	"github.com/histopathai/main-service/internal/shared/query"
+)
+
+func CheckNameUniqueUnderParent[T port.Entity](ctx context.Context, repo port.Repository[T], name string, parentID string, excludeID ...string) (bool, error) {
+	builder := query.NewBuilder()
+	builder.Where(fields.EntityName.APIName(), query.OpEqual, name)
+	builder.Where(fields.EntityParentID.APIName(), query.OpEqual, parentID)
+	builder.Where(fields.EntityIsDeleted.APIName(), query.OpEqual, false)
+
+	// Fetch potential conflicts
+	builder.Paginate(2, 0) // We only need to know if > 0 exists
+
+	// Use Find instead of Count to inspect IDs
+	result, err := repo.Find(ctx, builder.Build())
+	if err != nil {
+		return false, fmt.Errorf("failed to check name uniqueness: %w", err)
+	}
+
+	if len(result.Data) == 0 {
+		return true, nil
+	}
+
+	// If excluding an ID (update scenario)
+	if len(excludeID) > 0 && excludeID[0] != "" {
+		targetID := excludeID[0]
+		for _, entity := range result.Data {
+			// If we find an entity with same name but DIFFERENT ID -> Conflict
+			if entity.GetID() != targetID {
+				return false, nil
+			}
+		}
+		// Only match was self -> Unique
+		return true, nil
+	}
+
+	// No exclusion -> Any match is conflict
+	return false, nil
+}
+
+func CheckNameUniqueInCollection[T port.Entity](ctx context.Context, repo port.Repository[T], name string, excludeID ...string) (bool, error) {
+	builder := query.NewBuilder()
+	builder.Where(fields.EntityName.APIName(), query.OpEqual, name)
+	builder.Where(fields.EntityIsDeleted.APIName(), query.OpEqual, false)
+
+	// Fetch potential conflicts
+	builder.Paginate(2, 0)
+
+	result, err := repo.Find(ctx, builder.Build())
+	if err != nil {
+		return false, fmt.Errorf("failed to check name uniqueness in collection: %w", err)
+	}
+
+	if len(result.Data) == 0 {
+		return true, nil
+	}
+
+	if len(excludeID) > 0 && excludeID[0] != "" {
+		targetID := excludeID[0]
+		for _, entity := range result.Data {
+			if entity.GetID() != targetID {
+				return false, nil
+			}
+		}
+		return true, nil
+	}
+
+	return false, nil
+}
+
+func CheckParentExists(ctx context.Context, parent *vobj.ParentRef, uow port.UnitOfWorkFactory) error {
+	if parent == nil || parent.ID == "" {
+		return nil
+	}
+	var err error
+
+	switch parent.Type {
+	case vobj.ParentTypeWorkspace:
+		return nil
+	case vobj.ParentTypePatient:
+		repo := uow.GetPatientRepo()
+		_, err = repo.Read(ctx, parent.ID)
+	case vobj.ParentTypeImage:
+		repo := uow.GetImageRepo()
+		_, err = repo.Read(ctx, parent.ID)
+	case vobj.ParentTypeAnnotation:
+		repo := uow.GetAnnotationRepo()
+		_, err = repo.Read(ctx, parent.ID)
+	case vobj.ParentTypeAnnotationType:
+		repo := uow.GetAnnotationTypeRepo()
+		_, err = repo.Read(ctx, parent.ID)
+	case vobj.ParentTypeContent:
+		return nil
+	default:
+		return fmt.Errorf("unknown parent type: %s", parent.Type)
+	}
+
+	if err != nil {
+		return fmt.Errorf("parent %s with ID %s not found: %w", parent.Type, parent.ID, err)
+	}
+
+	return nil
+}
+
+func Contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
+
+func ValidateImageStatusTransition(currentStatus, newStatus vobj.ImageStatus) error {
+	// Define allowed transitions
+	allowedTransitions := map[vobj.ImageStatus][]vobj.ImageStatus{
+		vobj.StatusPending: {
+			vobj.StatusProcessing,
+			vobj.StatusDeleting,
+		},
+		vobj.StatusProcessing: {
+			vobj.StatusProcessed,
+			vobj.StatusFailed,
+			vobj.StatusDeleting,
+		},
+		vobj.StatusProcessed: {
+			vobj.StatusDeleting,
+			vobj.StatusProcessing, // Re-processing allowed (e.g., V1 -> V2 migration)
+		},
+		vobj.StatusFailed: {
+			vobj.StatusProcessing, // Retry
+			vobj.StatusDeleting,
+		},
+		vobj.StatusDeleting: {
+			// No transitions allowed from DELETING
+		},
+	}
+
+	allowedStates, exists := allowedTransitions[currentStatus]
+	if !exists {
+		return errors.NewValidationError("invalid current status", map[string]interface{}{
+			"current_status": currentStatus,
+		})
+	}
+
+	for _, allowed := range allowedStates {
+		if newStatus == allowed {
+			return nil
+		}
+	}
+
+	return errors.NewValidationError("invalid status transition", map[string]interface{}{
+		"current_status": currentStatus,
+		"new_status":     newStatus,
+		"allowed":        allowedStates,
+	})
+}

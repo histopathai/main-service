@@ -5,6 +5,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"runtime/debug"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -36,6 +37,11 @@ func (tm *TimeoutMiddleware) Handler() gin.HandlerFunc {
 		go func() {
 			defer func() {
 				if p := recover(); p != nil {
+					// Log the panic with stack trace immediately
+					tm.logger.Error("Panic recovered in timeout middleware",
+						slog.Any("panic", p),
+						slog.String("stack", string(debug.Stack())),
+					)
 					panicChan <- p
 				}
 			}()

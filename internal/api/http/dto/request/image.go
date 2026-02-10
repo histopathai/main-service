@@ -1,27 +1,33 @@
 package request
 
+type MagnificationRequest struct {
+	Objective         *float64 `json:"objective,omitempty" binding:"omitempty,gt=0" example:"40"`
+	NativeLevel       *int     `json:"native_level,omitempty" binding:"omitempty,gte=0" example:"0"`
+	ScanMagnification *float64 `json:"scan_magnification,omitempty" binding:"omitempty,gt=0" example:"40"`
+}
+
+type ContentRefRequest struct {
+	ContentType string `json:"content_type" binding:"required" example:"image/svs"`
+	Name        string `json:"name" binding:"required" example:"slide1.svs"`
+	Size        int64  `json:"size" binding:"required" example:"1024"`
+}
+
 type UploadImageRequest struct {
-	Parent ParentRefRequest `json:"parent" binding:"required"`
+	Parent   ParentRefRequest    `json:"parent" binding:"required"`
+	Name     string              `json:"name" binding:"required" example:"slide1.svs"`
+	WsID     string              `json:"ws_id" binding:"required" example:"550e8400-e29b-41d4-a716-446655440000"`
+	Format   string              `json:"format" binding:"required" example:"svs"`
+	Contents []ContentRefRequest `json:"contents" binding:"required"`
+	Width    *int                `json:"width,omitempty" binding:"omitempty,gte=0" example:"40000"`
+	Height   *int                `json:"height,omitempty" binding:"omitempty,gte=0" example:"30000"`
 
-	CreatorID   string `json:"creator_id" binding:"omitempty" example:"550e8400-e29b-41d4-a716-446655440000"`
-	ContentType string `json:"content_type" binding:"required" example:"image/tiff"`
-	Name        string `json:"name" binding:"required" example:"slide1.tiff"`
-	Format      string `json:"format" binding:"required" example:"TIFF"`
-	Width       *int   `json:"width,omitempty" binding:"omitempty,gte=0" example:"1024"`
-	Height      *int   `json:"height,omitempty" binding:"omitempty,gte=0" example:"768"`
-	Size        *int64 `json:"size,omitempty" binding:"omitempty,gte=0" example:"2048000"`
+	Magnification *MagnificationRequest `json:"magnification,omitempty"`
 }
 
-type ListImagesRequest struct {
-	Filters    []JSONFilterRequest   `json:"filters,omitempty" binding:"omitempty,dive"`
-	Pagination JSONPaginationRequest `json:"pagination"`
-}
-
-var ValidImageSortFields = map[string]bool{
-	"created_at": true,
-	"updated_at": true,
-	"name":       true,
-	"size":       true,
-	"width":      true,
-	"height":     true,
+type UpdateImageRequest struct {
+	CreatorID     *string               `json:"creator_id" binding:"required" example:"1"`
+	Name          *string               `json:"name,omitempty" example:"slide1_updated.svs"`
+	Width         *int                  `json:"width,omitempty" binding:"omitempty,gte=0"`
+	Height        *int                  `json:"height,omitempty" binding:"omitempty,gte=0"`
+	Magnification *MagnificationRequest `json:"magnification,omitempty"`
 }

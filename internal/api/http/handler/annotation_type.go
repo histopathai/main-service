@@ -5,113 +5,96 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/histopathai/main-service/internal/api/http/dto/response"
-	"github.com/histopathai/main-service/internal/api/http/middleware"
-	"github.com/histopathai/main-service/internal/api/http/validator"
-	"github.com/histopathai/main-service/internal/domain/port"
-	"github.com/histopathai/main-service/internal/domain/vobj"
-
 	"github.com/histopathai/main-service/internal/api/http/dto/request"
+	"github.com/histopathai/main-service/internal/api/http/dto/response"
+	"github.com/histopathai/main-service/internal/api/http/handler/helper"
+	"github.com/histopathai/main-service/internal/api/http/middleware"
+	"github.com/histopathai/main-service/internal/application/command"
+	"github.com/histopathai/main-service/internal/domain/fields"
+	"github.com/histopathai/main-service/internal/domain/vobj"
+	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/errors"
-	"github.com/histopathai/main-service/internal/shared/query"
+	validator "github.com/histopathai/main-service/internal/shared/query"
 )
 
-var allowedAnnotationTypeSortFields = map[string]bool{
-	"created_at": true,
-	"updated_at": true,
-	"name":       true,
-}
-
 type AnnotationTypeHandler struct {
-	annotationTypeService port.IAnnotationTypeService
-	validator             *validator.RequestValidator
-	BaseHandler           // Embed the BaseHandler
+	helper.BaseHandler
+	ATQuery     port.AnnotationTypeQuery
+	ATUseCase   port.AnnotationTypeUseCase
+	ATValidator *validator.Validator
 }
 
-func NewAnnotationTypeHandler(annotationTypeService port.IAnnotationTypeService, validator *validator.RequestValidator, logger *slog.Logger) *AnnotationTypeHandler {
+func NewAnnotationTypeHandler(query port.AnnotationTypeQuery, useCase port.AnnotationTypeUseCase, logger *slog.Logger) *AnnotationTypeHandler {
 	return &AnnotationTypeHandler{
-		annotationTypeService: annotationTypeService,
-		validator:             validator,
-		BaseHandler:           BaseHandler{logger: logger},
+		ATQuery:     query,
+		ATUseCase:   useCase,
+		ATValidator: validator.NewValidator(fields.NewAnnotationTypeFieldSet()),
+		BaseHandler: helper.NewBaseHandler(logger),
 	}
 }
 
-// CreateNewAnnotationType godoc
+// Create godoc
 // @Summary Create a new annotation type
-// @Description Create a new annotation type with the provided details
 // @Tags Annotation Types
 // @Accept json
 // @Produce json
-// @Param        request body request.CreateAnnotationTypeRequest true "Annotation Type creation request"
+// @Param request body request.CreateAnnotationTypeRequest true "Annotation Type creation request"
 // @Success 201 {object} response.AnnotationTypeDataResponse "Annotation Type created successfully"
-// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
-// @Failure 409 {object} response.ErrorResponse "Annotation Type already exists"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 409 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
 // @Router /annotation-types [post]
-
-func (ath *AnnotationTypeHandler) CreateNewAnnotationType(c *gin.Context) {
-
-	creator_id, err := middleware.GetAuthenticatedUserID(c)
+func (ath *AnnotationTypeHandler) Create(c *gin.Context) {
+	creatorID, err := middleware.GetAuthenticatedUserID(c)
 	if err != nil {
-		ath.handleError(c, err)
+		ath.HandleError(c, err)
 		return
 	}
 
 	var req request.CreateAnnotationTypeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ath.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+		ath.HandleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
 			"error": err.Error(),
 		}))
 		return
 	}
-	if err := ath.validator.ValidateStruct(&req); err != nil {
-		ath.handleError(c, err)
+
+	cmd := command.CreateAnnotationTypeCommand{
+		CreateEntityCommand: command.CreateEntityCommand{
+			Name:       req.Name,
+			EntityType: vobj.EntityTypeAnnotationType.String(),
+			CreatorID:  creatorID,
+			ParentID:   "",
+			ParentType: vobj.ParentTypeNone.String(),
+		},
+		TagType:    req.TagType,
+		IsGlobal:   req.IsGlobal,
+		IsRequired: req.IsRequired,
+		Options:    req.Options,
+		Min:        req.Min,
+		Max:        req.Max,
+		Color:      req.Color,
+	}
+
+	errDetails, ok := cmd.Validate()
+	if !ok {
+		ath.HandleError(c, errors.NewValidationError("invalid command payload", errDetails))
 		return
 	}
 
-	// DTO -> Service Input
-	entityInput := port.CreateEntityInput{
-		Name:      req.Name,
-		Type:      vobj.EntityTypeAnnotationType,
-		CreatorID: creator_id,
-		Parent:    nil,
-	}
-
-	tagType, err := vobj.NewTagTypeFromString(req.Type)
+	result, err := ath.ATUseCase.Create(c.Request.Context(), cmd)
 	if err != nil {
-		ath.handleError(c, err)
+		ath.HandleError(c, err)
 		return
 	}
-	input := port.CreateAnnotationTypeInput{
-		CreateEntityInput: entityInput,
-		Type:              tagType,
-		Global:            req.Global,
-		Required:          req.Required,
-		Options:           req.Options,
-		Min:               req.Min,
-		Max:               req.Max,
-		Color:             req.Color,
-	}
-	result, err := ath.annotationTypeService.CreateNewAnnotationType(c.Request.Context(), &input)
-	if err != nil {
-		ath.handleError(c, err)
-		return
-	}
-	ath.logger.Info("Annotation type created successfully",
-		slog.String("annotation_type_id", result.ID),
-	)
 
-	// Server Output -> DTO
-
-	annotation_resp := response.NewAnnotationTypeResponse(result)
-
-	ath.response.Created(c, annotation_resp)
-
+	annotationResp := response.NewAnnotationTypeResponse(result)
+	ath.Response.Created(c, annotationResp)
 }
 
-// GetAnnotationType [get] godoc
+// Get godoc
 // @Summary Get an annotation type by ID
 // @Description Retrieve the details of an annotation type using its ID
 // @Tags Annotation Types
@@ -123,246 +106,224 @@ func (ath *AnnotationTypeHandler) CreateNewAnnotationType(c *gin.Context) {
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
-// @Router /annotation-types/{annotation_type_id} [get]
-func (ath *AnnotationTypeHandler) GetAnnotationType(c *gin.Context) {
-	id := c.Param("annotation_type_id")
-
-	result, err := ath.annotationTypeService.GetAnnotationTypeByID(c.Request.Context(), id)
-	if err != nil {
-		ath.handleError(c, err)
+// @Router /annotation-types/{id} [get]
+func (ath *AnnotationTypeHandler) Get(c *gin.Context) {
+	id := c.Param("id")
+	if id == "" {
+		ath.HandleError(c, errors.NewValidationError("invalid id", map[string]interface{}{
+			"id": "ID cannot be empty",
+		}))
 		return
 	}
 
-	ath.logger.Info("Annotation type retrieved successfully",
-		slog.String("annotation_type_id", id),
-	)
+	result, err := ath.ATQuery.Get(c.Request.Context(), id)
+	if err != nil {
+		ath.HandleError(c, err)
+		return
+	}
 
-	// Service Output -> DTO
-	annotation_resp := response.NewAnnotationTypeResponse(result)
-
-	ath.response.Success(c, http.StatusOK, annotation_resp)
-
+	annotationResp := response.NewAnnotationTypeResponse(result)
+	ath.Response.Success(c, http.StatusOK, annotationResp)
 }
 
-// ListAnnotationTypes [get] godoc
+// List godoc
 // @Summary List all annotation types
-// @Description Retrieve a list of all annotation types
+// @Description List annotation types with optional filtering, sorting, and pagination via query parameters
 // @Tags Annotation Types
 // @Accept json
 // @Produce json
-// @Param        limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
-// @Param        offset query int false "Number of items to skip" default(0) minimum(0)
-// @Param        sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name)
-// @Param        sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
-// @Success 200 {object} response.AnnotationTypeListResponse "List of annotation types retrieved successfully"
+// @Param limit query int false "Number of items per page" default(20) minimum(1) maximum(100)
+// @Param offset query int false "Number of items to skip" default(0) minimum(0)
+// @Param sort_by query string false "Field to sort by" default(created_at) Enums(created_at, updated_at, name, tag_type)
+// @Param sort_dir query string false "Sort direction" default(desc) Enums(asc, desc)
+// @Success 200 {object} response.AnnotationTypeListResponseDoc "List of annotation types retrieved successfully"
+// @Failure 400 {object} response.ErrorResponse
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Failure 401 {object} response.ErrorResponse "Unauthorized"
 // @Security BearerAuth
 // @Router /annotation-types [get]
-func (ath *AnnotationTypeHandler) ListAnnotationTypes(c *gin.Context) {
-	var queryReq request.QueryPaginationRequest
-	if err := c.ShouldBindQuery(&queryReq); err != nil {
-		ath.handleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
+func (ath *AnnotationTypeHandler) List(c *gin.Context) {
+	var req request.ListRequest
+
+	// Bind query parameters
+	if err := c.ShouldBindQuery(&req); err != nil {
+		ath.HandleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
 			"error": err.Error(),
 		}))
 		return
 	}
 
-	pagination := queryReq.ToPagination()
-
-	pagination.ApplyDefaults()
-
-	if err := pagination.ValidateSortFields(request.ValidAnnotationSortFields); err != nil {
-		ath.handleError(c, err)
-		return
-	}
-
-	result, err := ath.annotationTypeService.ListAnnotationTypes(c.Request.Context(), pagination)
+	spec, err := req.ToSpecification()
 	if err != nil {
-		ath.handleError(c, err)
+		ath.HandleError(c, errors.NewValidationError(err.Error(), nil))
 		return
 	}
 
-	ath.logger.Info("Annotation types listed successfully")
+	if err := ath.ATValidator.ValidateSpec(spec); err != nil {
+		ath.HandleError(c, err)
+		return
+	}
 
-	// Service Output -> DTO
+	result, err := ath.ATQuery.List(c.Request.Context(), spec)
+	if err != nil {
+		ath.HandleError(c, err)
+		return
+	}
+
 	paginationResp := &response.PaginationResponse{
-		Limit:   pagination.Limit,
-		Offset:  pagination.Offset,
+		Limit:   result.Limit,
+		Offset:  result.Offset,
 		HasMore: result.HasMore,
 	}
+
 	annotationResponses := make([]response.AnnotationTypeResponse, len(result.Data))
 	for i, at := range result.Data {
 		annotationResponses[i] = *response.NewAnnotationTypeResponse(at)
 	}
 
-	ath.response.SuccessList(c, annotationResponses, paginationResp)
-
+	ath.Response.SuccessList(c, annotationResponses, paginationResp)
 }
 
-// CountAnnotationTypes V1 godoc
+// Count godoc
 // @Summary Count annotation types
-// @Description Retrieve the total count of annotation types
+// @Description Count annotation types with optional filters via query parameters
 // @Tags Annotation Types
 // @Accept json
 // @Produce json
-// @Success 200 {object} response.CountResponse "Total count of annotation types retrieved successfully"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Success 200 {object} response.CountResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
 // @Router /annotation-types/count [get]
-func (ath *AnnotationTypeHandler) CountV1AnnotationTypes(c *gin.Context) {
+func (ath *AnnotationTypeHandler) Count(c *gin.Context) {
+	var req request.ListRequest
 
-	count, err := ath.annotationTypeService.CountAnnotationTypes(c.Request.Context(), []query.Filter{})
-	if err != nil {
-		ath.handleError(c, err)
+	// Bind query parameters (optional for count)
+	if err := c.ShouldBindQuery(&req); err != nil {
+		ath.HandleError(c, errors.NewValidationError("invalid query parameters", map[string]interface{}{
+			"error": err.Error(),
+		}))
 		return
 	}
 
-	ath.logger.Info("Annotation types count retrieved successfully",
-		slog.Int64("count", count),
-	)
-
-	countResp := &response.CountResponse{
-		Count: count,
+	spec, err := req.ToSpecification()
+	if err != nil {
+		ath.HandleError(c, errors.NewValidationError(err.Error(), nil))
+		return
 	}
 
-	ath.response.Success(c, http.StatusOK, countResp)
+	if err := ath.ATValidator.ValidateSpec(spec); err != nil {
+		ath.HandleError(c, err)
+		return
+	}
+
+	count, err := ath.ATQuery.Count(c.Request.Context(), spec)
+	if err != nil {
+		ath.HandleError(c, err)
+		return
+	}
+
+	countResp := &response.CountResponse{Count: count}
+	ath.Response.Success(c, http.StatusOK, countResp)
 }
 
-// UpdateAnnotationType [put] godoc
+// Update godoc
 // @Summary Update an annotation type
-// @Description Update the details of an existing annotation type
 // @Tags Annotation Types
 // @Accept json
 // @Produce json
 // @Param id path string true "Annotation Type ID"
-// @Param        request body request.UpdateAnnotationTypeRequest true "Annotation Type update request"
+// @Param request body request.UpdateAnnotationTypeRequest true "Annotation Type update request"
 // @Success 204  "Annotation Type updated successfully"
-// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
-// @Failure 404 {object} response.ErrorResponse "Annotation Type not found"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /annotation-types/{annotation_type_id} [put]
-func (ath *AnnotationTypeHandler) UpdateAnnotationType(c *gin.Context) {
-	id := c.Param("annotation_type_id")
+// @Router /annotation-types/{id} [put]
+func (ath *AnnotationTypeHandler) Update(c *gin.Context) {
+	id := c.Param("id")
 
 	var req request.UpdateAnnotationTypeRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		ath.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+		ath.HandleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
 			"error": err.Error(),
 		}))
 		return
 	}
 
-	// DTO -> Service Input
-	updateEntityInput := port.UpdateEntityInput{
-		Name:   req.Name,
-		Parent: nil,
+	cmd := command.UpdateAnnotationTypeCommand{
+		UpdateEntityCommand: command.UpdateEntityCommand{
+			ID:   id,
+			Name: req.Name,
+		},
+		IsGlobal:   req.IsGlobal,
+		IsRequired: req.IsRequired,
+		Options:    req.Options,
+		Min:        req.Min,
+		Max:        req.Max,
+		Color:      req.Color,
 	}
 
-	tagType, err := vobj.NewTagTypeFromString(*req.Type)
+	err := ath.ATUseCase.Update(c.Request.Context(), cmd)
 	if err != nil {
-		ath.handleError(c, err)
-		return
-	}
-	input := port.UpdateAnnotationTypeInput{
-		UpdateEntityInput: updateEntityInput,
-		Type:              &tagType,
-		Global:            req.Global,
-		Required:          req.Required,
-		Options:           req.Options,
-		Min:               req.Min,
-		Max:               req.Max,
-		Color:             req.Color,
-	}
-
-	err = ath.annotationTypeService.UpdateAnnotationType(c.Request.Context(), id, &input)
-	if err != nil {
-		ath.handleError(c, err)
+		ath.HandleError(c, err)
 		return
 	}
 
-	ath.logger.Info("Annotation type updated successfully",
-		slog.String("annotation_type_id", id),
-	)
-
-	// No content to return
-	ath.response.NoContent(c)
+	ath.Response.NoContent(c)
 }
 
-// DeleteAnnotationType [delete] godoc
-// @Summary Delete an annotation type
-// @Description Delete an existing annotation type by ID
+// SoftDelete godoc
+// @Summary Soft delete annotation type
 // @Tags Annotation Types
 // @Accept json
 // @Produce json
 // @Param id path string true "Annotation Type ID"
-// @Success 204 "Annotation Type deleted successfully"
-// @Failure 404 {object} response.ErrorResponse "Annotation Type not found"
-// @Failure 409 {object} response.ErrorResponse "Annotation Type in use"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Success 204
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 409 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /annotation-types/{annotation_type_id} [delete]
-func (ath *AnnotationTypeHandler) DeleteAnnotationType(c *gin.Context) {
-	id := c.Param("annotation_type_id")
+// @Router /annotation-types/{id}/soft-delete [delete]
+func (ath *AnnotationTypeHandler) SoftDelete(c *gin.Context) {
+	id := c.Param("id")
 
-	err := ath.annotationTypeService.DeleteAnnotationType(c.Request.Context(), id)
+	err := ath.ATQuery.SoftDelete(c.Request.Context(), id)
 	if err != nil {
-		ath.handleError(c, err)
+		ath.HandleError(c, err)
 		return
 	}
 
-	ath.logger.Info("Annotation type deleted successfully",
-		slog.String("annotation_type_id", id),
-	)
-
-	// No content to return
-	ath.response.NoContent(c)
+	ath.Response.NoContent(c)
 }
 
-// BatchDeleteAnnotationTypes [post] godoc
-// @Summary Batch delete annotation types
-// @Description Delete multiple annotation types by their IDs
+// SoftDeleteMany godoc
+// @Summary Batch soft delete annotation types
 // @Tags Annotation Types
 // @Accept json
 // @Produce json
-// @Param        request body request.BatchDeleteRequest true "Batch delete request"
-// @Success 204 "Annotation Types deleted successfully"
-// @Failure 400 {object} response.ErrorResponse "Invalid request payload"
-// @Failure 500 {object} response.ErrorResponse "Internal server error"
-// @Failure 401 {object} response.ErrorResponse "Unauthorized"
+// @Param ids query []string true "Annotation Type IDs"
+// @Success 204
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
-// @Router /annotation-types/batch-delete [post]
-func (ath *AnnotationTypeHandler) BatchDeleteAnnotationTypes(c *gin.Context) {
-	user_role, err := middleware.GetAuthenticatedUserRole(c)
+// @Router /annotation-types/soft-delete-many [delete]
+func (ath *AnnotationTypeHandler) SoftDeleteMany(c *gin.Context) {
+	ids := c.QueryArray("ids")
+	if len(ids) == 0 {
+		ath.HandleError(c, errors.NewValidationError("ids parameter is required", nil))
+		return
+	}
+
+	err := ath.ATQuery.SoftDeleteMany(c.Request.Context(), ids)
 	if err != nil {
-		ath.handleError(c, err)
-		return
-	}
-	if user_role != "admin" {
-		ath.handleError(c, errors.NewUnauthorizedError("only admin users can perform batch delete"))
+		ath.HandleError(c, err)
 		return
 	}
 
-	var req request.BatchDeleteRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		ath.handleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
-			"error": err.Error(),
-		}))
-		return
-	}
-
-	err = ath.annotationTypeService.BatchDeleteAnnotationTypes(c.Request.Context(), req.IDs)
-	if err != nil {
-		ath.handleError(c, err)
-		return
-	}
-
-	ath.logger.Info("Annotation types batch deleted successfully")
-
-	// No content to return
-	ath.response.NoContent(c)
+	ath.Response.NoContent(c)
 }

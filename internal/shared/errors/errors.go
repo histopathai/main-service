@@ -13,6 +13,7 @@ const (
 	ErrorTypeInternal     ErrorType = "INTERNAL_ERROR"
 	ErrorTypeConflict     ErrorType = "CONFLICT_ERROR"
 	ErrorTypeForbidden    ErrorType = "FORBIDDEN_ERROR"
+	ErrorTypeBadRequest   ErrorType = "BAD_REQUEST_ERROR"
 )
 
 type Err struct {
@@ -77,5 +78,13 @@ func NewForbiddenError(message string) *Err {
 	return &Err{
 		Type:    ErrorTypeForbidden,
 		Message: message,
+	}
+}
+
+func NewBadRequestError(message string, details map[string]interface{}) *Err {
+	return &Err{
+		Type:    ErrorTypeBadRequest,
+		Message: message,
+		Details: details,
 	}
 }

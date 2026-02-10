@@ -4,8 +4,8 @@ on:
   push:
     branches: [main, dev]
     paths:
-      - 'main-service/**'
-      - '.github/workflows/**'
+      - "main-service/**"
+      - ".github/workflows/**"
 
   workflow_dispatch:
     inputs:
@@ -18,7 +18,7 @@ on:
 
 # -------- GLOBAL ENV (all jobs can read) --------
 env:
-  TF_VERSION: '1.5.0'
+  TF_VERSION: "1.5.0"
   REPO_NAME: main-service
   WIF_PROVIDER: ${{ secrets.WIF_PROVIDER }}
   WIF_SERVICE_ACCOUNT: ${{ secrets.WIF_SERVICE_ACCOUNT }}
@@ -67,18 +67,14 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: '1.25.1'
+          go-version: "1.25.1"
 
       - name: Install Tools
         run: |
-          go install go.uber.org/mock/mockgen@v0.6.0
           go install github.com/swaggo/swag/cmd/swag@latest
 
-      - name: Generate Mocks & Swagger
+      - name: Swagger
         run: |
-          go generate ./...
-          export PATH=$PATH:$(go env GOPATH)/bin
-          go generate ./...
           swag init -g cmd/main.go
 
       - name: Unit Tests
@@ -154,12 +150,25 @@ jobs:
           else
             PREFIX="services/main-service-dev"
           fi
-          
+
           echo "Selected Backend Prefix: $PREFIX"
 
           terraform init \
             -backend-config="bucket=${{ env.STATE_BUCKET }}" \
             -backend-config="prefix=$PREFIX"
+
+      - name: Cleanup Orphaned State
+        run: |
+          export TF_VAR_project_id="${{ env.PROJECT_ID }}"
+          export TF_VAR_region="${{ env.REGION }}"
+          export TF_VAR_environment="${{ steps.env-select.outputs.env }}"
+          export TF_VAR_artifact_registry_repo="${{ env.ARTIFACT_REGISTRY_REPO_NAME }}"
+          export TF_VAR_tf_state_bucket="${{ env.STATE_BUCKET }}"
+          export TF_VAR_image_tag="${{ needs.build-and-push.outputs.image_tag }}"
+
+          chmod +x cleanup_state.sh
+          ./cleanup_state.sh || true
+        working-directory: ./infrastructure
 
       - name: Terraform Plan
         run: |

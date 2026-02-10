@@ -8,32 +8,32 @@ data "google_storage_project_service_account" "gcs_account" {
 # 1. UPLOAD STATUS (GCS Notifications)
 # ----------------------------------------
 resource "google_pubsub_topic" "upload_status" {
-    name = "upload-status"
+  name = "${local.pubsub_prefix}upload-status"
 
-    labels = {
-        service = "main-service"
-        managed_by = "terraform"
-    }
+  labels = {
+    service    = "main-service"
+    managed_by = "terraform"
+  }
 
-    message_retention_duration = "86400s" # 1 day
+  message_retention_duration = "86400s" # 1 day
 
 }
 
 resource "google_pubsub_subscription" "upload_status_sub" {
-    name = "upload-status-sub"
-    topic = google_pubsub_topic.upload_status.name
+  name  = "${local.pubsub_prefix}upload-status-sub"
+  topic = google_pubsub_topic.upload_status.name
 
-    ack_deadline_seconds = 600 # 10 minutes
+  ack_deadline_seconds = 600 # 10 minutes
 
-    retry_policy {
-        minimum_backoff = "10s"
-        maximum_backoff = "600s"
-    }
+  retry_policy {
+    minimum_backoff = "10s"
+    maximum_backoff = "600s"
+  }
 
-    labels = {
-      service = "main-service"
-      managed_by = "terraform"
-    }
+  labels = {
+    service    = "main-service"
+    managed_by = "terraform"
+  }
 }
 
 # Allow GCS to publish to upload status topic
@@ -57,159 +57,159 @@ resource "google_storage_notification" "original_bucket_upload" {
 # 2. IMAGE PROCESSING
 # ----------------------------------------
 resource "google_pubsub_topic" "image_processing_request" {
-    name = "image-processing-request"
+  name = "${local.pubsub_prefix}image-processing-request"
 
-    labels = {
-        service = "main-service"
-        managed_by = "terraform"
-    }
+  labels = {
+    service    = "main-service"
+    managed_by = "terraform"
+  }
 
-    message_retention_duration = "86400s" # 1 day
+  message_retention_duration = "86400s" # 1 day
 }
 
 resource "google_pubsub_topic" "image_processing_request_dlq" {
-    name = "image-processing-request-dlq"
+  name = "${local.pubsub_prefix}image-processing-request-dlq"
 
-    labels = {
-        service = "main-service"
-        managed_by = "terraform"
-    }
+  labels = {
+    service    = "main-service"
+    managed_by = "terraform"
+  }
 
-    message_retention_duration = "604800s" # 7 days
+  message_retention_duration = "604800s" # 7 days
 }
 
 resource "google_pubsub_subscription" "image_processing_request_sub" {
-    name = "image-processing-request-sub"
-    topic = google_pubsub_topic.image_processing_request.name
+  name  = "${local.pubsub_prefix}image-processing-request-sub"
+  topic = google_pubsub_topic.image_processing_request.name
 
-    ack_deadline_seconds = 600 # 10 minutes
+  ack_deadline_seconds = 600 # 10 minutes
 
-    retry_policy {
-        minimum_backoff = "10s"
-        maximum_backoff = "600s"
-    }
-    dead_letter_policy {
-        dead_letter_topic     = google_pubsub_topic.image_processing_request_dlq.id
-        max_delivery_attempts = 5
-    }
+  retry_policy {
+    minimum_backoff = "10s"
+    maximum_backoff = "600s"
+  }
+  dead_letter_policy {
+    dead_letter_topic     = google_pubsub_topic.image_processing_request_dlq.id
+    max_delivery_attempts = 5
+  }
 
-    labels = {
-        service     = "main-service"
-        managed_by  = "terraform"
-    }
+  labels = {
+    service    = "main-service"
+    managed_by = "terraform"
+  }
 }
 
 # -----------------------------------------
 # 3. IMAGE PROCESSING RESULT
 # -----------------------------------------
 resource "google_pubsub_topic" "image_processing_result" {
-    name = "image-processing-results"
+  name = "${local.pubsub_prefix}image-processing-results"
 
-    labels = {
-        service = "main-service"
-        managed_by = "terraform"
-    }
+  labels = {
+    service    = "main-service"
+    managed_by = "terraform"
+  }
 
-    message_retention_duration = "86400s" # 1 day
+  message_retention_duration = "86400s" # 1 day
 }
 
 resource "google_pubsub_topic" "image_processing_result_dlq" {
-    name = "image-processing-results-dlq"
+  name = "${local.pubsub_prefix}image-processing-results-dlq"
 
-    labels = {
-        service = "main-service"
-        managed_by = "terraform"
-    }
+  labels = {
+    service    = "main-service"
+    managed_by = "terraform"
+  }
 
-    message_retention_duration = "604800s" # 7 days
+  message_retention_duration = "604800s" # 7 days
 }
 
 resource "google_pubsub_subscription" "image_processing_result_sub" {
-    name = "image-processing-results-sub"
-    topic = google_pubsub_topic.image_processing_result.name
+  name  = "${local.pubsub_prefix}image-processing-results-sub"
+  topic = google_pubsub_topic.image_processing_result.name
 
-    ack_deadline_seconds = 600 # 10 minutes
+  ack_deadline_seconds = 600 # 10 minutes
 
-    retry_policy {
-        minimum_backoff = "10s"
-        maximum_backoff = "600s"
-    }
-    dead_letter_policy {
-        dead_letter_topic     = google_pubsub_topic.image_processing_result_dlq.id
-        max_delivery_attempts = 5
-    }
+  retry_policy {
+    minimum_backoff = "10s"
+    maximum_backoff = "600s"
+  }
+  dead_letter_policy {
+    dead_letter_topic     = google_pubsub_topic.image_processing_result_dlq.id
+    max_delivery_attempts = 5
+  }
 
-    labels = {
-        service     = "main-service"
-        managed_by  = "terraform"
-    }
+  labels = {
+    service    = "main-service"
+    managed_by = "terraform"
+  }
 }
 
 
 # -----------------------------------------
-# 4. IMAGE DELETION
+# 4. IMAGE DELETION
 # -----------------------------------------
 resource "google_pubsub_topic" "image_deletion" {
-    name = "image-deletion-requests"
+  name = "${local.pubsub_prefix}image-deletion-requests"
 
-    labels = {
-        service = "main-service"
-        managed_by = "terraform"
-    }
+  labels = {
+    service    = "main-service"
+    managed_by = "terraform"
+  }
 
-    message_retention_duration = "86400s" # 1 day
+  message_retention_duration = "86400s" # 1 day
 }
 
 resource "google_pubsub_topic" "image_deletion_dlq" {
-    name = "image-deletion-requests-dlq"
+  name = "${local.pubsub_prefix}image-deletion-requests-dlq"
 
-    labels = {
-        service = "main-service"
-        managed_by = "terraform"
-    }
+  labels = {
+    service    = "main-service"
+    managed_by = "terraform"
+  }
 
-    message_retention_duration = "604800s" # 7 days
+  message_retention_duration = "604800s" # 7 days
 }
 
 resource "google_pubsub_subscription" "image_deletion_sub" {
-    name = "image-deletion-requests-sub"
-    topic = google_pubsub_topic.image_deletion.name
+  name  = "${local.pubsub_prefix}image-deletion-requests-sub"
+  topic = google_pubsub_topic.image_deletion.name
 
-    ack_deadline_seconds =  600 # 10 minutes
+  ack_deadline_seconds = 600 # 10 minutes
 
-    retry_policy {
-        minimum_backoff = "10s"
-        maximum_backoff = "600s"
-    }
+  retry_policy {
+    minimum_backoff = "10s"
+    maximum_backoff = "600s"
+  }
 
-    dead_letter_policy {
-        dead_letter_topic     = google_pubsub_topic.image_deletion_dlq.id
-        max_delivery_attempts = 5
-    }
+  dead_letter_policy {
+    dead_letter_topic     = google_pubsub_topic.image_deletion_dlq.id
+    max_delivery_attempts = 5
+  }
 
-    labels = {
-        service     = "main-service"
-        managed_by  = "terraform"
-    }
+  labels = {
+    service    = "main-service"
+    managed_by = "terraform"
+  }
 }
 
 # ----------------------------------------
-# 6. TELEMETRY DLQ
+# 5. IMAGE PROCESS DLQ
 # ----------------------------------------
-resource "google_pubsub_topic" "telemetry_dlq" {
-  name = "telemetry-dlq" 
+resource "google_pubsub_topic" "image_process_dlq" {
+  name = "${local.pubsub_prefix}image-process-dlq"
 
   labels = {
-    service     = "main-service"
-    managed_by  = "terraform"
+    service    = "main-service"
+    managed_by = "terraform"
   }
 
   message_retention_duration = "604800s" # 7 days
 }
 
-resource "google_pubsub_subscription" "telemetry_dlq_sub" {
-  name  = "telemetry-dlq-sub"
-  topic = google_pubsub_topic.telemetry_dlq.name
+resource "google_pubsub_subscription" "image_process_dlq_sub" {
+  name  = "${local.pubsub_prefix}image-process-dlq-sub"
+  topic = google_pubsub_topic.image_process_dlq.name
 
   ack_deadline_seconds = 600 # 10 minutes
 
@@ -219,38 +219,7 @@ resource "google_pubsub_subscription" "telemetry_dlq_sub" {
   }
 
   labels = {
-    service     = "main-service"
-    managed_by  = "terraform"
-  }
-}
-
-# ----------------------------------------
-# 7. TELEMETRY ERROR
-# ----------------------------------------
-resource "google_pubsub_topic" "telemetry_error" {
-  name = "telemetry-errors"
-
-  labels = {
-    service     = "main-service"
-    managed_by  = "terraform"
-  }
-
-  message_retention_duration = "604800s" # 7 days
-}
-
-resource "google_pubsub_subscription" "telemetry_error_sub" {
-  name  = "telemetry-errors-sub"
-  topic = google_pubsub_topic.telemetry_error.name
-
-  ack_deadline_seconds = 600 # 10 minutes
-
-  retry_policy {
-    minimum_backoff = "10s"
-    maximum_backoff = "600s"
-  }
-
-  labels = {
-    service     = "main-service"
-    managed_by  = "terraform"
+    service    = "main-service"
+    managed_by = "terraform"
   }
 }

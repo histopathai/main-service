@@ -39,7 +39,11 @@ locals {
   service_account        = data.terraform_remote_state.platform.outputs.main_service_account_email
   artifact_repository_id = data.terraform_remote_state.platform.outputs.artifact_repository_id
   service_name           = var.environment == "prod" ? "main-service" : "main-service-${var.environment}"
-  
+
+  # Environment-based prefix for PubSub resources
+  # In dev environment, all topics/subscriptions get "dev-" prefix for isolation
+  pubsub_prefix = var.environment == "dev" ? "dev-" : ""
+
   # Construct the full image path
   image_name = "${var.region}-docker.pkg.dev/${var.project_id}/${var.artifact_registry_repo}/main-service:${var.image_tag}"
 
@@ -47,9 +51,12 @@ locals {
   original_bucket_name  = data.terraform_remote_state.platform.outputs.original_bucket_name
   processed_bucket_name = data.terraform_remote_state.platform.outputs.processed_bucket_name
 
-  job_small  = data.terraform_remote_state.image_processing.outputs.job_ids["small"]
-  job_medium = data.terraform_remote_state.image_processing.outputs.job_ids["medium"]
-  job_large  = data.terraform_remote_state.image_processing.outputs.job_ids["large"]
+  # Cloud Run job names with environment suffix
+  # In dev environment, jobs have "-dev" suffix (e.g., image-processing-job-small-dev)
+  job_suffix = var.environment == "dev" ? "-dev" : ""
+  job_small  = "${data.terraform_remote_state.image_processing.outputs.job_ids["small"]}${local.job_suffix}"
+  job_medium = "${data.terraform_remote_state.image_processing.outputs.job_ids["medium"]}${local.job_suffix}"
+  job_large  = "${data.terraform_remote_state.image_processing.outputs.job_ids["large"]}${local.job_suffix}"
 }
 
 provider "google" {
@@ -137,6 +144,11 @@ resource "google_cloud_run_v2_service" "main_service" {
         value = var.idle_timeout
       }
 
+      env {
+        name  = "FIRESTORE_DATABASE"
+        value = var.environment == "prod" ? "(default)" : "dev-database"
+      }
+
       # --- Platform specific env variables ---
       env {
         name  = "ORIGINAL_BUCKET_NAME"
@@ -208,25 +220,15 @@ resource "google_cloud_run_v2_service" "main_service" {
         value = google_pubsub_topic.image_deletion_dlq.name
       }
 
-      # Telemetry
+      # Image Process DLQ
       env {
-        name  = "TELEMETRY_DLQ_TOPIC"
-        value = google_pubsub_topic.telemetry_dlq.name
+        name  = "IMAGE_PROCESS_DLQ_TOPIC"
+        value = google_pubsub_topic.image_process_dlq.name
       }
 
       env {
-        name  = "TELEMETRY_DLQ_SUB"
-        value = google_pubsub_subscription.telemetry_dlq_sub.name
-      }
-
-      env {
-        name  = "TELEMETRY_ERROR_TOPIC"
-        value = google_pubsub_topic.telemetry_error.name
-      }
-
-      env {
-        name  = "TELEMETRY_ERROR_SUB"
-        value = google_pubsub_subscription.telemetry_error_sub.name
+        name  = "IMAGE_PROCESS_DLQ_SUB"
+        value = google_pubsub_subscription.image_process_dlq_sub.name
       }
 
       # Worker Config Env Vars
@@ -258,6 +260,7 @@ resource "google_cloud_run_v2_service" "main_service" {
     environment = var.environment
     service     = "main-service"
     managed_by  = "terraform"
+    version     = "2" # Force update to apply FIRESTORE_DATABASE env var
   }
 }
 
@@ -272,11 +275,10 @@ resource "google_cloud_run_v2_service_iam_member" "auth_service_access" {
 
 resource "google_pubsub_topic_iam_member" "main_service_publishers" {
   for_each = toset([
-    google_pubsub_topic.image_processing_request.name,
-    google_pubsub_topic.image_processing_result.name,
-    google_pubsub_topic.image_deletion.name,
-    google_pubsub_topic.telemetry_dlq.name,
-    google_pubsub_topic.telemetry_error.name,
+    "${local.pubsub_prefix}image-processing-request",
+    "${local.pubsub_prefix}image-processing-results",
+    "${local.pubsub_prefix}image-deletion-requests",
+    "${local.pubsub_prefix}image-process-dlq",
   ])
 
   topic  = each.key
