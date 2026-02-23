@@ -1,5 +1,5 @@
 
-environment     = "prod"
+environment = "prod"
 
 # ------------------------------
 # Scaling Configuration
@@ -10,8 +10,8 @@ max_instances = 2
 # ------------------------------
 # Resource Configuration
 # ------------------------------
-cpu_limit       = "1"
-memory_limit    = "512Mi"
+cpu_limit    = "1"
+memory_limit = "1Gi"
 
 # ------------------------------
 # Access Configuration
@@ -22,7 +22,7 @@ allow_public_access = false
 # Logging Configuration
 # ------------------------------
 log_level = "info"
- 
+
 
 # ------------------------------
 # Timeout Configuration
