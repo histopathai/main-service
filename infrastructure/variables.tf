@@ -1,11 +1,11 @@
 variable "environment" {
-    description = "Environment name (prod, dev)"
-    type        = string
+  description = "Environment name (prod, dev)"
+  type        = string
 
-    validation {
-        condition     = contains(["prod", "dev"], var.environment)
-        error_message = "Environment must be either 'prod' or 'dev'."
-    }
+  validation {
+    condition     = contains(["prod", "dev"], var.environment)
+    error_message = "Environment must be either 'prod' or 'dev'."
+  }
 }
 
 
@@ -49,15 +49,15 @@ variable "idle_timeout" {
 # Resource Configuration
 # --------------------------------
 variable "cpu_limit" {
-    description = "CPU limit for each instance"
-    type        = string
-    default     = "1"
+  description = "CPU limit for each instance"
+  type        = string
+  default     = "1"
 }
 
 variable "memory_limit" {
-    description = "Memory limit for each instance"
-    type        = string
-    default     = "512Mi"
+  description = "Memory limit for each instance"
+  type        = string
+  default     = "1024Mi"
 }
 
 # --------------------------------
