@@ -86,3 +86,37 @@ func (h *AnnotationReviewHandler) Create(c *gin.Context) {
 
 	h.Response.Created(c, response.NewAnnotationReviewResponse(createdReview))
 }
+
+// Delete godoc
+// @Summary Delete an annotation review
+// @Description Soft-deletes a review. Can only be done by the reviewer who created it.
+// @Tags Annotation Reviews
+// @Produce json
+// @Param id path string true "Review ID"
+// @Success 204 "Review deleted successfully"
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /annotation-reviews/{id} [delete]
+func (h *AnnotationReviewHandler) Delete(c *gin.Context) {
+	reviewID := c.Param("id")
+	if reviewID == "" {
+		h.HandleError(c, errors.NewValidationError("review ID is required", nil))
+		return
+	}
+
+	requesterID, err := middleware.GetAuthenticatedUserID(c)
+	if err != nil {
+		h.HandleError(c, err)
+		return
+	}
+
+	if err := h.ARUseCase.Delete(c.Request.Context(), reviewID, requesterID); err != nil {
+		h.HandleError(c, err)
+		return
+	}
+
+	h.Response.NoContent(c)
+}

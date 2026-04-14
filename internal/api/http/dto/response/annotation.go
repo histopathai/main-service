@@ -35,7 +35,7 @@ type AnnotationResponse struct {
 	Color            *string            `json:"color,omitempty"   example:"#FF0000"`
 	Polygon          []PointResponse    `json:"polygon,omitempty"`
 	Resource         string             `json:"resource"          example:"manual"`
-	ReviewID         *string            `json:"review_id,omitempty" example:"review-123"`
+	ReviewIDs        []string           `json:"review_ids,omitempty"`
 	CreatedAt        time.Time          `json:"created_at"        example:"2024-01-01T12:00:00Z"`
 	UpdatedAt        time.Time          `json:"updated_at"        example:"2024-01-02T12:00:00Z"`
 }
@@ -60,7 +60,7 @@ func NewAnnotationResponse(a *model.Annotation) *AnnotationResponse {
 		Color:            a.Color,
 		Polygon:          polygon,
 		Resource:         string(a.Resource),
-		ReviewID:         a.ReviewID,
+		ReviewIDs:        a.ReviewIDs,
 		CreatedAt:        a.CreatedAt,
 		UpdatedAt:        a.UpdatedAt,
 	}
