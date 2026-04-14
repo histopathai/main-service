@@ -32,7 +32,7 @@ func (v *AnnotationValidator) ValidateCreate(ctx context.Context, annotation *mo
 		return errors.NewInternalError("failed to check parent exists", err)
 	}
 
-	if err := v.checkAnnotationIsValid(ctx, annotation); err != nil {
+	if err := v.CheckAnnotationIsValid(ctx, annotation); err != nil {
 		return errors.NewInternalError("failed to check annotation is valid", err)
 	}
 
@@ -55,7 +55,7 @@ func (v *AnnotationValidator) ValidateUpdate(ctx context.Context, id string, upd
 	// Apply relevant updates
 	if val, ok := updates[fields.AnnotationTagValue.DomainName()]; ok {
 		updatedAnnotation.Value = val
-		if err := v.checkAnnotationIsValid(ctx, &updatedAnnotation); err != nil {
+		if err := v.CheckAnnotationIsValid(ctx, &updatedAnnotation); err != nil {
 			return errors.NewInternalError("failed to check annotation is valid", err)
 		}
 	}
@@ -63,7 +63,7 @@ func (v *AnnotationValidator) ValidateUpdate(ctx context.Context, id string, upd
 }
 
 // Helper functions
-func (v *AnnotationValidator) checkAnnotationIsValid(ctx context.Context, annotation *model.Annotation) error {
+func (v *AnnotationValidator) CheckAnnotationIsValid(ctx context.Context, annotation *model.Annotation) error {
 	annotation_type, err := v.uow.GetAnnotationTypeRepo().Read(ctx, annotation.AnnotationTypeID)
 	if err != nil {
 		return errors.NewInternalError("failed to get annotation type", err)
