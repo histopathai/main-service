@@ -24,7 +24,6 @@ func NewAnnotationReviewMapper() *AnnotationReviewMapper {
 func (m *AnnotationReviewMapper) ToFirestoreMap(entity *model.AnnotationReview) map[string]interface{} {
 	doc := m.EntityMapper.ToFirestoreMap(entity)
 
-	doc["annotation_id"] = entity.AnnotationID
 	doc["reviewer_id"] = entity.ReviewerID
 	doc["status"] = entity.Status.FirestoreName()
 	doc["reviewed_at"] = entity.ReviewedAt
@@ -54,9 +53,6 @@ func (m *AnnotationReviewMapper) FromFirestoreDoc(doc *firestore.DocumentSnapsho
 
 	data := doc.Data()
 
-	if v, ok := data["annotation_id"].(string); ok {
-		review.AnnotationID = v
-	}
 	if v, ok := data["reviewer_id"].(string); ok {
 		review.ReviewerID = v
 	}

@@ -33,9 +33,8 @@ func (am *AnnotationMapper) ToFirestoreMap(entity *model.Annotation) map[string]
 	}
 	m[fields.ImageWsID.FirestoreName()] = entity.WsID
 	m[fields.AnnotationTypeID.FirestoreName()] = entity.AnnotationTypeID
-	m[fields.AnnotationResource.FirestoreName()] = string(entity.Resource)
-	if entity.ReviewID != nil {
-		m[fields.AnnotationReviewID.FirestoreName()] = *entity.ReviewID
+	if entity.ReviewIDs != nil {
+		m[fields.AnnotationReviewIDs.FirestoreName()] = entity.ReviewIDs
 	}
 
 	return m
@@ -100,8 +99,14 @@ func (am *AnnotationMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*
 		annotation.Resource = fields.AnnotationResourceField(resource)
 	}
 
-	if reviewID, ok := data[fields.AnnotationReviewID.FirestoreName()].(string); ok && reviewID != "" {
-		annotation.ReviewID = &reviewID
+	if rawIDs, ok := data[fields.AnnotationReviewIDs.FirestoreName()].([]interface{}); ok {
+		ids := make([]string, 0, len(rawIDs))
+		for _, v := range rawIDs {
+			if s, ok := v.(string); ok {
+				ids = append(ids, s)
+			}
+		}
+		annotation.ReviewIDs = ids
 	}
 
 	return annotation, nil
@@ -172,11 +177,11 @@ func (am *AnnotationMapper) MapUpdates(updates map[string]interface{}) (map[stri
 			} else {
 				return nil, errors.NewValidationError("invalid type for resource field", nil)
 			}
-		case fields.AnnotationReviewID.DomainName():
-			if reviewID, ok := v.(string); ok {
-				mappedUpdates[fields.AnnotationReviewID.FirestoreName()] = reviewID
+		case fields.AnnotationReviewIDs.DomainName():
+			if reviewIDs, ok := v.([]string); ok {
+				mappedUpdates[fields.AnnotationReviewIDs.FirestoreName()] = reviewIDs
 			} else {
-				return nil, errors.NewValidationError("invalid type for review_id field", nil)
+				return nil, errors.NewValidationError("invalid type for review_ids field", nil)
 			}
 		}
 	}
