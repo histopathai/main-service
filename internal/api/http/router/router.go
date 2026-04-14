@@ -26,12 +26,13 @@ type Router struct {
 	config *RouterConfig
 
 	// Handlers
-	workspaceHandler      *handler.WorkspaceHandler
-	patientHandler        *handler.PatientHandler
-	imageHandler          *handler.ImageHandler
-	annotationHandler     *handler.AnnotationHandler
-	annotationTypeHandler *handler.AnnotationTypeHandler
-	tileProxyHandler      *handler.TileProxyHandler
+	workspaceHandler        *handler.WorkspaceHandler
+	patientHandler          *handler.PatientHandler
+	imageHandler            *handler.ImageHandler
+	annotationHandler       *handler.AnnotationHandler
+	annotationReviewHandler *handler.AnnotationReviewHandler
+	annotationTypeHandler   *handler.AnnotationTypeHandler
+	tileProxyHandler        *handler.TileProxyHandler
 
 	// Middleware
 	authMiddleware    *middleware.AuthMiddleware
@@ -47,22 +48,24 @@ func NewRouter(
 	patientHandler *handler.PatientHandler,
 	imageHandler *handler.ImageHandler,
 	annotationHandler *handler.AnnotationHandler,
+	annotationReviewHandler *handler.AnnotationReviewHandler,
 	annotationTypeHandler *handler.AnnotationTypeHandler,
 	tileProxyHandler *handler.TileProxyHandler,
 	authMiddleware *middleware.AuthMiddleware,
 	timeoutMiddleware *middleware.TimeoutMiddleware,
 ) *Router {
 	return &Router{
-		engine:                gin.Default(),
-		config:                config,
-		workspaceHandler:      workspaceHandler,
-		patientHandler:        patientHandler,
-		imageHandler:          imageHandler,
-		annotationHandler:     annotationHandler,
-		annotationTypeHandler: annotationTypeHandler,
-		tileProxyHandler:      tileProxyHandler,
-		authMiddleware:        authMiddleware,
-		timeoutMiddleware:     timeoutMiddleware,
+		engine:                  gin.Default(),
+		config:                  config,
+		workspaceHandler:        workspaceHandler,
+		patientHandler:          patientHandler,
+		imageHandler:            imageHandler,
+		annotationHandler:       annotationHandler,
+		annotationReviewHandler: annotationReviewHandler,
+		annotationTypeHandler:   annotationTypeHandler,
+		tileProxyHandler:        tileProxyHandler,
+		authMiddleware:          authMiddleware,
+		timeoutMiddleware:       timeoutMiddleware,
 	}
 }
 
@@ -92,6 +95,7 @@ func (r *Router) SetupRoutes() *gin.Engine {
 		r.setupPatientRoutes(v1)
 		r.setupImageRoutes(v1)
 		r.setupAnnotationRoutes(v1)
+		r.setupAnnotationReviewRoutes(v1)
 		r.setupAnnotationTypeRoutes(v1)
 
 		// Tile Proxy
@@ -186,6 +190,14 @@ func (r *Router) setupAnnotationRoutes(rg *gin.RouterGroup) {
 		annotations.GET("/image/:image_id", r.annotationHandler.GetByParentID)
 		annotations.GET("/workspace/:workspace_id", r.annotationHandler.GetByWsID)
 		annotations.GET("/count", r.annotationHandler.Count) // Count (changed from POST to GET)
+	}
+}
+
+func (r *Router) setupAnnotationReviewRoutes(rg *gin.RouterGroup) {
+	annotationReviews := rg.Group("/annotation-reviews")
+	{
+		// Create a review
+		annotationReviews.POST("", r.annotationReviewHandler.Create)
 	}
 }
 
