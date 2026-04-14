@@ -10,6 +10,8 @@ const (
 	AnnotationPolygon  AnnotationField = "polygon"
 	AnnotationIsGlobal AnnotationField = "is_global"
 	AnnotationColor    AnnotationField = "color"
+	AnnotationResource  AnnotationField = "resource"
+	AnnotationReviewIDs AnnotationField = "review_ids"
 )
 
 func (f AnnotationField) APIName() string {
@@ -29,13 +31,17 @@ func (f AnnotationField) DomainName() string {
 	case AnnotationTagType:
 		return "TagType"
 	case AnnotationTagValue:
-		return "TagValue"
+		return "Value"
 	case AnnotationPolygon:
 		return "Polygon"
 	case AnnotationIsGlobal:
-		return "TagGlobal"
+		return "IsGlobal"
 	case AnnotationColor:
-		return "TagColor"
+		return "Color"
+	case AnnotationResource:
+		return "Resource"
+	case AnnotationReviewIDs:
+		return "ReviewIDs"
 	default:
 		return ""
 	}
@@ -43,7 +49,7 @@ func (f AnnotationField) DomainName() string {
 
 func (f AnnotationField) IsValid() bool {
 	switch f {
-	case AnnotationTagType, AnnotationTagValue, AnnotationPolygon, AnnotationIsGlobal, AnnotationColor, AnnotationTypeID:
+	case AnnotationTagType, AnnotationTagValue, AnnotationPolygon, AnnotationIsGlobal, AnnotationColor, AnnotationTypeID, AnnotationWsID, AnnotationResource, AnnotationReviewIDs:
 		return true
 	default:
 		return false
@@ -51,5 +57,5 @@ func (f AnnotationField) IsValid() bool {
 }
 
 var AnnotationFields = []AnnotationField{
-	AnnotationTagType, AnnotationTagValue, AnnotationPolygon, AnnotationIsGlobal, AnnotationColor, AnnotationTypeID,
+	AnnotationTagType, AnnotationTagValue, AnnotationPolygon, AnnotationIsGlobal, AnnotationColor, AnnotationTypeID, AnnotationWsID, AnnotationResource, AnnotationReviewIDs,
 }

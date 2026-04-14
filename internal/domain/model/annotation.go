@@ -1,11 +1,13 @@
 package model
 
 import (
+	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 )
 
 type Annotation struct {
 	vobj.Entity
+	Resource         fields.AnnotationResourceField
 	AnnotationTypeID string
 	WsID             string
 	Polygon          *[]vobj.Point
@@ -13,4 +15,5 @@ type Annotation struct {
 	TagType          vobj.TagType
 	IsGlobal         bool
 	Color            *string
+	ReviewIDs        []string
 }

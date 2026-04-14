@@ -3,6 +3,7 @@ package vobj
 const (
 	EntityTypeImage          EntityType = "image"
 	EntityTypeAnnotation     EntityType = "annotation"
+	EntityTypeAnnotationReview EntityType = "annotation_review"
 	EntityTypePatient        EntityType = "patient"
 	EntityTypeWorkspace      EntityType = "workspace"
 	EntityTypeAnnotationType EntityType = "annotation_type"
@@ -14,6 +15,7 @@ const (
 	ParentTypeWorkspace      ParentType = "workspace"
 	ParentTypePatient        ParentType = "patient"
 	ParentTypeImage          ParentType = "image"
+	ParentTypeAnnotationReview ParentType = "annotation_review"
 	ParentTypeAnnotationType ParentType = "annotation_type"
 	ParentTypeAnnotation     ParentType = "annotation"
 	ParentTypeContent        ParentType = "content"

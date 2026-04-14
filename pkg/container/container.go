@@ -41,8 +41,9 @@ type Container struct {
 	PatientRepo        port.PatientRepository
 	ImageRepo          port.ImageRepository
 	ContentRepo        port.ContentRepository
-	AnnotationRepo     port.AnnotationRepository
-	AnnotationTypeRepo port.AnnotationTypeRepository
+	AnnotationRepo       port.AnnotationRepository
+	AnnotationReviewRepo port.AnnotationReviewRepository
+	AnnotationTypeRepo   port.AnnotationTypeRepository
 	UOW                port.UnitOfWorkFactory
 	TileServer         *proxy.TileServer
 
@@ -54,8 +55,9 @@ type Container struct {
 	WorkspaceUseCase      port.WorkspaceUseCase
 	PatientUseCase        port.PatientUseCase
 	ImageUseCase          port.ImageUseCase
-	AnnotationUseCase     port.AnnotationUseCase
-	AnnotationTypeUseCase port.AnnotationTypeUseCase
+	AnnotationUseCase       port.AnnotationUseCase
+	AnnotationReviewUseCase port.AnnotationReviewUseCase
+	AnnotationTypeUseCase   port.AnnotationTypeUseCase
 
 	// Queries
 	WorkspaceQuery      port.WorkspaceQuery
@@ -83,8 +85,9 @@ type Container struct {
 	WorkspaceHandler      *handler.WorkspaceHandler
 	PatientHandler        *handler.PatientHandler
 	ImageHandler          *handler.ImageHandler
-	AnnotationHandler     *handler.AnnotationHandler
-	AnnotationTypeHandler *handler.AnnotationTypeHandler
+	AnnotationHandler       *handler.AnnotationHandler
+	AnnotationReviewHandler *handler.AnnotationReviewHandler
+	AnnotationTypeHandler   *handler.AnnotationTypeHandler
 	AuthMiddleware        *middleware.AuthMiddleware
 	TimeoutMiddleware     *middleware.TimeoutMiddleware
 	TileProxyHandler      *handler.TileProxyHandler
@@ -185,6 +188,7 @@ func (c *Container) initRepositories(ctx context.Context) error {
 	c.ImageRepo = uowFactory.GetImageRepo()
 	c.ContentRepo = uowFactory.GetContentRepo()
 	c.AnnotationRepo = uowFactory.GetAnnotationRepo()
+	c.AnnotationReviewRepo = uowFactory.GetAnnotationReviewRepo()
 	c.AnnotationTypeRepo = uowFactory.GetAnnotationTypeRepo()
 	c.Logger.Info("Repositories initialized")
 	return nil
@@ -204,6 +208,7 @@ func (c *Container) initUseCases(ctx context.Context) error {
 	c.PatientUseCase = appusecase.NewPatientUseCase(c.PatientRepo, c.UOW)
 	c.ImageUseCase = appusecase.NewImageUseCase(c.ImageRepo, c.UOW, c.OriginStorage, c.ProcessedStorage)
 	c.AnnotationUseCase = appusecase.NewAnnotationUseCase(c.AnnotationRepo, c.UOW)
+	c.AnnotationReviewUseCase = appusecase.NewAnnotationReviewUseCase(c.AnnotationReviewRepo, c.UOW)
 	c.AnnotationTypeUseCase = appusecase.NewAnnotationTypeUseCase(c.AnnotationTypeRepo, c.UOW)
 	c.Logger.Info("Use cases initialized")
 	return nil
@@ -397,6 +402,11 @@ func (c *Container) initHTTPLayer(ctx context.Context) error {
 		c.Logger,
 	)
 
+	c.AnnotationReviewHandler = handler.NewAnnotationReviewHandler(
+		c.AnnotationReviewUseCase,
+		c.Logger,
+	)
+
 	c.AnnotationTypeHandler = handler.NewAnnotationTypeHandler(
 		c.AnnotationTypeQuery,
 		c.AnnotationTypeUseCase,
@@ -428,6 +438,7 @@ func (c *Container) initHTTPLayer(ctx context.Context) error {
 		c.PatientHandler,
 		c.ImageHandler,
 		c.AnnotationHandler,
+		c.AnnotationReviewHandler,
 		c.AnnotationTypeHandler,
 		c.TileProxyHandler,
 		c.AuthMiddleware,

@@ -29,6 +29,10 @@ type AnnotationUseCase interface {
 	Update(ctx context.Context, cmd command.UpdateAnnotationCommand) error
 }
 
+type AnnotationReviewUseCase interface {
+	Create(ctx context.Context, cmd command.CreateAnnotationReviewCommand) (*model.AnnotationReview, error)
+}
+
 type ImageUseCase interface {
 	Upload(ctx context.Context, cmd command.UploadImageCommand) ([]PresignedURLPayload, error)
 	Update(ctx context.Context, cmd command.UpdateImageCommand) error
