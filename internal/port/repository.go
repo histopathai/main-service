@@ -49,6 +49,7 @@ type UnitOfWorkFactory interface {
 	GetPatientRepo() PatientRepository
 	GetImageRepo() ImageRepository
 	GetAnnotationRepo() AnnotationRepository
+	GetAnnotationReviewRepo() AnnotationReviewRepository
 	GetAnnotationTypeRepo() AnnotationTypeRepository
 	GetContentRepo() ContentRepository
 }
@@ -75,4 +76,8 @@ type AnnotationTypeRepository interface {
 
 type ContentRepository interface {
 	Repository[*model.Content]
+}
+
+type AnnotationReviewRepository interface {
+	Repository[*model.AnnotationReview]
 }
