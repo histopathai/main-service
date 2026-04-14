@@ -31,6 +31,7 @@ type AnnotationUseCase interface {
 
 type AnnotationReviewUseCase interface {
 	Create(ctx context.Context, cmd command.CreateAnnotationReviewCommand) (*model.AnnotationReview, error)
+	Delete(ctx context.Context, reviewID string, requesterID string) error
 }
 
 type ImageUseCase interface {
