@@ -61,6 +61,8 @@ func (c *CreateAnnotationReviewCommand) ToEntity() (*model.AnnotationReview, err
 	c.CreateEntityCommand.ParentID = c.AnnotationID
 	c.CreateEntityCommand.ParentType = string(vobj.ParentTypeAnnotation)
 	c.CreateEntityCommand.Name = "Review for " + c.AnnotationID
+	// Reviewer is the creator of this Review entity
+	c.CreateEntityCommand.CreatorID = c.ReviewerID
 
 	baseEntity, err := c.CreateEntityCommand.ToEntity()
 	if err != nil {

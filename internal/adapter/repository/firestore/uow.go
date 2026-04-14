@@ -20,24 +20,26 @@ func fromCtx(ctx context.Context) *firestore.Transaction {
 }
 
 type FirestoreUnitOfWorkFactory struct {
-	client             *firestore.Client
-	workspaceRepo      port.WorkspaceRepository
-	patientRepo        port.PatientRepository
-	imageRepo          port.ImageRepository
-	annotationRepo     port.AnnotationRepository
-	annotationTypeRepo port.AnnotationTypeRepository
-	contentRepo        port.ContentRepository
+	client               *firestore.Client
+	workspaceRepo        port.WorkspaceRepository
+	patientRepo          port.PatientRepository
+	imageRepo            port.ImageRepository
+	annotationRepo       port.AnnotationRepository
+	annotationReviewRepo port.AnnotationReviewRepository
+	annotationTypeRepo   port.AnnotationTypeRepository
+	contentRepo          port.ContentRepository
 }
 
 func NewFirestoreUnitOfWorkFactory(client *firestore.Client) *FirestoreUnitOfWorkFactory {
 	return &FirestoreUnitOfWorkFactory{
-		client:             client,
-		workspaceRepo:      NewGenericRepositoryImpl(client, "workspaces", mappers.NewWorkspaceMapper()),
-		patientRepo:        NewGenericRepositoryImpl(client, "patients", mappers.NewPatientMapper()),
-		imageRepo:          NewGenericRepositoryImpl(client, "images", mappers.NewImageMapper()),
-		annotationRepo:     NewGenericRepositoryImpl(client, "annotations", mappers.NewAnnotationMapper()),
-		annotationTypeRepo: NewGenericRepositoryImpl(client, "annotation_types", mappers.NewAnnotationTypeMapper()),
-		contentRepo:        NewGenericRepositoryImpl(client, "contents", mappers.NewContentMapper()),
+		client:               client,
+		workspaceRepo:        NewGenericRepositoryImpl(client, "workspaces", mappers.NewWorkspaceMapper()),
+		patientRepo:          NewGenericRepositoryImpl(client, "patients", mappers.NewPatientMapper()),
+		imageRepo:            NewGenericRepositoryImpl(client, "images", mappers.NewImageMapper()),
+		annotationRepo:       NewGenericRepositoryImpl(client, "annotations", mappers.NewAnnotationMapper()),
+		annotationReviewRepo: NewGenericRepositoryImpl(client, "annotation_reviews", mappers.NewAnnotationReviewMapper()),
+		annotationTypeRepo:   NewGenericRepositoryImpl(client, "annotation_types", mappers.NewAnnotationTypeMapper()),
+		contentRepo:          NewGenericRepositoryImpl(client, "contents", mappers.NewContentMapper()),
 	}
 }
 
@@ -62,6 +64,10 @@ func (f *FirestoreUnitOfWorkFactory) GetImageRepo() port.ImageRepository {
 
 func (f *FirestoreUnitOfWorkFactory) GetAnnotationRepo() port.AnnotationRepository {
 	return f.annotationRepo
+}
+
+func (f *FirestoreUnitOfWorkFactory) GetAnnotationReviewRepo() port.AnnotationReviewRepository {
+	return f.annotationReviewRepo
 }
 
 func (f *FirestoreUnitOfWorkFactory) GetAnnotationTypeRepo() port.AnnotationTypeRepository {
