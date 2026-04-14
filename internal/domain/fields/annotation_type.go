@@ -25,17 +25,17 @@ func (f AnnotationTypeField) DomainName() string {
 	case AnnotationTypeTagType:
 		return "TagType"
 	case AnnotationTypeIsGlobal:
-		return "TagGlobal"
+		return "IsGlobal"
 	case AnnotationTypeIsRequired:
-		return "TagRequired"
+		return "IsRequired"
 	case AnnotationTypeOptions:
-		return "TagOptions"
+		return "Options"
 	case AnnotationTypeMin:
-		return "TagMin"
+		return "Min"
 	case AnnotationTypeMax:
-		return "TagMax"
+		return "Max"
 	case AnnotationTypeColor:
-		return "TagColor"
+		return "Color"
 	default:
 		return ""
 	}
