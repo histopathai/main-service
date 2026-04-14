@@ -45,12 +45,20 @@ func (uc *AnnotationReviewUseCase) Create(ctx context.Context, cmd command.Creat
 			return errors.NewInternalError("failed to create annotation review", err)
 		}
 
-		// Update linked annotation with the review ID
-		updates := map[string]interface{}{
-			fields.AnnotationReviewID.DomainName(): created.ID,
+		// Fetch current annotation to get existing review IDs
+		annotationID := created.Parent.ID
+		existingAnnotation, err := uc.uow.GetAnnotationRepo().Read(txCtx, annotationID)
+		if err != nil {
+			return errors.NewInternalError("failed to read annotation for review ID update", err)
 		}
-		if err := uc.uow.GetAnnotationRepo().Update(txCtx, created.AnnotationID, updates); err != nil {
-			return errors.NewInternalError("failed to update annotation with review ID", err)
+
+		// Append the new review ID to the existing list
+		updatedReviewIDs := append(existingAnnotation.ReviewIDs, created.ID)
+		updates := map[string]interface{}{
+			fields.AnnotationReviewIDs.DomainName(): updatedReviewIDs,
+		}
+		if err := uc.uow.GetAnnotationRepo().Update(txCtx, annotationID, updates); err != nil {
+			return errors.NewInternalError("failed to update annotation with review IDs", err)
 		}
 
 		createdReview = created
@@ -62,4 +70,51 @@ func (uc *AnnotationReviewUseCase) Create(ctx context.Context, cmd command.Creat
 	}
 
 	return createdReview, nil
+}
+
+// Delete soft-deletes a review. Only the reviewer who created it can delete it.
+func (uc *AnnotationReviewUseCase) Delete(ctx context.Context, reviewID string, requesterID string) error {
+	return uc.uow.WithTx(ctx, func(txCtx context.Context) error {
+		// 1. Fetch the review
+		review, err := uc.repo.Read(txCtx, reviewID)
+		if err != nil {
+			return errors.NewInternalError("failed to read review", err)
+		}
+		if review == nil {
+			return errors.NewNotFoundError("annotation review not found")
+		}
+
+		// 2. Ownership check — only the reviewer can delete their own review
+		if review.ReviewerID != requesterID {
+			return errors.NewForbiddenError("you can only delete your own reviews")
+		}
+
+		// 3. Soft-delete the review
+		if err := uc.repo.SoftDelete(txCtx, reviewID); err != nil {
+			return errors.NewInternalError("failed to delete annotation review", err)
+		}
+
+		// 4. Remove this review ID from the annotation's ReviewIDs list
+		annotationID := review.Parent.ID
+		annotation, err := uc.uow.GetAnnotationRepo().Read(txCtx, annotationID)
+		if err != nil {
+			return errors.NewInternalError("failed to read annotation for review ID cleanup", err)
+		}
+		if annotation != nil {
+			updatedIDs := make([]string, 0, len(annotation.ReviewIDs))
+			for _, id := range annotation.ReviewIDs {
+				if id != reviewID {
+					updatedIDs = append(updatedIDs, id)
+				}
+			}
+			updates := map[string]interface{}{
+				fields.AnnotationReviewIDs.DomainName(): updatedIDs,
+			}
+			if err := uc.uow.GetAnnotationRepo().Update(txCtx, annotationID, updates); err != nil {
+				return errors.NewInternalError("failed to update annotation review IDs after deletion", err)
+			}
+		}
+
+		return nil
+	})
 }

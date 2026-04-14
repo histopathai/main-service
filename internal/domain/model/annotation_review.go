@@ -9,7 +9,7 @@ import (
 
 type AnnotationReview struct {
 	vobj.Entity
-	AnnotationID    string
+	// Parent.ID = AnnotationID, Parent.Type = annotation
 	ReviewerID      string
 	Status          fields.ReviewStatusField
 	Comments        *string

@@ -81,8 +81,7 @@ func (c *CreateAnnotationReviewCommand) ToEntity() (*model.AnnotationReview, err
 	status := fields.ReviewStatusField(c.Status)
 
 	annotationReviewEntity := model.AnnotationReview{
-		Entity:          *baseEntity,
-		AnnotationID:    c.AnnotationID,
+		Entity:          *baseEntity, // Entity.Parent.ID = AnnotationID, Entity.Parent.Type = annotation
 		ReviewerID:      c.ReviewerID,
 		Status:          status,
 		Comments:        c.Comments,

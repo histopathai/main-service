@@ -19,7 +19,7 @@ type Entity struct {
 
 func (e EntityType) IsValid() bool {
 	switch e {
-	case EntityTypeImage, EntityTypeAnnotation, EntityTypePatient, EntityTypeWorkspace, EntityTypeAnnotationType, EntityTypeContent:
+	case EntityTypeImage, EntityTypeAnnotation, EntityTypeAnnotationReview, EntityTypePatient, EntityTypeWorkspace, EntityTypeAnnotationType, EntityTypeContent:
 		return true
 	default:
 		return false

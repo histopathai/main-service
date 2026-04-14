@@ -4,7 +4,9 @@ type ParentType string
 
 func (p ParentType) IsValid() bool {
 	switch p {
-	case ParentTypeWorkspace, ParentTypePatient, ParentTypeImage, ParentTypeAnnotationType, ParentTypeNone:
+	case ParentTypeWorkspace, ParentTypePatient, ParentTypeImage,
+		ParentTypeAnnotationType, ParentTypeAnnotation, ParentTypeAnnotationReview,
+		ParentTypeContent, ParentTypeNone:
 		return true
 	default:
 		return false

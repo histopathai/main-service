@@ -15,5 +15,5 @@ type Annotation struct {
 	TagType          vobj.TagType
 	IsGlobal         bool
 	Color            *string
-	ReviewID         *string
+	ReviewIDs        []string
 }

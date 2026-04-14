@@ -25,7 +25,8 @@ func NewAnnotationReviewValidator(repo port.AnnotationReviewRepository, uow port
 
 func (v *AnnotationReviewValidator) ValidateCreate(ctx context.Context, review *model.AnnotationReview) error {
 	// Check if annotation exists
-	annotation, err := v.uow.GetAnnotationRepo().Read(ctx, review.AnnotationID)
+	// Annotation is the parent — use Parent.ID
+	annotation, err := v.uow.GetAnnotationRepo().Read(ctx, review.Parent.ID)
 	if err != nil {
 		return errors.NewInternalError("failed to get annotation", err)
 	}
