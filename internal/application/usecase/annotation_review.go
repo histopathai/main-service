@@ -118,3 +118,32 @@ func (uc *AnnotationReviewUseCase) Delete(ctx context.Context, reviewID string, 
 		return nil
 	})
 }
+
+func (uc *AnnotationReviewUseCase) Update(ctx context.Context, cmd command.UpdateAnnotationReviewCommand) error {
+	updates := cmd.GetUpdates()
+
+	if len(updates) == 0 {
+		return errors.NewValidationError("no updates provided", nil)
+	}
+
+	if cmd.ID == "" {
+		return errors.NewValidationError("annotation review id is required", nil)
+	}
+
+	err := uc.uow.WithTx(ctx, func(txCtx context.Context) error {
+		// Validate using validator (reads review + parent annotation + annotation type)
+		if err := uc.validator.ValidateUpdate(txCtx, cmd.ID, cmd.RequesterID, updates); err != nil {
+			return err
+		}
+
+		// Update the review
+		err := uc.repo.Update(txCtx, cmd.ID, updates)
+		if err != nil {
+			return errors.NewInternalError("failed to update annotation review", err)
+		}
+
+		return nil
+	})
+
+	return err
+}

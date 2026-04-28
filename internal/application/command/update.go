@@ -461,3 +461,64 @@ func (c *UpdateContentCommand) GetUpdates() map[string]interface{} {
 
 	return updates
 }
+
+// ================================================================================
+// Update Annotation Review Command
+// ================================================================================
+
+type UpdateAnnotationReviewCommand struct {
+	UpdateEntityCommand
+	RequesterID     string
+	Status          *fields.ReviewStatusField
+	Comments        *string
+	ModifiedPolygon *[]CommandPoint
+	ModifiedValue   any
+}
+
+func (c *UpdateAnnotationReviewCommand) Validate() (map[string]interface{}, bool) {
+	details, ok := c.UpdateEntityCommand.Validate()
+	if !ok {
+		// details already contains errors from UpdateEntityCommand
+	} else {
+		details = make(map[string]interface{})
+	}
+
+	if c.Status != nil && !c.Status.IsValid() {
+		details["status"] = "Invalid ReviewStatus value"
+	}
+
+	if len(details) > 0 {
+		return details, false
+	}
+	return nil, true
+}
+
+func (c *UpdateAnnotationReviewCommand) GetUpdates() map[string]interface{} {
+	if _, ok := c.Validate(); !ok {
+		return nil
+	}
+
+	updates := c.UpdateEntityCommand.GetUpdates()
+	if updates == nil {
+		updates = make(map[string]interface{})
+	}
+
+	if c.Status != nil {
+		updates[fields.AnnotationReviewStatus.DomainName()] = *c.Status
+	}
+	if c.Comments != nil {
+		updates[fields.AnnotationReviewComments.DomainName()] = *c.Comments
+	}
+	if c.ModifiedValue != nil {
+		updates[fields.AnnotationReviewModifiedValue.DomainName()] = c.ModifiedValue
+	}
+	if c.ModifiedPolygon != nil {
+		points := make([]vobj.Point, len(*c.ModifiedPolygon))
+		for i, p := range *c.ModifiedPolygon {
+			points[i] = vobj.Point{X: p.X, Y: p.Y}
+		}
+		updates[fields.AnnotationReviewModifiedPolygon.DomainName()] = points
+	}
+
+	return updates
+}

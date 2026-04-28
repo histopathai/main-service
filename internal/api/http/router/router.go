@@ -198,6 +198,7 @@ func (r *Router) setupAnnotationReviewRoutes(rg *gin.RouterGroup) {
 	{
 		annotationReviews.POST("", r.annotationReviewHandler.Create)
 		annotationReviews.GET("/:id", r.annotationReviewHandler.Get)
+		annotationReviews.PUT("/:id", r.annotationReviewHandler.Update)
 		annotationReviews.DELETE("/:id", r.annotationReviewHandler.Delete)
 		annotationReviews.GET("/annotation/:annotation_id", r.annotationReviewHandler.GetByAnnotationID)
 	}

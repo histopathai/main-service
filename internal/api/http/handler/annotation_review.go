@@ -218,3 +218,85 @@ func (h *AnnotationReviewHandler) GetByAnnotationID(c *gin.Context) {
 
 	h.Response.SuccessList(c, reviews, pagination)
 }
+
+// Update godoc
+// @Summary Update an annotation review
+// @Description Update the status, comments, or modified polygon/value of an annotation review. Can only be done by the reviewer who created it.
+// @Tags Annotation Reviews
+// @Accept json
+// @Produce json
+// @Param id path string true "Review ID"
+// @Param request body request.UpdateAnnotationReviewRequest true "Annotation review update request"
+// @Success 200 {object} response.AnnotationReviewDataResponse "Review updated successfully"
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /annotation-reviews/{id} [put]
+func (h *AnnotationReviewHandler) Update(c *gin.Context) {
+	reviewID := c.Param("id")
+	if reviewID == "" {
+		h.HandleError(c, errors.NewValidationError("review ID is required", nil))
+		return
+	}
+
+	requesterID, err := middleware.GetAuthenticatedUserID(c)
+	if err != nil {
+		h.HandleError(c, err)
+		return
+	}
+
+	var req request.UpdateAnnotationReviewRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.HandleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+			"error": err.Error(),
+		}))
+		return
+	}
+
+	var modifiedPolygon *[]command.CommandPoint
+	if req.ModifiedPolygon != nil && len(*req.ModifiedPolygon) > 0 {
+		points := make([]command.CommandPoint, len(*req.ModifiedPolygon))
+		for i, p := range *req.ModifiedPolygon {
+			points[i] = command.CommandPoint{X: p.X, Y: p.Y}
+		}
+		modifiedPolygon = &points
+	}
+
+	var status *fields.ReviewStatusField
+	if req.Status != nil {
+		s := fields.ReviewStatusField(*req.Status)
+		status = &s
+	}
+
+	cmd := command.UpdateAnnotationReviewCommand{
+		UpdateEntityCommand: command.UpdateEntityCommand{
+			ID: reviewID,
+		},
+		RequesterID:     requesterID,
+		Status:          status,
+		Comments:        req.Comments,
+		ModifiedValue:   req.ModifiedValue,
+		ModifiedPolygon: modifiedPolygon,
+	}
+
+	if errDetails, ok := cmd.Validate(); !ok {
+		h.HandleError(c, errors.NewValidationError("invalid command payload", errDetails))
+		return
+	}
+
+	if err := h.ARUseCase.Update(c.Request.Context(), cmd); err != nil {
+		h.HandleError(c, err)
+		return
+	}
+
+	updatedReview, err := h.ARQuery.Get(c.Request.Context(), reviewID)
+	if err != nil {
+		h.HandleError(c, err)
+		return
+	}
+
+	h.Response.Success(c, http.StatusOK, response.NewAnnotationReviewResponse(updatedReview))
+}
