@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/histopathai/main-service/internal/application/command"
 	appusecase "github.com/histopathai/main-service/internal/application/usecase"
 	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/model"
@@ -60,7 +61,8 @@ func (r *fakeAnnotationRepo) Count(_ context.Context, _ query.Specification) (in
 }
 
 type fakeAnnotationReviewRepo struct {
-	reviews    map[string]*model.AnnotationReview
+	reviews     map[string]*model.AnnotationReview
+	updateCalls map[string]map[string]interface{}
 	softDeleted []string
 }
 
@@ -69,7 +71,10 @@ func newFakeAnnotationReviewRepo(reviews ...*model.AnnotationReview) *fakeAnnota
 	for _, r := range reviews {
 		m[r.ID] = r
 	}
-	return &fakeAnnotationReviewRepo{reviews: m}
+	return &fakeAnnotationReviewRepo{
+		reviews:     m,
+		updateCalls: make(map[string]map[string]interface{}),
+	}
 }
 
 func (r *fakeAnnotationReviewRepo) Create(_ context.Context, e *model.AnnotationReview) (*model.AnnotationReview, error) {
@@ -79,7 +84,8 @@ func (r *fakeAnnotationReviewRepo) Create(_ context.Context, e *model.Annotation
 func (r *fakeAnnotationReviewRepo) Read(_ context.Context, id string) (*model.AnnotationReview, error) {
 	return r.reviews[id], nil
 }
-func (r *fakeAnnotationReviewRepo) Update(_ context.Context, _ string, _ map[string]interface{}) error {
+func (r *fakeAnnotationReviewRepo) Update(_ context.Context, id string, updates map[string]interface{}) error {
+	r.updateCalls[id] = updates
 	return nil
 }
 func (r *fakeAnnotationReviewRepo) SoftDelete(_ context.Context, id string) error {
@@ -240,4 +246,86 @@ func TestAnnotationReviewUseCase_Delete_CleansUpReviewIDFromAnnotation(t *testin
 	assert.Contains(t, updatedIDs, "review-1")
 	assert.Contains(t, updatedIDs, "review-3")
 	assert.Len(t, updatedIDs, 2)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Create
+// ─────────────────────────────────────────────────────────────────────────────
+
+func TestAnnotationReviewUseCase_Create_Success(t *testing.T) {
+	annotation := makeAnnotation("anno-1", "creator-1", []string{})
+	ar := newFakeAnnotationRepo(annotation)
+	arr := newFakeAnnotationReviewRepo()
+	uow := newFakeUoW(ar, arr)
+	uc := appusecase.NewAnnotationReviewUseCase(arr, uow)
+
+	cmd := command.CreateAnnotationReviewCommand{
+		AnnotationID: "anno-1",
+		ReviewerID:   "reviewer-A",
+		Status:       "approved",
+	}
+
+	created, err := uc.Create(context.Background(), cmd)
+	require.NoError(t, err)
+	require.NotNil(t, created)
+
+	// Review should be in repo
+	saved, _ := arr.Read(context.Background(), created.ID)
+	assert.NotNil(t, saved)
+	assert.Equal(t, "reviewer-A", saved.ReviewerID)
+
+	// Annotation's ReviewIDs should be updated
+	updatedIDs, ok := ar.updateCalls["anno-1"][fields.AnnotationReviewIDs.DomainName()].([]string)
+	require.True(t, ok)
+	assert.Contains(t, updatedIDs, created.ID)
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Update
+// ─────────────────────────────────────────────────────────────────────────────
+
+func TestAnnotationReviewUseCase_Update_Success(t *testing.T) {
+	review := makeReview("review-1", "reviewer-A", "anno-1")
+	arr := newFakeAnnotationReviewRepo(review)
+	ar := newFakeAnnotationRepo()
+	uow := newFakeUoW(ar, arr)
+	uc := appusecase.NewAnnotationReviewUseCase(arr, uow)
+
+	comments := "Updated comments"
+	status := fields.ReviewStatusRejected
+	cmd := command.UpdateAnnotationReviewCommand{
+		UpdateEntityCommand: command.UpdateEntityCommand{ID: "review-1"},
+		RequesterID:     "reviewer-A",
+		Status:          &status,
+		Comments:        &comments,
+	}
+
+	err := uc.Update(context.Background(), cmd)
+	require.NoError(t, err)
+
+	// Verify update calls
+	updates := arr.updateCalls["review-1"]
+	assert.Equal(t, status, updates[fields.AnnotationReviewStatus.DomainName()])
+	assert.Equal(t, comments, updates[fields.AnnotationReviewComments.DomainName()])
+}
+
+func TestAnnotationReviewUseCase_Update_OtherUser_Forbidden(t *testing.T) {
+	review := makeReview("review-1", "reviewer-A", "anno-1")
+	arr := newFakeAnnotationReviewRepo(review)
+	ar := newFakeAnnotationRepo()
+	uow := newFakeUoW(ar, arr)
+	uc := appusecase.NewAnnotationReviewUseCase(arr, uow)
+
+	status := fields.ReviewStatusRejected
+	cmd := command.UpdateAnnotationReviewCommand{
+		UpdateEntityCommand: command.UpdateEntityCommand{ID: "review-1"},
+		RequesterID:     "user-B",
+		Status:          &status,
+	}
+
+	err := uc.Update(context.Background(), cmd)
+	require.Error(t, err)
+	var appErr *errors.Err
+	require.ErrorAs(t, err, &appErr)
+	assert.Equal(t, errors.ErrorTypeForbidden, appErr.Type)
 }
