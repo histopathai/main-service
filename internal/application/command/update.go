@@ -219,10 +219,11 @@ func (c *UpdatePatientCommand) GetUpdates() map[string]interface{} {
 
 type UpdateAnnotationCommand struct {
 	UpdateEntityCommand
-	Value    interface{}
-	Color    *string
-	IsGlobal *bool
-	Points   []CommandPoint
+	RequesterID string
+	Value       interface{}
+	Color       *string
+	IsGlobal    *bool
+	Points      []CommandPoint
 }
 
 func (c *UpdateAnnotationCommand) Validate() (map[string]interface{}, bool) {

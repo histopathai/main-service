@@ -39,7 +39,7 @@ func (v *AnnotationValidator) ValidateCreate(ctx context.Context, annotation *mo
 	return nil
 }
 
-func (v *AnnotationValidator) ValidateUpdate(ctx context.Context, id string, updates map[string]interface{}) error {
+func (v *AnnotationValidator) ValidateUpdate(ctx context.Context, id string, requesterID string, updates map[string]interface{}) error {
 	// Fetch existing annotation
 	existing, err := v.repo.Read(ctx, id)
 	if err != nil {
@@ -47,6 +47,13 @@ func (v *AnnotationValidator) ValidateUpdate(ctx context.Context, id string, upd
 	}
 	if existing == nil {
 		return errors.NewNotFoundError("annotation not found")
+	}
+
+	// value veya polygon değiştirilmek isteniyorsa sadece sahibi yapabilir
+	_, valueChanging := updates[fields.AnnotationTagValue.DomainName()]
+	_, polygonChanging := updates[fields.AnnotationPolygon.DomainName()]
+	if (valueChanging || polygonChanging) && existing.CreatorID != requesterID {
+		return errors.NewForbiddenError("you are not the owner of this annotation; you can only review it, not update its value or polygon")
 	}
 
 	// Create a copy to apply updates

@@ -84,7 +84,7 @@ func (uc *AnnotationUseCase) Update(ctx context.Context, cmd command.UpdateAnnot
 	err := uc.uow.WithTx(ctx, func(txCtx context.Context) error {
 
 		// Validate
-		if err := uc.validator.ValidateUpdate(txCtx, id, updates); err != nil {
+		if err := uc.validator.ValidateUpdate(txCtx, id, cmd.RequesterID, updates); err != nil {
 			return err
 		}
 

@@ -330,6 +330,12 @@ func (ah *AnnotationHandler) Update(c *gin.Context) {
 		return
 	}
 
+	requesterID, err := middleware.GetAuthenticatedUserID(c)
+	if err != nil {
+		ah.HandleError(c, err)
+		return
+	}
+
 	var req request.UpdateAnnotationRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		ah.HandleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
@@ -338,16 +344,28 @@ func (ah *AnnotationHandler) Update(c *gin.Context) {
 		return
 	}
 
+	var polygon []command.CommandPoint
+	if req.Polygon != nil && len(*req.Polygon) > 0 {
+		points := make([]command.CommandPoint, len(*req.Polygon))
+		for i, pr := range *req.Polygon {
+			points[i] = command.CommandPoint{X: pr.X, Y: pr.Y}
+		}
+		polygon = points
+	}
+
 	cmd := command.UpdateAnnotationCommand{
 		UpdateEntityCommand: command.UpdateEntityCommand{
 			ID:   annotationID,
 			Name: nil,
 		},
-		Value:    req.Value,
-		IsGlobal: req.IsGlobal,
+		RequesterID: requesterID,
+		Value:       req.Value,
+		Color:       req.Color,
+		IsGlobal:    req.IsGlobal,
+		Points:      polygon,
 	}
 
-	err := ah.AUseCase.Update(c.Request.Context(), cmd)
+	err = ah.AUseCase.Update(c.Request.Context(), cmd)
 	if err != nil {
 		ah.HandleError(c, err)
 		return
