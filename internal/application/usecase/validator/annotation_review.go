@@ -53,3 +53,51 @@ func (v *AnnotationReviewValidator) ValidateCreate(ctx context.Context, review *
 
 	return nil
 }
+
+func (v *AnnotationReviewValidator) ValidateUpdate(ctx context.Context, id string, requesterID string, updates map[string]interface{}) error {
+	// Fetch existing review
+	existing, err := v.repo.Read(ctx, id)
+	if err != nil {
+		return errors.NewInternalError("failed to get annotation review", err)
+	}
+	if existing == nil {
+		return errors.NewNotFoundError("annotation review not found")
+	}
+
+	// Only reviewer can update their review
+	if existing.ReviewerID != requesterID {
+		return errors.NewForbiddenError("you are not the reviewer of this annotation review; you cannot update it")
+	}
+
+	// If modifying the value, validate the new value against the annotation type rules
+	if statusVal, ok := updates[fields.AnnotationReviewStatus.DomainName()]; ok {
+		status, ok := statusVal.(fields.ReviewStatusField)
+		if !ok {
+			return errors.NewValidationError("invalid type for status", map[string]interface{}{
+				"field": "status",
+				"error": "must be a ReviewStatusField",
+			})
+		}
+		if status == fields.ReviewStatusModified {
+			modifiedValue, hasModifiedValue := updates[fields.AnnotationReviewModifiedValue.DomainName()]
+			if hasModifiedValue {
+				// Fetch the parent annotation to validate against its type
+				annotation, err := v.uow.GetAnnotationRepo().Read(ctx, existing.Parent.ID)
+				if err != nil {
+					return errors.NewInternalError("failed to get parent annotation", err)
+				}
+				if annotation == nil {
+					return errors.NewNotFoundError("parent annotation not found")
+				}
+
+				tempAnnotation := *annotation
+				tempAnnotation.Value = modifiedValue
+				if err := v.annValidator.CheckAnnotationIsValid(ctx, &tempAnnotation); err != nil {
+					return err
+				}
+			}
+		}
+	}
+
+	return nil
+}
