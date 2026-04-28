@@ -28,6 +28,9 @@ func (v *AnnotationReviewValidator) ValidateCreate(ctx context.Context, review *
 	// Annotation is the parent — use Parent.ID
 	annotation, err := v.uow.GetAnnotationRepo().Read(ctx, review.Parent.ID)
 	if err != nil {
+		if appErr, ok := err.(*errors.Err); ok && appErr.Type == errors.ErrorTypeNotFound {
+			return errors.NewNotFoundError("annotation not found")
+		}
 		return errors.NewInternalError("failed to get annotation", err)
 	}
 	if annotation == nil {

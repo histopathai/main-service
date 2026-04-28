@@ -73,15 +73,18 @@ func (v *AnnotationValidator) ValidateUpdate(ctx context.Context, id string, req
 func (v *AnnotationValidator) CheckAnnotationIsValid(ctx context.Context, annotation *model.Annotation) error {
 	annotation_type, err := v.uow.GetAnnotationTypeRepo().Read(ctx, annotation.AnnotationTypeID)
 	if err != nil {
+		if appErr, ok := err.(*errors.Err); ok && appErr.Type == errors.ErrorTypeNotFound {
+			return errors.NewNotFoundError("annotation type not found")
+		}
 		return errors.NewInternalError("failed to get annotation type", err)
 	}
 	if annotation_type == nil {
-		return errors.NewInternalError("annotation type not found", nil)
+		return errors.NewNotFoundError("annotation type not found")
 	}
 
 	if annotation_type.IsRequired {
 		if annotation.Value == nil {
-			return errors.NewInternalError("annotation value is required", nil)
+			return errors.NewValidationError("annotation value is required", nil)
 		}
 	}
 
