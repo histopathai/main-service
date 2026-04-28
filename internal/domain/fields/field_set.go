@@ -162,6 +162,31 @@ func (fs *AnnotationTypeFieldSet) GetAllFields() []string {
 }
 
 // ============================================================================
+// AnnotationReviewFieldSet
+// ============================================================================
+
+type AnnotationReviewFieldSet struct{}
+
+func NewAnnotationReviewFieldSet() *AnnotationReviewFieldSet {
+	return &AnnotationReviewFieldSet{}
+}
+
+func (fs *AnnotationReviewFieldSet) IsValidField(field string) bool {
+	return EntityField(field).IsValid() || AnnotationReviewField(field).IsValid()
+}
+
+func (fs *AnnotationReviewFieldSet) GetAllFields() []string {
+	fields := make([]string, 0, len(EntityFields)+len(AnnotationReviewFields))
+	for _, f := range EntityFields {
+		fields = append(fields, f.APIName())
+	}
+	for _, f := range AnnotationReviewFields {
+		fields = append(fields, f.APIName())
+	}
+	return fields
+}
+
+// ============================================================================
 // ContentFieldSet
 // ============================================================================
 

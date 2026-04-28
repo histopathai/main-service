@@ -44,3 +44,8 @@ func NewAnnotationReviewResponse(r *model.AnnotationReview) *AnnotationReviewRes
 type AnnotationReviewDataResponse struct {
 	Data AnnotationReviewResponse `json:"data"`
 }
+
+type AnnotationReviewListResponseDoc struct {
+	Data       []AnnotationReviewResponse `json:"data"`
+	Pagination *PaginationResponse        `json:"pagination"`
+}

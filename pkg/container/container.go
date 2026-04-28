@@ -60,12 +60,13 @@ type Container struct {
 	AnnotationTypeUseCase   port.AnnotationTypeUseCase
 
 	// Queries
-	WorkspaceQuery      port.WorkspaceQuery
-	PatientQuery        port.PatientQuery
-	ImageQuery          port.ImageQuery
-	ContentQuery        port.ContentQuery
-	AnnotationQuery     port.AnnotationQuery
-	AnnotationTypeQuery port.AnnotationTypeQuery
+	WorkspaceQuery           port.WorkspaceQuery
+	PatientQuery             port.PatientQuery
+	ImageQuery               port.ImageQuery
+	ContentQuery             port.ContentQuery
+	AnnotationQuery          port.AnnotationQuery
+	AnnotationReviewQuery    port.AnnotationReviewQuery
+	AnnotationTypeQuery      port.AnnotationTypeQuery
 
 	// Event Infrastructure
 	EventPublisher     portevent.EventPublisher
@@ -220,6 +221,7 @@ func (c *Container) initQueries(ctx context.Context) error {
 	c.ImageQuery = appquery.NewImageQuery(c.ImageRepo)
 	c.ContentQuery = appquery.NewContentQuery(c.ContentRepo)
 	c.AnnotationQuery = appquery.NewAnnotationQuery(c.AnnotationRepo)
+	c.AnnotationReviewQuery = appquery.NewAnnotationReviewQuery(c.AnnotationReviewRepo)
 	c.AnnotationTypeQuery = appquery.NewAnnotationTypeQuery(c.AnnotationTypeRepo)
 	c.Logger.Info("Queries initialized")
 	return nil
@@ -403,6 +405,7 @@ func (c *Container) initHTTPLayer(ctx context.Context) error {
 	)
 
 	c.AnnotationReviewHandler = handler.NewAnnotationReviewHandler(
+		c.AnnotationReviewQuery,
 		c.AnnotationReviewUseCase,
 		c.Logger,
 	)
