@@ -34,25 +34,25 @@ func (uc *AnnotationReviewUseCase) Create(ctx context.Context, cmd command.Creat
 	var createdReview *model.AnnotationReview
 	err = uc.uow.WithTx(ctx, func(txCtx context.Context) error {
 
-		// Validate using validator
+		// Validate using validator (reads annotation + annotation type)
 		if err := uc.validator.ValidateCreate(txCtx, entity); err != nil {
 			return err
 		}
 
-		// Create review
-		created, err := uc.repo.Create(txCtx, entity)
-		if err != nil {
-			return errors.NewInternalError("failed to create annotation review", err)
-		}
-
-		// Fetch current annotation to get existing review IDs
-		annotationID := created.Parent.ID
+		// Read annotation BEFORE any write — Firestore requires all reads precede writes in a transaction
+		annotationID := entity.Parent.ID
 		existingAnnotation, err := uc.uow.GetAnnotationRepo().Read(txCtx, annotationID)
 		if err != nil {
 			return errors.NewInternalError("failed to read annotation for review ID update", err)
 		}
 
-		// Append the new review ID to the existing list
+		// Create review (first write)
+		created, err := uc.repo.Create(txCtx, entity)
+		if err != nil {
+			return errors.NewInternalError("failed to create annotation review", err)
+		}
+
+		// Append the new review ID to the existing list (second write)
 		updatedReviewIDs := append(existingAnnotation.ReviewIDs, created.ID)
 		updates := map[string]interface{}{
 			fields.AnnotationReviewIDs.DomainName(): updatedReviewIDs,

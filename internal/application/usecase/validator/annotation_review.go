@@ -28,6 +28,9 @@ func (v *AnnotationReviewValidator) ValidateCreate(ctx context.Context, review *
 	// Annotation is the parent — use Parent.ID
 	annotation, err := v.uow.GetAnnotationRepo().Read(ctx, review.Parent.ID)
 	if err != nil {
+		if appErr, ok := err.(*errors.Err); ok && appErr.Type == errors.ErrorTypeNotFound {
+			return errors.NewNotFoundError("annotation not found")
+		}
 		return errors.NewInternalError("failed to get annotation", err)
 	}
 	if annotation == nil {
@@ -39,17 +42,10 @@ func (v *AnnotationReviewValidator) ValidateCreate(ctx context.Context, review *
 		return errors.NewValidationError("cannot review your own manual annotation", nil)
 	}
 
-	// If modifying, test the new values using AnnotationValidator
-	if review.Status == fields.ReviewStatusModified {
+	// If modifying the value, validate the new value against the annotation type rules
+	if review.Status == fields.ReviewStatusModified && review.ModifiedValue != nil {
 		tempAnnotation := *annotation
-
-		if review.ModifiedValue != nil {
-			tempAnnotation.Value = review.ModifiedValue
-		}
-		if review.ModifiedPolygon != nil {
-			tempAnnotation.Polygon = review.ModifiedPolygon
-		}
-		
+		tempAnnotation.Value = review.ModifiedValue
 		if err := v.annValidator.CheckAnnotationIsValid(ctx, &tempAnnotation); err != nil {
 			return err
 		}
