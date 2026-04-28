@@ -196,10 +196,10 @@ func (r *Router) setupAnnotationRoutes(rg *gin.RouterGroup) {
 func (r *Router) setupAnnotationReviewRoutes(rg *gin.RouterGroup) {
 	annotationReviews := rg.Group("/annotation-reviews")
 	{
-		// Create a review
 		annotationReviews.POST("", r.annotationReviewHandler.Create)
-		// Delete own review
+		annotationReviews.GET("/:id", r.annotationReviewHandler.Get)
 		annotationReviews.DELETE("/:id", r.annotationReviewHandler.Delete)
+		annotationReviews.GET("/annotation/:annotation_id", r.annotationReviewHandler.GetByAnnotationID)
 	}
 }
 

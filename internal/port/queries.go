@@ -48,3 +48,8 @@ type ContentQuery interface {
 	Queries[*model.Content]
 	HierarchicalQueries[*model.Content]
 }
+
+type AnnotationReviewQuery interface {
+	Queries[*model.AnnotationReview]
+	GetByParentID(ctx context.Context, spec query.Specification, parentID string) (*query.Result[*model.AnnotationReview], error)
+}
