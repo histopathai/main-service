@@ -75,6 +75,9 @@ func (im *ImageMapper) ToFirestoreMap(entity *model.Image) map[string]interface{
 		m[fields.ImageZipTilesContentID.FirestoreName()] = *entity.ZipTilesContentID
 	}
 
+	// Completion state
+	m[fields.ImageMarkedAsCompleted.FirestoreName()] = entity.MarkedAsCompleted
+
 	// Processing info
 	processingMap := make(map[string]interface{})
 	processingMap["status"] = entity.Processing.Status.String()
@@ -160,6 +163,11 @@ func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model
 	}
 	if v, ok := data[fields.ImageZipTilesContentID.FirestoreName()].(string); ok {
 		image.ZipTilesContentID = &v
+	}
+
+	// Completion state
+	if v, ok := data[fields.ImageMarkedAsCompleted.FirestoreName()].(bool); ok {
+		image.MarkedAsCompleted = v
 	}
 
 	// Processing info
@@ -392,6 +400,13 @@ func (im *ImageMapper) MapUpdates(updates map[string]interface{}) (map[string]in
 				mappedUpdates[fields.ImageWsID.FirestoreName()] = wsID
 			} else {
 				return nil, errors.NewValidationError("invalid type for ws_id field", nil)
+			}
+
+		case fields.ImageMarkedAsCompleted.DomainName():
+			if val, ok := v.(bool); ok {
+				mappedUpdates[fields.ImageMarkedAsCompleted.FirestoreName()] = val
+			} else {
+				return nil, errors.NewValidationError("invalid type for marked_as_completed field", nil)
 			}
 		}
 	}

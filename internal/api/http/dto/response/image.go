@@ -66,6 +66,9 @@ type ImageResponse struct {
 
 	// Processing
 	Status string `json:"status" example:"processed"`
+
+	MarkedAsCompleted bool `json:"marked_as_completed" example:"false"`
+
 	// Timestamps
 	CreatedAt time.Time `json:"created_at" example:"2024-01-01T12:00:00Z"`
 	UpdatedAt time.Time `json:"updated_at" example:"2024-01-02T12:00:00Z"`
@@ -82,10 +85,11 @@ func NewImageResponse(img *model.Image) *ImageResponse {
 		Format:        img.Format,
 		Width:         img.Width,
 		Height:        img.Height,
-		Magnification: newMagnificationResponse(img.Magnification),
-		Status:        img.Processing.Status.String(),
-		CreatedAt:     img.CreatedAt,
-		UpdatedAt:     img.UpdatedAt,
+		Magnification:     newMagnificationResponse(img.Magnification),
+		Status:            img.Processing.Status.String(),
+		MarkedAsCompleted: img.MarkedAsCompleted,
+		CreatedAt:         img.CreatedAt,
+		UpdatedAt:         img.UpdatedAt,
 	}
 }
 

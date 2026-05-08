@@ -365,9 +365,10 @@ func (ih *ImageHandler) Update(c *gin.Context) {
 			Name:      req.Name,
 			CreatorID: req.CreatorID,
 		},
-		Width:         req.Width,
-		Height:        req.Height,
-		Magnification: magnification,
+		Width:             req.Width,
+		Height:            req.Height,
+		Magnification:     magnification,
+		MarkedAsCompleted: req.MarkedAsCompleted,
 	}
 
 	errDetails, ok := cmd.Validate()
