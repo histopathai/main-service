@@ -25,9 +25,10 @@ type UploadImageRequest struct {
 }
 
 type UpdateImageRequest struct {
-	CreatorID     *string               `json:"creator_id" binding:"required" example:"1"`
-	Name          *string               `json:"name,omitempty" example:"slide1_updated.svs"`
-	Width         *int                  `json:"width,omitempty" binding:"omitempty,gte=0"`
-	Height        *int                  `json:"height,omitempty" binding:"omitempty,gte=0"`
-	Magnification *MagnificationRequest `json:"magnification,omitempty"`
+	CreatorID          *string               `json:"creator_id" binding:"required" example:"1"`
+	Name               *string               `json:"name,omitempty" example:"slide1_updated.svs"`
+	Width              *int                  `json:"width,omitempty" binding:"omitempty,gte=0"`
+	Height             *int                  `json:"height,omitempty" binding:"omitempty,gte=0"`
+	Magnification      *MagnificationRequest `json:"magnification,omitempty"`
+	MarkedAsCompleted  *bool                 `json:"marked_as_completed,omitempty" example:"true"`
 }

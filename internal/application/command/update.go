@@ -357,10 +357,11 @@ func (c *UpdateAnnotationTypeCommand) GetUpdates() map[string]interface{} {
 type UpdateImageCommand struct {
 	UpdateEntityCommand
 
-	Width         *int
-	Height        *int
-	Size          *int64
-	Magnification *vobj.OpticalMagnification
+	Width             *int
+	Height            *int
+	Size              *int64
+	Magnification     *vobj.OpticalMagnification
+	MarkedAsCompleted *bool
 }
 
 func (c *UpdateImageCommand) Validate() (map[string]interface{}, bool) {
@@ -406,6 +407,9 @@ func (c *UpdateImageCommand) GetUpdates() map[string]interface{} {
 	}
 	if c.Magnification != nil {
 		updates[fields.ImageMagnification.DomainName()] = c.Magnification.GetMap()
+	}
+	if c.MarkedAsCompleted != nil {
+		updates[fields.ImageMarkedAsCompleted.DomainName()] = *c.MarkedAsCompleted
 	}
 
 	return updates

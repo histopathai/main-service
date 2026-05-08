@@ -27,4 +27,6 @@ type Image struct {
 
 	// Processing state
 	Processing *vobj.ProcessingInfo
+
+	MarkedAsCompleted bool
 }

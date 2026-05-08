@@ -31,6 +31,8 @@ const (
 	ImageMagnificationObjective         ImageField = "magnification.objective"
 	ImageMagnificationNativeLevel       ImageField = "magnification.native_level"
 	ImageMagnificationScanMagnification ImageField = "magnification.scan_magnification"
+
+	ImageMarkedAsCompleted ImageField = "marked_as_completed"
 )
 
 func (f ImageField) APIName() string {
@@ -105,6 +107,8 @@ func (f ImageField) DomainName() string {
 		return "MagnificationNativeLevel"
 	case ImageMagnificationScanMagnification:
 		return "MagnificationScanMagnification"
+	case ImageMarkedAsCompleted:
+		return "MarkedAsCompleted"
 	default:
 		return ""
 	}
@@ -118,7 +122,8 @@ func (f ImageField) IsValid() bool {
 		ImageOriginContentID, ImageThumbnailContentID, ImageDziContentID,
 		ImageIndexmapContentID, ImageTilesContentID, ImageZipTilesContentID,
 		ImageSize, ImageMagnification,
-		ImageMagnificationObjective, ImageMagnificationNativeLevel, ImageMagnificationScanMagnification:
+		ImageMagnificationObjective, ImageMagnificationNativeLevel, ImageMagnificationScanMagnification,
+		ImageMarkedAsCompleted:
 		return true
 	default:
 		return false
@@ -133,4 +138,5 @@ var ImageFields = []ImageField{
 	ImageIndexmapContentID, ImageTilesContentID, ImageZipTilesContentID,
 	ImageSize, ImageMagnification,
 	ImageMagnificationObjective, ImageMagnificationNativeLevel, ImageMagnificationScanMagnification,
+	ImageMarkedAsCompleted,
 }
