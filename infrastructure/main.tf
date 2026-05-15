@@ -23,7 +23,7 @@ data "terraform_remote_state" "image_processing" {
 
   config = {
     bucket = var.tf_state_bucket
-    prefix = "services/image-processing-service"
+    prefix = "services/image-processing-service/${var.environment}"
   }
 }
 
@@ -51,12 +51,10 @@ locals {
   original_bucket_name  = data.terraform_remote_state.platform.outputs.original_bucket_name
   processed_bucket_name = data.terraform_remote_state.platform.outputs.processed_bucket_name
 
-  # Cloud Run job names with environment suffix
-  # In dev environment, jobs have "-dev" suffix (e.g., image-processing-job-small-dev)
-  job_suffix = var.environment == "dev" ? "-dev" : ""
-  job_small  = "${data.terraform_remote_state.image_processing.outputs.job_ids["small"]}${local.job_suffix}"
-  job_medium = "${data.terraform_remote_state.image_processing.outputs.job_ids["medium"]}${local.job_suffix}"
-  job_large  = "${data.terraform_remote_state.image_processing.outputs.job_ids["large"]}${local.job_suffix}"
+  # Cloud Run job IDs are read from environment-specific state, already contain correct names
+  job_small  = data.terraform_remote_state.image_processing.outputs.job_ids["small"]
+  job_medium = data.terraform_remote_state.image_processing.outputs.job_ids["medium"]
+  job_large  = data.terraform_remote_state.image_processing.outputs.job_ids["large"]
 }
 
 provider "google" {
