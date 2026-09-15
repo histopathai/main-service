@@ -224,7 +224,7 @@ func (c *Container) initUseCases(ctx context.Context) error {
 func (c *Container) initQueries(ctx context.Context) error {
 	c.WorkspaceQuery = appquery.NewWorkspaceQuery(c.WorkspaceRepo)
 	c.PatientQuery = appquery.NewPatientQuery(c.PatientRepo)
-	c.ImageQuery = appquery.NewImageQuery(c.ImageRepo)
+	c.ImageQuery = appquery.NewImageQuery(c.ImageRepo, c.TissueMaskRepo)
 	c.ContentQuery = appquery.NewContentQuery(c.ContentRepo)
 	c.AnnotationQuery = appquery.NewAnnotationQuery(c.AnnotationRepo)
 	c.AnnotationReviewQuery = appquery.NewAnnotationReviewQuery(c.AnnotationReviewRepo)
