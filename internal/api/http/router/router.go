@@ -233,6 +233,7 @@ func (r *Router) setupTissueMaskRoutes(rg *gin.RouterGroup) {
 		tissueMasks.GET("/image/:image_id", r.tissueMaskHandler.GetByImageID)
 		tissueMasks.PUT("/image/:image_id", r.tissueMaskHandler.Save)
 		tissueMasks.POST("/image/:image_id/approve", r.tissueMaskHandler.Approve)
+		tissueMasks.POST("/image/:image_id/reject", r.tissueMaskHandler.Reject)
 		tissueMasks.GET("/workspace/:workspace_id", r.tissueMaskHandler.GetByWorkspaceID)
 	}
 }

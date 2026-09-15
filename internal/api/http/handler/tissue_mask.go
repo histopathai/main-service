@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"context"
+	stderrors "errors"
+	"io"
 	"log/slog"
 	"net/http"
 
@@ -11,6 +14,7 @@ import (
 	"github.com/histopathai/main-service/internal/api/http/middleware"
 	"github.com/histopathai/main-service/internal/application/command"
 	"github.com/histopathai/main-service/internal/domain/fields"
+	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/errors"
@@ -73,6 +77,7 @@ func (h *TissueMaskHandler) GetByImageID(c *gin.Context) {
 // @Failure 400 {object} response.ErrorResponse
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
+// @Failure 409 {object} response.ErrorResponse "The mask changed since expected_revision"
 // @Failure 500 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
@@ -109,8 +114,9 @@ func (h *TissueMaskHandler) Save(c *gin.Context) {
 	}
 
 	cmd := command.SaveTissueMaskCommand{
-		ImageID: c.Param("image_id"),
-		UserID:  userID,
+		ImageID:          c.Param("image_id"),
+		UserID:           userID,
+		ExpectedRevision: req.ExpectedRevision,
 		TissueMaskData: command.TissueMaskData{
 			AlgorithmVersion: req.AlgorithmVersion,
 			Params: vobj.TissueParams{
@@ -143,24 +149,66 @@ func (h *TissueMaskHandler) Save(c *gin.Context) {
 
 // Approve godoc
 // @Summary Approve a tissue mask
-// @Description Admin only. Marks the current polygons as reviewed. Approving an approved mask is a no-op.
+// @Description Admin only. Marks the current polygons as reviewed and clears a rejection. Approving an approved mask is a no-op.
 // @Tags Tissue Masks
+// @Accept json
 // @Produce json
 // @Param image_id path string true "Image ID"
+// @Param request body request.ReviewTissueMaskRequest false "Optional expected revision"
 // @Success 200 {object} response.TissueMaskDataResponse
 // @Failure 403 {object} response.ErrorResponse
 // @Failure 404 {object} response.ErrorResponse
+// @Failure 409 {object} response.ErrorResponse "The mask changed since expected_revision"
 // @Failure 500 {object} response.ErrorResponse
 // @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
 // @Router /tissue-masks/image/{image_id}/approve [post]
 func (h *TissueMaskHandler) Approve(c *gin.Context) {
+	h.review(c, h.TMUseCase.Approve)
+}
+
+// Reject godoc
+// @Summary Reject a tissue mask
+// @Description Admin only. Marks the image as unusable for tissue-based work (e.g. no tissue, failed stain) with an optional reason and clears an approval. The worker never overwrites a rejected mask; saving the mask again makes it edited.
+// @Tags Tissue Masks
+// @Accept json
+// @Produce json
+// @Param image_id path string true "Image ID"
+// @Param request body request.ReviewTissueMaskRequest false "Optional reason and expected revision"
+// @Success 200 {object} response.TissueMaskDataResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 409 {object} response.ErrorResponse "The mask changed since expected_revision"
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /tissue-masks/image/{image_id}/reject [post]
+func (h *TissueMaskHandler) Reject(c *gin.Context) {
+	h.review(c, h.TMUseCase.Reject)
+}
+
+func (h *TissueMaskHandler) review(c *gin.Context, apply func(context.Context, command.ReviewTissueMaskCommand) (*model.TissueMask, error)) {
 	userID, err := middleware.GetAuthenticatedUserID(c)
 	if err != nil {
 		h.HandleError(c, err)
 		return
 	}
-	mask, err := h.TMUseCase.Approve(c.Request.Context(), c.Param("image_id"), userID)
+	var req request.ReviewTissueMaskRequest
+	if c.Request.ContentLength != 0 {
+		if err := c.ShouldBindJSON(&req); err != nil && !stderrors.Is(err, io.EOF) {
+			h.HandleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{
+				"error": err.Error(),
+			}))
+			return
+		}
+	}
+	mask, err := apply(c.Request.Context(), command.ReviewTissueMaskCommand{
+		ImageID:          c.Param("image_id"),
+		UserID:           userID,
+		ExpectedRevision: req.ExpectedRevision,
+		Reason:           req.Reason,
+	})
 	if err != nil {
 		h.HandleError(c, err)
 		return

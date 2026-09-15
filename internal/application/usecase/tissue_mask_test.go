@@ -91,6 +91,12 @@ func (u *tissueUoW) GetAnnotationTypeRepo() port.AnnotationTypeRepository       
 func (u *tissueUoW) GetContentRepo() port.ContentRepository                           { return nil }
 func (u *tissueUoW) GetTissueMaskRepo() port.TissueMaskRepository                     { return u.masks }
 
+func review(user string, expected *int, reason *string) command.ReviewTissueMaskCommand {
+	return command.ReviewTissueMaskCommand{ImageID: "img-1", UserID: user, ExpectedRevision: expected, Reason: reason}
+}
+
+func ptr[T any](v T) *T { return &v }
+
 func newTissueFixture() (*appusecase.TissueMaskUseCase, *tissueUoW) {
 	uow := &tissueUoW{
 		images: &tissueImageRepo{images: map[string]*model.Image{
@@ -160,7 +166,7 @@ func TestTissueMask_WorkerOverwritesOnlyAutoMasks(t *testing.T) {
 	assert.False(t, apply(0.9), "edited masks are never overwritten")
 	assert.Equal(t, 0.5, uow.masks.masks["img-1"].TissueAreaRatio)
 
-	_, err = uc.Approve(ctx, "img-1", "reviewer")
+	_, err = uc.Approve(ctx, review("reviewer", nil, nil))
 	require.NoError(t, err)
 	assert.False(t, apply(0.9), "approved masks are never overwritten")
 	assert.Equal(t, vobj.TissueMaskStatusApproved, uow.masks.masks["img-1"].Status)
@@ -177,7 +183,7 @@ func TestTissueMask_SaveAfterApprovalClearsApproval(t *testing.T) {
 	assert.Equal(t, "ml-user", *saved.EditedBy)
 	assert.Equal(t, "ml-user", uow.masks.masks["img-1"].CreatorID, "a mask first created by a person belongs to them")
 
-	approved, err := uc.Approve(ctx, "img-1", "reviewer")
+	approved, err := uc.Approve(ctx, review("reviewer", nil, nil))
 	require.NoError(t, err)
 	assert.Equal(t, vobj.TissueMaskStatusApproved, approved.Status)
 	require.NotNil(t, uow.masks.masks["img-1"].ApprovedBy)
@@ -195,15 +201,15 @@ func TestTissueMask_ApproveIsIdempotentAndNeedsAMask(t *testing.T) {
 	uc, uow := newTissueFixture()
 	ctx := context.Background()
 
-	_, err := uc.Approve(ctx, "img-1", "reviewer")
+	_, err := uc.Approve(ctx, review("reviewer", nil, nil))
 	requireErrorType(t, err, errors.ErrorTypeNotFound)
 
 	_, err = uc.ApplyWorkerResult(ctx, command.ApplyWorkerTissueMaskCommand{ImageID: "img-1", TissueMaskData: validTissueData(0.3)})
 	require.NoError(t, err)
-	_, err = uc.Approve(ctx, "img-1", "reviewer")
+	_, err = uc.Approve(ctx, review("reviewer", nil, nil))
 	require.NoError(t, err, "an auto mask can be approved as is")
 	writes := uow.masks.writes
-	_, err = uc.Approve(ctx, "img-1", "someone-else")
+	_, err = uc.Approve(ctx, review("someone-else", nil, nil))
 	require.NoError(t, err)
 	assert.Equal(t, writes, uow.masks.writes)
 	assert.Equal(t, "reviewer", *uow.masks.masks["img-1"].ApprovedBy)
@@ -267,4 +273,103 @@ func requireErrorType(t *testing.T, err error, want errors.ErrorType) *errors.Er
 	require.True(t, ok, "expected *errors.Err, got %T: %v", err, err)
 	require.Equal(t, want, appErr.Type)
 	return appErr
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Rejection and revisions
+// ─────────────────────────────────────────────────────────────────────────────
+
+func TestTissueMask_RejectFlow(t *testing.T) {
+	uc, uow := newTissueFixture()
+	ctx := context.Background()
+	_, err := uc.ApplyWorkerResult(ctx, command.ApplyWorkerTissueMaskCommand{ImageID: "img-1", TissueMaskData: validTissueData(0.3)})
+	require.NoError(t, err)
+	_, err = uc.Approve(ctx, review("reviewer", nil, nil))
+	require.NoError(t, err)
+
+	rejected, err := uc.Reject(ctx, review("reviewer", nil, ptr("  IHC, doku ayrılamıyor ")))
+	require.NoError(t, err)
+	assert.Equal(t, vobj.TissueMaskStatusRejected, rejected.Status)
+	m := uow.masks.masks["img-1"]
+	require.NotNil(t, m.RejectReason)
+	assert.Equal(t, "IHC, doku ayrılamıyor", *m.RejectReason, "reason is trimmed")
+	assert.Nil(t, m.ApprovedBy, "rejecting clears the approval")
+
+	writes := uow.masks.writes
+	_, err = uc.Reject(ctx, review("other", nil, ptr("IHC, doku ayrılamıyor")))
+	require.NoError(t, err)
+	assert.Equal(t, writes, uow.masks.writes, "same rejection is a no-op")
+
+	applied, err := uc.ApplyWorkerResult(ctx, command.ApplyWorkerTissueMaskCommand{ImageID: "img-1", TissueMaskData: validTissueData(0.9)})
+	require.NoError(t, err)
+	assert.False(t, applied, "the worker never overwrites a rejected mask")
+
+	_, err = uc.Approve(ctx, review("reviewer", nil, nil))
+	require.NoError(t, err)
+	m = uow.masks.masks["img-1"]
+	assert.Equal(t, vobj.TissueMaskStatusApproved, m.Status)
+	assert.Nil(t, m.RejectedBy, "approving clears the rejection")
+	assert.Nil(t, m.RejectReason)
+
+	_, err = uc.Reject(ctx, review("reviewer", nil, nil))
+	require.NoError(t, err)
+	_, err = uc.Save(ctx, command.SaveTissueMaskCommand{ImageID: "img-1", UserID: "ml-user", TissueMaskData: validTissueData(0.4)})
+	require.NoError(t, err)
+	m = uow.masks.masks["img-1"]
+	assert.Equal(t, vobj.TissueMaskStatusEdited, m.Status)
+	assert.Nil(t, m.RejectedBy, "saving clears the rejection")
+}
+
+func TestTissueMask_RejectNeedsAMaskAndShortReason(t *testing.T) {
+	uc, _ := newTissueFixture()
+	ctx := context.Background()
+	_, err := uc.Reject(ctx, review("reviewer", nil, nil))
+	requireErrorType(t, err, errors.ErrorTypeNotFound)
+
+	long := make([]byte, vobj.TissueMaxRejectReasonLength+1)
+	for i := range long {
+		long[i] = 'a'
+	}
+	_, err = uc.Reject(ctx, review("reviewer", nil, ptr(string(long))))
+	requireErrorType(t, err, errors.ErrorTypeValidation)
+}
+
+func TestTissueMask_RevisionsRefuseStaleWrites(t *testing.T) {
+	uc, uow := newTissueFixture()
+	ctx := context.Background()
+	save := func(user string, expected *int) error {
+		_, err := uc.Save(ctx, command.SaveTissueMaskCommand{ImageID: "img-1", UserID: user, TissueMaskData: validTissueData(0.2), ExpectedRevision: expected})
+		return err
+	}
+
+	// No mask yet: the client expects revision 0.
+	require.NoError(t, save("alice", ptr(0)))
+	assert.Equal(t, 1, uow.masks.masks["img-1"].Revision)
+
+	// Alice and Bob both loaded revision 1; Bob saves first.
+	require.NoError(t, save("bob", ptr(1)))
+	assert.Equal(t, 2, uow.masks.masks["img-1"].Revision)
+	err := save("alice", ptr(1))
+	conflict := requireErrorType(t, err, errors.ErrorTypeConflict)
+	assert.Equal(t, 2, conflict.Details["current_revision"])
+	assert.Equal(t, "bob", *uow.masks.masks["img-1"].EditedBy, "the stale write changed nothing")
+
+	// Approve and reject check the revision too.
+	_, err = uc.Approve(ctx, review("alice", ptr(1), nil))
+	requireErrorType(t, err, errors.ErrorTypeConflict)
+	approved, err := uc.Approve(ctx, review("alice", ptr(2), nil))
+	require.NoError(t, err)
+	assert.Equal(t, 3, approved.Revision)
+	_, err = uc.Reject(ctx, review("bob", ptr(2), nil))
+	requireErrorType(t, err, errors.ErrorTypeConflict)
+
+	// The worker ignores revisions but still advances them.
+	uow.masks.masks["img-1"].Status = vobj.TissueMaskStatusAuto
+	applied, err := uc.ApplyWorkerResult(ctx, command.ApplyWorkerTissueMaskCommand{ImageID: "img-1", TissueMaskData: validTissueData(0.1)})
+	require.NoError(t, err)
+	assert.True(t, applied)
+	assert.Equal(t, 4, uow.masks.masks["img-1"].Revision)
+
+	// Omitting the expectation skips the check.
+	require.NoError(t, save("carol", nil))
 }

@@ -32,6 +32,7 @@ type TissueMaskSummaryResponse struct {
 	ImageID          string     `json:"image_id" example:"img-123"`
 	WsID             string     `json:"ws_id" example:"ws-123"`
 	Status           string     `json:"status" example:"auto"`
+	Revision         int        `json:"revision" example:"3"`
 	AlgorithmVersion string     `json:"algorithm_version" example:"tissue-v1"`
 	TissueAreaRatio  float64    `json:"tissue_area_ratio" example:"0.31"`
 	PolygonCount     int        `json:"polygon_count" example:"3"`
@@ -40,6 +41,9 @@ type TissueMaskSummaryResponse struct {
 	EditedAt         *time.Time `json:"edited_at,omitempty"`
 	ApprovedBy       *string    `json:"approved_by,omitempty"`
 	ApprovedAt       *time.Time `json:"approved_at,omitempty"`
+	RejectedBy       *string    `json:"rejected_by,omitempty"`
+	RejectedAt       *time.Time `json:"rejected_at,omitempty"`
+	RejectReason     *string    `json:"reject_reason,omitempty"`
 	CreatedAt        time.Time  `json:"created_at"`
 	UpdatedAt        time.Time  `json:"updated_at"`
 }
@@ -61,6 +65,7 @@ func NewTissueMaskSummaryResponse(m *model.TissueMask) TissueMaskSummaryResponse
 		ImageID:          m.ID,
 		WsID:             m.WsID,
 		Status:           m.Status.String(),
+		Revision:         m.Revision,
 		AlgorithmVersion: m.AlgorithmVersion,
 		TissueAreaRatio:  m.TissueAreaRatio,
 		PolygonCount:     len(m.Polygons),
@@ -69,6 +74,9 @@ func NewTissueMaskSummaryResponse(m *model.TissueMask) TissueMaskSummaryResponse
 		EditedAt:         m.EditedAt,
 		ApprovedBy:       m.ApprovedBy,
 		ApprovedAt:       m.ApprovedAt,
+		RejectedBy:       m.RejectedBy,
+		RejectedAt:       m.RejectedAt,
+		RejectReason:     m.RejectReason,
 		CreatedAt:        m.CreatedAt,
 		UpdatedAt:        m.UpdatedAt,
 	}

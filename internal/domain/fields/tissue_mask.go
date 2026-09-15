@@ -19,6 +19,10 @@ const (
 	TissueMaskEditedAt         TissueMaskField = "edited_at"
 	TissueMaskApprovedBy       TissueMaskField = "approved_by"
 	TissueMaskApprovedAt       TissueMaskField = "approved_at"
+	TissueMaskRevision         TissueMaskField = "revision"
+	TissueMaskRejectedBy       TissueMaskField = "rejected_by"
+	TissueMaskRejectedAt       TissueMaskField = "rejected_at"
+	TissueMaskRejectReason     TissueMaskField = "reject_reason"
 )
 
 func (f TissueMaskField) APIName() string {
@@ -63,6 +67,14 @@ func (f TissueMaskField) DomainName() string {
 		return "ApprovedBy"
 	case TissueMaskApprovedAt:
 		return "ApprovedAt"
+	case TissueMaskRevision:
+		return "Revision"
+	case TissueMaskRejectedBy:
+		return "RejectedBy"
+	case TissueMaskRejectedAt:
+		return "RejectedAt"
+	case TissueMaskRejectReason:
+		return "RejectReason"
 	default:
 		return ""
 	}
@@ -77,6 +89,7 @@ var TissueMaskFields = []TissueMaskField{
 	TissueMaskPreviewWidth, TissueMaskPreviewHeight, TissueMaskLevel0Width, TissueMaskLevel0Height,
 	TissueMaskDownsampleX, TissueMaskDownsampleY, TissueMaskTissueAreaRatio,
 	TissueMaskEditedBy, TissueMaskEditedAt, TissueMaskApprovedBy, TissueMaskApprovedAt,
+	TissueMaskRevision, TissueMaskRejectedBy, TissueMaskRejectedAt, TissueMaskRejectReason,
 }
 
 // TissueMaskFieldSet lists the fields a tissue mask list can filter and sort by.

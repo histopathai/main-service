@@ -34,4 +34,14 @@ type SaveTissueMaskRequest struct {
 	DownsampleX      float64                `json:"downsample_x" example:"48.75"`
 	DownsampleY      float64                `json:"downsample_y" example:"48.75"`
 	TissueAreaRatio  float64                `json:"tissue_area_ratio" example:"0.31"`
+	// ExpectedRevision is the revision the client loaded (0 if it had no mask).
+	// When set, a mask changed since then is refused with 409.
+	ExpectedRevision *int `json:"expected_revision,omitempty" example:"3"`
+}
+
+// ReviewTissueMaskRequest is the optional body of approve and reject.
+type ReviewTissueMaskRequest struct {
+	ExpectedRevision *int `json:"expected_revision,omitempty" example:"3"`
+	// Reason is used by reject only.
+	Reason *string `json:"reason,omitempty" example:"IHC boyama, doku ayrılamıyor"`
 }

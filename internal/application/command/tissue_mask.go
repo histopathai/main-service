@@ -2,6 +2,7 @@ package command
 
 import (
 	"math"
+	"strings"
 
 	"github.com/histopathai/main-service/internal/domain/vobj"
 )
@@ -52,6 +53,9 @@ type SaveTissueMaskCommand struct {
 	TissueMaskData
 	ImageID string
 	UserID  string
+	// ExpectedRevision is the revision the client loaded (0 when it had no
+	// mask); nil skips the concurrency check.
+	ExpectedRevision *int
 }
 
 func (c *SaveTissueMaskCommand) Validate() (map[string]interface{}, bool) {
@@ -64,6 +68,34 @@ func (c *SaveTissueMaskCommand) Validate() (map[string]interface{}, bool) {
 	}
 	if c.UserID == "" {
 		details["user_id"] = "user_id is required"
+	}
+	if len(details) > 0 {
+		return details, false
+	}
+	return nil, true
+}
+
+// ReviewTissueMaskCommand approves or rejects the stored mask.
+type ReviewTissueMaskCommand struct {
+	ImageID          string
+	UserID           string
+	ExpectedRevision *int
+	// Reason is used by reject only.
+	Reason *string
+}
+
+func (c *ReviewTissueMaskCommand) Validate() (map[string]interface{}, bool) {
+	details := map[string]interface{}{}
+	if c.Reason != nil {
+		trimmed := strings.TrimSpace(*c.Reason)
+		if trimmed == "" {
+			c.Reason = nil
+		} else {
+			c.Reason = &trimmed
+			if len(trimmed) > vobj.TissueMaxRejectReasonLength {
+				details["reason"] = "reason must be at most 1000 characters"
+			}
+		}
 	}
 	if len(details) > 0 {
 		return details, false

@@ -12,8 +12,11 @@ import (
 type TissueMask struct {
 	vobj.Entity
 
-	WsID             string
-	Status           vobj.TissueMaskStatus
+	WsID   string
+	Status vobj.TissueMaskStatus
+	// Revision increases with every write; clients send the revision they
+	// loaded so a write based on stale data is refused.
+	Revision         int
 	AlgorithmVersion string
 	Params           vobj.TissueParams
 	Polygons         []vobj.TissuePolygon
@@ -31,4 +34,8 @@ type TissueMask struct {
 	EditedAt   *time.Time
 	ApprovedBy *string
 	ApprovedAt *time.Time
+
+	RejectedBy   *string
+	RejectedAt   *time.Time
+	RejectReason *string
 }

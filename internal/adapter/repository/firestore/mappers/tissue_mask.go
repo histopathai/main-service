@@ -49,6 +49,10 @@ func tissueMaskValues(e *model.TissueMask) map[string]interface{} {
 		fields.TissueMaskEditedAt.FirestoreName():         nullable(e.EditedAt),
 		fields.TissueMaskApprovedBy.FirestoreName():       nullable(e.ApprovedBy),
 		fields.TissueMaskApprovedAt.FirestoreName():       nullable(e.ApprovedAt),
+		fields.TissueMaskRevision.FirestoreName():         e.Revision,
+		fields.TissueMaskRejectedBy.FirestoreName():       nullable(e.RejectedBy),
+		fields.TissueMaskRejectedAt.FirestoreName():       nullable(e.RejectedAt),
+		fields.TissueMaskRejectReason.FirestoreName():     nullable(e.RejectReason),
 	}
 }
 
@@ -151,6 +155,16 @@ func TissueMaskFromData(entity vobj.Entity, data map[string]interface{}) *model.
 	if v, ok := data[fields.TissueMaskApprovedAt.FirestoreName()].(time.Time); ok {
 		mask.ApprovedAt = &v
 	}
+	mask.Revision = int(floatValue(data[fields.TissueMaskRevision.FirestoreName()]))
+	if v, ok := data[fields.TissueMaskRejectedBy.FirestoreName()].(string); ok {
+		mask.RejectedBy = &v
+	}
+	if v, ok := data[fields.TissueMaskRejectedAt.FirestoreName()].(time.Time); ok {
+		mask.RejectedAt = &v
+	}
+	if v, ok := data[fields.TissueMaskRejectReason.FirestoreName()].(string); ok {
+		mask.RejectReason = &v
+	}
 	return mask
 }
 
@@ -184,56 +198,21 @@ func pointsValue(v interface{}) []vobj.Point {
 	return points
 }
 
-// MapUpdates accepts domain field names. A "Mask" key holding a
-// *model.TissueMask replaces every tissue-mask-specific field at once.
+// MapUpdates accepts a "Mask" key holding a *model.TissueMask, which replaces
+// every tissue-mask-specific field at once. Tissue masks are always written
+// whole so the status, its audit fields and the revision stay consistent.
 func (m *TissueMaskMapper) MapUpdates(updates map[string]interface{}) (map[string]interface{}, error) {
 	mapped, err := m.EntityMapper.MapUpdates(updates)
 	if err != nil {
 		return nil, err
 	}
-
-	for k, v := range updates {
-		switch k {
-		case "Mask":
-			mask, ok := v.(*model.TissueMask)
-			if !ok {
-				return nil, errors.NewValidationError("invalid type for tissue mask update", nil)
-			}
-			for fk, fv := range tissueMaskValues(mask) {
-				mapped[fk] = fv
-			}
-		case fields.TissueMaskStatus.DomainName():
-			status, ok := v.(vobj.TissueMaskStatus)
-			if !ok || !status.IsValid() {
-				return nil, errors.NewValidationError("invalid type for status field", nil)
-			}
-			mapped[fields.TissueMaskStatus.FirestoreName()] = status.String()
-		case fields.TissueMaskApprovedBy.DomainName(), fields.TissueMaskEditedBy.DomainName():
-			field := fields.TissueMaskApprovedBy
-			if k == fields.TissueMaskEditedBy.DomainName() {
-				field = fields.TissueMaskEditedBy
-			}
-			switch s := v.(type) {
-			case *string:
-				mapped[field.FirestoreName()] = nullable(s)
-			case string:
-				mapped[field.FirestoreName()] = s
-			default:
-				return nil, errors.NewValidationError("invalid type for "+field.APIName()+" field", nil)
-			}
-		case fields.TissueMaskApprovedAt.DomainName(), fields.TissueMaskEditedAt.DomainName():
-			field := fields.TissueMaskApprovedAt
-			if k == fields.TissueMaskEditedAt.DomainName() {
-				field = fields.TissueMaskEditedAt
-			}
-			switch t := v.(type) {
-			case *time.Time:
-				mapped[field.FirestoreName()] = nullable(t)
-			case time.Time:
-				mapped[field.FirestoreName()] = t
-			default:
-				return nil, errors.NewValidationError("invalid type for "+field.APIName()+" field", nil)
-			}
+	if v, ok := updates["Mask"]; ok {
+		mask, ok := v.(*model.TissueMask)
+		if !ok {
+			return nil, errors.NewValidationError("invalid type for tissue mask update", nil)
+		}
+		for fk, fv := range tissueMaskValues(mask) {
+			mapped[fk] = fv
 		}
 	}
 	return mapped, nil

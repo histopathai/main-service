@@ -8,21 +8,29 @@ import (
 // TissueMaskStatus is the review state of a tissue mask.
 //
 //	auto ──(save)──► edited ──(approve)──► approved
-//	  └───────────(approve)────────────────┘    │
-//	edited ◄──────────(save)────────────────────┘
+//	  │                 ▲                     │
+//	  │                 └───────(save)────────┤
+//	  └──(approve/reject from any state)──► approved / rejected
 //
-// The image-processing worker only writes masks that are missing or auto.
+// Saving always yields edited and clears approval and rejection. The
+// image-processing worker only writes masks that are missing or auto.
 type TissueMaskStatus string
 
 const (
 	TissueMaskStatusAuto     TissueMaskStatus = "auto"
 	TissueMaskStatusEdited   TissueMaskStatus = "edited"
 	TissueMaskStatusApproved TissueMaskStatus = "approved"
+	// TissueMaskStatusRejected marks the image as unusable for tissue-based
+	// work (e.g. no tissue, failed stain, bad scan).
+	TissueMaskStatusRejected TissueMaskStatus = "rejected"
 )
+
+// TissueMaxRejectReasonLength bounds the optional rejection reason.
+const TissueMaxRejectReasonLength = 1000
 
 func (s TissueMaskStatus) IsValid() bool {
 	switch s {
-	case TissueMaskStatusAuto, TissueMaskStatusEdited, TissueMaskStatusApproved:
+	case TissueMaskStatusAuto, TissueMaskStatusEdited, TissueMaskStatusApproved, TissueMaskStatusRejected:
 		return true
 	default:
 		return false
