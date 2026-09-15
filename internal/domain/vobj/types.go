@@ -8,6 +8,7 @@ const (
 	EntityTypeWorkspace      EntityType = "workspace"
 	EntityTypeAnnotationType EntityType = "annotation_type"
 	EntityTypeContent        EntityType = "content"
+	EntityTypeTissueMask     EntityType = "tissue_mask"
 )
 
 const (
@@ -98,6 +99,12 @@ const (
 
 	// DZI (Deep Zoom Image) - XML based format
 	ContentTypeApplicationDZI ContentType = "application/xml"
+
+	// Tissue mask outputs of image-processing-service. They must stay outside the
+	// "image" category (IsOriginImage would start processing) and differ from
+	// application/json (IsIndexMap).
+	ContentTypeTissuePreviewPNG ContentType = "image/x-tissue-preview-png"
+	ContentTypeTissueMaskJSON   ContentType = "application/x-tissue-mask+json"
 
 	// Generic fallback
 	ContentTypeApplicationOctetStream ContentType = "application/octet-stream"

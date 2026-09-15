@@ -72,6 +72,9 @@ func (s *TileServer) ServeRequest(ctx context.Context, imageID, objectPath strin
 	case RequestTypeIndexMap:
 		return s.serveIndexMap(ctx, imageID)
 
+	case RequestTypeTissuePreview:
+		return s.serveTissuePreview(ctx, imageID)
+
 	case RequestTypeTile:
 		return s.serveTile(ctx, imageID, objectPath)
 
@@ -91,6 +94,7 @@ const (
 	RequestTypeThumbnail
 	RequestTypeIndexMap
 	RequestTypeTile
+	RequestTypeTissuePreview
 )
 
 func (s *TileServer) determineRequestType(objectPath string) RequestType {
@@ -105,6 +109,9 @@ func (s *TileServer) determineRequestType(objectPath string) RequestType {
 
 	case strings.HasSuffix(lowerPath, "indexmap.json"):
 		return RequestTypeIndexMap
+
+	case lowerPath == "tissue_preview.png":
+		return RequestTypeTissuePreview
 
 	case strings.Contains(objectPath, "/"): // Tile requests: "0/0_0.jpeg", "1/1_2.jpeg"
 		return RequestTypeTile
@@ -161,6 +168,32 @@ func (s *TileServer) serveIndexMap(ctx context.Context, imageID string) (io.Read
 	}
 
 	content, err := s.getContentMetadata(ctx, *image.IndexmapContentID)
+	if err != nil {
+		return nil, err
+	}
+
+	return s.storage.Get(ctx, *content)
+}
+
+func (s *TileServer) serveTissuePreview(ctx context.Context, imageID string) (io.ReadCloser, error) {
+	image, err := s.getImage(ctx, imageID)
+	if err != nil {
+		return nil, err
+	}
+
+	// The preview can arrive after the image metadata was cached (e.g. a
+	// backfill of an image someone is viewing), so check the database once more.
+	if image.TissuePreviewContentID == nil {
+		if image, err = s.imageRepo.Read(ctx, imageID); err != nil {
+			return nil, errors.NewInternalError("failed to read image", err)
+		}
+		_ = s.cache.Set(ctx, s.keyBuilder.Build("image", "metadata", imageID), image, 10*time.Minute)
+	}
+	if image.TissuePreviewContentID == nil {
+		return nil, errors.NewNotFoundError("tissue preview not found for image")
+	}
+
+	content, err := s.getContentMetadata(ctx, *image.TissuePreviewContentID)
 	if err != nil {
 		return nil, err
 	}

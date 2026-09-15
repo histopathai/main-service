@@ -25,6 +25,9 @@ type Image struct {
 	TilesContentID     *string
 	ZipTilesContentID  *string
 
+	// TissuePreviewContentID is the preview the tissue mask was computed on.
+	TissuePreviewContentID *string
+
 	// Processing state
 	Processing *vobj.ProcessingInfo
 

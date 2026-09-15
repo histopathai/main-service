@@ -52,6 +52,7 @@ type UnitOfWorkFactory interface {
 	GetAnnotationReviewRepo() AnnotationReviewRepository
 	GetAnnotationTypeRepo() AnnotationTypeRepository
 	GetContentRepo() ContentRepository
+	GetTissueMaskRepo() TissueMaskRepository
 }
 
 type WorkspaceRepository interface {
@@ -80,4 +81,8 @@ type ContentRepository interface {
 
 type AnnotationReviewRepository interface {
 	Repository[*model.AnnotationReview]
+}
+
+type TissueMaskRepository interface {
+	Repository[*model.TissueMask]
 }

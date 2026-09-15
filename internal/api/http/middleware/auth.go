@@ -4,6 +4,7 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/histopathai/main-service/internal/api/http/dto/response"
@@ -87,4 +88,26 @@ func GetAuthenticatedUserRole(c *gin.Context) (string, error) {
 		return "", errors.NewUnauthorizedError("user role not found in context")
 	}
 	return userRole.(string), nil
+}
+
+// RequireRole rejects requests whose X-User-Role (set by RequireAuth) is not
+// one of roles, compared case-insensitively.
+func (am *AuthMiddleware) RequireRole(roles ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		role, err := GetAuthenticatedUserRole(c)
+		if err == nil {
+			for _, allowed := range roles {
+				if strings.EqualFold(role, allowed) {
+					c.Next()
+					return
+				}
+			}
+		}
+		am.logger.Warn("Role check failed", "path", c.Request.URL.Path, "role", role, "required", roles)
+		c.JSON(http.StatusForbidden, response.ErrorResponse{
+			ErrorType: string(errors.ErrorTypeForbidden),
+			Message:   "insufficient role",
+		})
+		c.Abort()
+	}
 }

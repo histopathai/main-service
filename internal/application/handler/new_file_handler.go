@@ -7,8 +7,10 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/histopathai/main-service/internal/application/command"
 	domainevent "github.com/histopathai/main-service/internal/domain/event"
 	"github.com/histopathai/main-service/internal/domain/fields"
+	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
 
@@ -16,23 +18,29 @@ import (
 )
 
 type NewFileHandler struct {
-	subscriber portevent.EventSubscriber
-	publisher  portevent.EventPublisher
-	uow        port.UnitOfWorkFactory
-	logger     *slog.Logger
+	subscriber       portevent.EventSubscriber
+	publisher        portevent.EventPublisher
+	uow              port.UnitOfWorkFactory
+	processedStorage port.Storage
+	tissueMasks      port.TissueMaskUseCase
+	logger           *slog.Logger
 }
 
 func NewNewFileHandler(
 	subscriber portevent.EventSubscriber,
 	uow port.UnitOfWorkFactory,
 	publisher portevent.EventPublisher,
+	processedStorage port.Storage,
+	tissueMasks port.TissueMaskUseCase,
 	logger *slog.Logger,
 ) *NewFileHandler {
 	return &NewFileHandler{
-		subscriber: subscriber,
-		publisher:  publisher,
-		uow:        uow,
-		logger:     logger,
+		subscriber:       subscriber,
+		publisher:        publisher,
+		uow:              uow,
+		processedStorage: processedStorage,
+		tissueMasks:      tissueMasks,
+		logger:           logger,
 	}
 }
 
@@ -58,6 +66,16 @@ func (h *NewFileHandler) Handle(ctx context.Context, event domainevent.Event) er
 	shouldPublish := false
 	eventID := uuid.New().String()
 
+	// Read the worker's tissue mask before the transaction: Firestore
+	// transactions should not wait on storage I/O.
+	var tissueMask *command.TissueMaskData
+	if content.ContentType.IsTissueMask() {
+		var err error
+		if tissueMask, err = h.readTissueMask(ctx, content); err != nil {
+			return err
+		}
+	}
+
 	// ... inside WithTx ...
 	uowerr := h.uow.WithTx(ctx, func(ctx context.Context) error {
 
@@ -77,7 +95,14 @@ func (h *NewFileHandler) Handle(ctx context.Context, event domainevent.Event) er
 		imageUpdates := make(map[string]interface{})
 
 		// 2. Determine updates based on content type
-		if content.ContentType.IsThumbnail() {
+		if content.ContentType.IsTissuePreview() {
+			imageUpdates[fields.ImageTissuePreviewContentID.DomainName()] = content.ID
+			imageEntity.TissuePreviewContentID = &content.ID
+
+		} else if content.ContentType.IsTissueMask() {
+			// Stored as a content record; the mask itself is applied below.
+
+		} else if content.ContentType.IsThumbnail() {
 			imageUpdates[fields.ImageThumbnailContentID.DomainName()] = content.ID
 			imageEntity.ThumbnailContentID = &content.ID // Update local model for completion check
 
@@ -165,6 +190,19 @@ func (h *NewFileHandler) Handle(ctx context.Context, event domainevent.Event) er
 		return uowerr
 	}
 
+	if tissueMask != nil {
+		applied, err := h.tissueMasks.ApplyWorkerResult(ctx, command.ApplyWorkerTissueMaskCommand{
+			ImageID:        content.Parent.ID,
+			TissueMaskData: *tissueMask,
+		})
+		if err != nil {
+			return err
+		}
+		h.logger.Info("NewFileHandler: worker tissue mask processed",
+			"image_id", content.Parent.ID,
+			"applied", applied)
+	}
+
 	if shouldPublish {
 		// ... publish event ...
 		err := h.publisher.Publish(ctx, &domainevent.ImageProcessReqEvent{
@@ -184,4 +222,32 @@ func (h *NewFileHandler) Handle(ctx context.Context, event domainevent.Event) er
 	}
 
 	return nil
+}
+
+// readTissueMask loads tissue_mask.json. A file that cannot be parsed is logged
+// and skipped (nil, nil) since redelivery cannot fix it; storage errors are
+// returned so the event is retried.
+func (h *NewFileHandler) readTissueMask(ctx context.Context, content *model.Content) (*command.TissueMaskData, error) {
+	reader, err := h.processedStorage.Get(ctx, *content)
+	if err != nil {
+		return nil, err
+	}
+	defer reader.Close()
+
+	data, err := parseWorkerTissueMask(reader)
+	if err != nil {
+		h.logger.Error("NewFileHandler: skipping unreadable tissue mask",
+			"image_id", content.Parent.ID,
+			"path", content.Path,
+			"error", err)
+		return nil, nil
+	}
+	if details, ok := data.Validate(); !ok {
+		h.logger.Error("NewFileHandler: skipping invalid tissue mask",
+			"image_id", content.Parent.ID,
+			"path", content.Path,
+			"details", details)
+		return nil, nil
+	}
+	return &data, nil
 }

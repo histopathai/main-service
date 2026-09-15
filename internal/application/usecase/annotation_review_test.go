@@ -124,6 +124,7 @@ func (u *fakeUoW) GetWorkspaceRepo() port.WorkspaceRepository               { re
 func (u *fakeUoW) GetPatientRepo() port.PatientRepository                   { return nil }
 func (u *fakeUoW) GetImageRepo() port.ImageRepository                       { return nil }
 func (u *fakeUoW) GetContentRepo() port.ContentRepository                   { return nil }
+func (u *fakeUoW) GetTissueMaskRepo() port.TissueMaskRepository { return nil }
 func (u *fakeUoW) GetAnnotationRepo() port.AnnotationRepository             { return u.annotationRepo }
 func (u *fakeUoW) GetAnnotationReviewRepo() port.AnnotationReviewRepository { return u.annotationReviewRepo }
 func (u *fakeUoW) GetAnnotationTypeRepo() port.AnnotationTypeRepository     { return nil }

@@ -44,6 +44,7 @@ type Container struct {
 	AnnotationRepo       port.AnnotationRepository
 	AnnotationReviewRepo port.AnnotationReviewRepository
 	AnnotationTypeRepo   port.AnnotationTypeRepository
+	TissueMaskRepo       port.TissueMaskRepository
 	UOW                port.UnitOfWorkFactory
 	TileServer         *proxy.TileServer
 
@@ -58,6 +59,7 @@ type Container struct {
 	AnnotationUseCase       port.AnnotationUseCase
 	AnnotationReviewUseCase port.AnnotationReviewUseCase
 	AnnotationTypeUseCase   port.AnnotationTypeUseCase
+	TissueMaskUseCase       port.TissueMaskUseCase
 
 	// Queries
 	WorkspaceQuery           port.WorkspaceQuery
@@ -67,6 +69,7 @@ type Container struct {
 	AnnotationQuery          port.AnnotationQuery
 	AnnotationReviewQuery    port.AnnotationReviewQuery
 	AnnotationTypeQuery      port.AnnotationTypeQuery
+	TissueMaskQuery          port.TissueMaskQuery
 
 	// Event Infrastructure
 	EventPublisher     portevent.EventPublisher
@@ -89,6 +92,7 @@ type Container struct {
 	AnnotationHandler       *handler.AnnotationHandler
 	AnnotationReviewHandler *handler.AnnotationReviewHandler
 	AnnotationTypeHandler   *handler.AnnotationTypeHandler
+	TissueMaskHandler       *handler.TissueMaskHandler
 	AuthMiddleware        *middleware.AuthMiddleware
 	TimeoutMiddleware     *middleware.TimeoutMiddleware
 	TileProxyHandler      *handler.TileProxyHandler
@@ -191,6 +195,7 @@ func (c *Container) initRepositories(ctx context.Context) error {
 	c.AnnotationRepo = uowFactory.GetAnnotationRepo()
 	c.AnnotationReviewRepo = uowFactory.GetAnnotationReviewRepo()
 	c.AnnotationTypeRepo = uowFactory.GetAnnotationTypeRepo()
+	c.TissueMaskRepo = uowFactory.GetTissueMaskRepo()
 	c.Logger.Info("Repositories initialized")
 	return nil
 }
@@ -211,6 +216,7 @@ func (c *Container) initUseCases(ctx context.Context) error {
 	c.AnnotationUseCase = appusecase.NewAnnotationUseCase(c.AnnotationRepo, c.UOW)
 	c.AnnotationReviewUseCase = appusecase.NewAnnotationReviewUseCase(c.AnnotationReviewRepo, c.UOW)
 	c.AnnotationTypeUseCase = appusecase.NewAnnotationTypeUseCase(c.AnnotationTypeRepo, c.UOW)
+	c.TissueMaskUseCase = appusecase.NewTissueMaskUseCase(c.UOW)
 	c.Logger.Info("Use cases initialized")
 	return nil
 }
@@ -223,6 +229,7 @@ func (c *Container) initQueries(ctx context.Context) error {
 	c.AnnotationQuery = appquery.NewAnnotationQuery(c.AnnotationRepo)
 	c.AnnotationReviewQuery = appquery.NewAnnotationReviewQuery(c.AnnotationReviewRepo)
 	c.AnnotationTypeQuery = appquery.NewAnnotationTypeQuery(c.AnnotationTypeRepo)
+	c.TissueMaskQuery = appquery.NewTissueMaskQuery(c.TissueMaskRepo)
 	c.Logger.Info("Queries initialized")
 	return nil
 }
@@ -303,6 +310,8 @@ func (c *Container) initEventHandlers(ctx context.Context) error {
 		c.UploadSubscriber,
 		c.UOW,
 		c.EventPublisher,
+		c.ProcessedStorage,
+		c.TissueMaskUseCase,
 		c.Logger.WithGroup("upload_handler"),
 	)
 
@@ -416,6 +425,12 @@ func (c *Container) initHTTPLayer(ctx context.Context) error {
 		c.Logger,
 	)
 
+	c.TissueMaskHandler = handler.NewTissueMaskHandler(
+		c.TissueMaskQuery,
+		c.TissueMaskUseCase,
+		c.Logger,
+	)
+
 	// Middleware
 	c.AuthMiddleware = middleware.NewAuthMiddleware(c.Logger)
 	c.TimeoutMiddleware = middleware.NewTimeoutMiddleware(
@@ -443,6 +458,7 @@ func (c *Container) initHTTPLayer(ctx context.Context) error {
 		c.AnnotationHandler,
 		c.AnnotationReviewHandler,
 		c.AnnotationTypeHandler,
+		c.TissueMaskHandler,
 		c.TileProxyHandler,
 		c.AuthMiddleware,
 		c.TimeoutMiddleware,
