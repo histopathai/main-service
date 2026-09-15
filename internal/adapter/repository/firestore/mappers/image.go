@@ -74,6 +74,9 @@ func (im *ImageMapper) ToFirestoreMap(entity *model.Image) map[string]interface{
 	if entity.ZipTilesContentID != nil {
 		m[fields.ImageZipTilesContentID.FirestoreName()] = *entity.ZipTilesContentID
 	}
+	if entity.TissuePreviewContentID != nil {
+		m[fields.ImageTissuePreviewContentID.FirestoreName()] = *entity.TissuePreviewContentID
+	}
 
 	// Completion state
 	m[fields.ImageMarkedAsCompleted.FirestoreName()] = entity.MarkedAsCompleted
@@ -160,6 +163,9 @@ func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model
 	}
 	if v, ok := data[fields.ImageTilesContentID.FirestoreName()].(string); ok {
 		image.TilesContentID = &v
+	}
+	if v, ok := data[fields.ImageTissuePreviewContentID.FirestoreName()].(string); ok {
+		image.TissuePreviewContentID = &v
 	}
 	if v, ok := data[fields.ImageZipTilesContentID.FirestoreName()].(string); ok {
 		image.ZipTilesContentID = &v
@@ -310,6 +316,15 @@ func (im *ImageMapper) MapUpdates(updates map[string]interface{}) (map[string]in
 				mappedUpdates[fields.ImageZipTilesContentID.FirestoreName()] = idStr
 			} else {
 				return nil, errors.NewValidationError("invalid type for ziptiles_content_id field", nil)
+			}
+
+		case fields.ImageTissuePreviewContentID.DomainName():
+			if id, ok := v.(*string); ok {
+				mappedUpdates[fields.ImageTissuePreviewContentID.FirestoreName()] = *id
+			} else if idStr, ok := v.(string); ok {
+				mappedUpdates[fields.ImageTissuePreviewContentID.FirestoreName()] = idStr
+			} else {
+				return nil, errors.NewValidationError("invalid type for tissue_preview_content_id field", nil)
 			}
 
 		// Helper to properly get or create nested map

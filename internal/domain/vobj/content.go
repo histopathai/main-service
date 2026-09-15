@@ -15,6 +15,8 @@ func (ct ContentType) GetCategory() string {
 		return "archive"
 	case ContentTypeApplicationJSON, ContentTypeApplicationDZI:
 		return "document"
+	case ContentTypeTissuePreviewPNG, ContentTypeTissueMaskJSON:
+		return "tissue"
 	default:
 		return "other"
 	}
@@ -28,7 +30,8 @@ func (ct ContentType) IsValid() bool {
 		ContentTypeImageBMP, ContentTypeImageJPEG, ContentTypeImagePNG,
 		ContentTypeThumbnailJPEG, ContentTypeThumbnailPNG,
 		ContentTypeApplicationZip, ContentTypeApplicationJSON,
-		ContentTypeApplicationDZI, ContentTypeApplicationOctetStream:
+		ContentTypeApplicationDZI, ContentTypeApplicationOctetStream,
+		ContentTypeTissuePreviewPNG, ContentTypeTissueMaskJSON:
 		return true
 	default:
 		return false
@@ -48,6 +51,14 @@ func (ct ContentType) IsThumbnail() bool {
 	default:
 		return false
 	}
+}
+
+func (ct ContentType) IsTissuePreview() bool {
+	return ct == ContentTypeTissuePreviewPNG
+}
+
+func (ct ContentType) IsTissueMask() bool {
+	return ct == ContentTypeTissueMaskJSON
 }
 
 func (ct ContentType) IsIndexMap() bool {

@@ -49,6 +49,11 @@ type ContentQuery interface {
 	HierarchicalQueries[*model.Content]
 }
 
+type TissueMaskQuery interface {
+	Queries[*model.TissueMask]
+	GetByWsID(ctx context.Context, spec query.Specification, workspaceID string) (*query.Result[*model.TissueMask], error)
+}
+
 type AnnotationReviewQuery interface {
 	Queries[*model.AnnotationReview]
 	GetByParentID(ctx context.Context, spec query.Specification, parentID string) (*query.Result[*model.AnnotationReview], error)

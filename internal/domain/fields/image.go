@@ -25,6 +25,8 @@ const (
 	ImageTilesContentID     ImageField = "tiles_content_id"
 	ImageZipTilesContentID  ImageField = "ziptiles_content_id"
 
+	ImageTissuePreviewContentID ImageField = "tissue_preview_content_id"
+
 	ImageSize          ImageField = "size"
 	ImageMagnification ImageField = "magnification"
 
@@ -97,6 +99,8 @@ func (f ImageField) DomainName() string {
 		return "TilesContentID"
 	case ImageZipTilesContentID:
 		return "ZipTilesContentID"
+	case ImageTissuePreviewContentID:
+		return "TissuePreviewContentID"
 	case ImageSize:
 		return "Size"
 	case ImageMagnification:
@@ -121,6 +125,7 @@ func (f ImageField) IsValid() bool {
 		ImageProcessingRetryCount, ImageProcessingLastProcessedAt, ImageProcessingActiveEventID,
 		ImageOriginContentID, ImageThumbnailContentID, ImageDziContentID,
 		ImageIndexmapContentID, ImageTilesContentID, ImageZipTilesContentID,
+		ImageTissuePreviewContentID,
 		ImageSize, ImageMagnification,
 		ImageMagnificationObjective, ImageMagnificationNativeLevel, ImageMagnificationScanMagnification,
 		ImageMarkedAsCompleted:
@@ -136,6 +141,7 @@ var ImageFields = []ImageField{
 	ImageProcessingRetryCount, ImageProcessingLastProcessedAt,
 	ImageOriginContentID, ImageThumbnailContentID, ImageDziContentID,
 	ImageIndexmapContentID, ImageTilesContentID, ImageZipTilesContentID,
+	ImageTissuePreviewContentID,
 	ImageSize, ImageMagnification,
 	ImageMagnificationObjective, ImageMagnificationNativeLevel, ImageMagnificationScanMagnification,
 	ImageMarkedAsCompleted,

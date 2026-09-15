@@ -32,6 +32,7 @@ type Router struct {
 	annotationHandler       *handler.AnnotationHandler
 	annotationReviewHandler *handler.AnnotationReviewHandler
 	annotationTypeHandler   *handler.AnnotationTypeHandler
+	tissueMaskHandler       *handler.TissueMaskHandler
 	tileProxyHandler        *handler.TileProxyHandler
 
 	// Middleware
@@ -50,6 +51,7 @@ func NewRouter(
 	annotationHandler *handler.AnnotationHandler,
 	annotationReviewHandler *handler.AnnotationReviewHandler,
 	annotationTypeHandler *handler.AnnotationTypeHandler,
+	tissueMaskHandler *handler.TissueMaskHandler,
 	tileProxyHandler *handler.TileProxyHandler,
 	authMiddleware *middleware.AuthMiddleware,
 	timeoutMiddleware *middleware.TimeoutMiddleware,
@@ -63,6 +65,7 @@ func NewRouter(
 		annotationHandler:       annotationHandler,
 		annotationReviewHandler: annotationReviewHandler,
 		annotationTypeHandler:   annotationTypeHandler,
+		tissueMaskHandler:       tissueMaskHandler,
 		tileProxyHandler:        tileProxyHandler,
 		authMiddleware:          authMiddleware,
 		timeoutMiddleware:       timeoutMiddleware,
@@ -97,6 +100,7 @@ func (r *Router) SetupRoutes() *gin.Engine {
 		r.setupAnnotationRoutes(v1)
 		r.setupAnnotationReviewRoutes(v1)
 		r.setupAnnotationTypeRoutes(v1)
+		r.setupTissueMaskRoutes(v1)
 
 		// Tile Proxy
 		v1.GET("/proxy/:imageId/*objectPath", r.tileProxyHandler.ProxyTile)
@@ -219,6 +223,18 @@ func (r *Router) setupAnnotationTypeRoutes(rg *gin.RouterGroup) {
 
 		// Queries
 		annotationTypes.GET("/count", r.annotationTypeHandler.Count) // Count (changed from POST to GET)
+	}
+}
+
+func (r *Router) setupTissueMaskRoutes(rg *gin.RouterGroup) {
+	tissueMasks := rg.Group("/tissue-masks")
+	tissueMasks.Use(r.authMiddleware.RequireRole("admin"))
+	{
+		tissueMasks.GET("/image/:image_id", r.tissueMaskHandler.GetByImageID)
+		tissueMasks.PUT("/image/:image_id", r.tissueMaskHandler.Save)
+		tissueMasks.POST("/image/:image_id/approve", r.tissueMaskHandler.Approve)
+		tissueMasks.POST("/image/:image_id/reject", r.tissueMaskHandler.Reject)
+		tissueMasks.GET("/workspace/:workspace_id", r.tissueMaskHandler.GetByWorkspaceID)
 	}
 }
 

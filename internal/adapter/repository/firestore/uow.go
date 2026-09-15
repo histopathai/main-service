@@ -28,6 +28,7 @@ type FirestoreUnitOfWorkFactory struct {
 	annotationReviewRepo port.AnnotationReviewRepository
 	annotationTypeRepo   port.AnnotationTypeRepository
 	contentRepo          port.ContentRepository
+	tissueMaskRepo       port.TissueMaskRepository
 }
 
 func NewFirestoreUnitOfWorkFactory(client *firestore.Client) *FirestoreUnitOfWorkFactory {
@@ -40,6 +41,7 @@ func NewFirestoreUnitOfWorkFactory(client *firestore.Client) *FirestoreUnitOfWor
 		annotationReviewRepo: NewGenericRepositoryImpl(client, "annotation_reviews", mappers.NewAnnotationReviewMapper()),
 		annotationTypeRepo:   NewGenericRepositoryImpl(client, "annotation_types", mappers.NewAnnotationTypeMapper()),
 		contentRepo:          NewGenericRepositoryImpl(client, "contents", mappers.NewContentMapper()),
+		tissueMaskRepo:       NewGenericRepositoryImpl(client, "tissue_masks", mappers.NewTissueMaskMapper()),
 	}
 }
 
@@ -76,4 +78,8 @@ func (f *FirestoreUnitOfWorkFactory) GetAnnotationTypeRepo() port.AnnotationType
 
 func (f *FirestoreUnitOfWorkFactory) GetContentRepo() port.ContentRepository {
 	return f.contentRepo
+}
+
+func (f *FirestoreUnitOfWorkFactory) GetTissueMaskRepo() port.TissueMaskRepository {
+	return f.tissueMaskRepo
 }

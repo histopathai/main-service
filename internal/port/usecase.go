@@ -35,6 +35,13 @@ type AnnotationReviewUseCase interface {
 	Update(ctx context.Context, cmd command.UpdateAnnotationReviewCommand) error
 }
 
+type TissueMaskUseCase interface {
+	Save(ctx context.Context, cmd command.SaveTissueMaskCommand) (*model.TissueMask, error)
+	Approve(ctx context.Context, cmd command.ReviewTissueMaskCommand) (*model.TissueMask, error)
+	Reject(ctx context.Context, cmd command.ReviewTissueMaskCommand) (*model.TissueMask, error)
+	ApplyWorkerResult(ctx context.Context, cmd command.ApplyWorkerTissueMaskCommand) (bool, error)
+}
+
 type ImageUseCase interface {
 	Upload(ctx context.Context, cmd command.UploadImageCommand) ([]PresignedURLPayload, error)
 	Update(ctx context.Context, cmd command.UpdateImageCommand) error
