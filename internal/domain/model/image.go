@@ -17,6 +17,11 @@ type Image struct {
 	// WSI-specific optical information
 	Magnification *vobj.OpticalMagnification
 
+	// MPP (microns per pixel) and nominal magnification label ("5x", "10x", "20x", "40x", ...),
+	// backfilled from ml/eda/mpp_magnification.csv. Read-only: not settable via Upload/Update.
+	MPP                *float64
+	MagnificationLabel *string
+
 	// Content references (IDs)
 	OriginContentID    *string
 	DziContentID       *string

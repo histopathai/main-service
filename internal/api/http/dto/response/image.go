@@ -64,6 +64,10 @@ type ImageResponse struct {
 	// Magnification
 	Magnification *MagnificationResponse `json:"magnification,omitempty"`
 
+	// MPP (microns per pixel) and nominal magnification label, backfilled from CSV; read-only
+	MPP                *float64 `json:"mpp,omitempty" example:"0.2519"`
+	MagnificationLabel *string  `json:"magnification_label,omitempty" example:"40x"`
+
 	// Processing
 	Status string `json:"status" example:"processed"`
 
@@ -76,20 +80,22 @@ type ImageResponse struct {
 
 func NewImageResponse(img *model.Image) *ImageResponse {
 	return &ImageResponse{
-		ID:            img.ID,
-		EntityType:    img.EntityType.String(),
-		CreatorID:     img.CreatorID,
-		Parent:        NewParentRefResponse(&img.Parent),
-		WsID:          img.WsID,
-		Name:          img.Name,
-		Format:        img.Format,
-		Width:         img.Width,
-		Height:        img.Height,
-		Magnification:     newMagnificationResponse(img.Magnification),
-		Status:            img.Processing.Status.String(),
-		MarkedAsCompleted: img.MarkedAsCompleted,
-		CreatedAt:         img.CreatedAt,
-		UpdatedAt:         img.UpdatedAt,
+		ID:                 img.ID,
+		EntityType:         img.EntityType.String(),
+		CreatorID:          img.CreatorID,
+		Parent:             NewParentRefResponse(&img.Parent),
+		WsID:               img.WsID,
+		Name:               img.Name,
+		Format:             img.Format,
+		Width:              img.Width,
+		Height:             img.Height,
+		Magnification:      newMagnificationResponse(img.Magnification),
+		MPP:                img.MPP,
+		MagnificationLabel: img.MagnificationLabel,
+		Status:             img.Processing.Status.String(),
+		MarkedAsCompleted:  img.MarkedAsCompleted,
+		CreatedAt:          img.CreatedAt,
+		UpdatedAt:          img.UpdatedAt,
 	}
 }
 
