@@ -233,6 +233,41 @@ func (h *TissueMaskHandler) review(c *gin.Context, apply func(context.Context, c
 // @Failure 401 {object} response.ErrorResponse
 // @Security BearerAuth
 // @Router /tissue-masks/workspace/{workspace_id} [get]
+// GetWorkspaceStats godoc
+// @Summary Per-workspace tissue mask completion stats
+// @Description Admin only. Returns a compact table: per workspace, how many images need masks and how many are done (approved/rejected) vs remaining.
+// @Tags Tissue Masks
+// @Produce json
+// @Success 200 {object} response.TissueMaskWorkspaceStatsListResponseDoc
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /tissue-masks/workspace-stats [get]
+func (h *TissueMaskHandler) GetWorkspaceStats(c *gin.Context) {
+	stats, err := h.TMQuery.GetWorkspaceStats(c.Request.Context())
+	if err != nil {
+		h.HandleError(c, err)
+		return
+	}
+	result := make([]response.TissueMaskWorkspaceStatsResponse, len(stats))
+	for i, s := range stats {
+		result[i] = response.TissueMaskWorkspaceStatsResponse{
+			WorkspaceID:   s.WorkspaceID,
+			WorkspaceName: s.WorkspaceName,
+			TotalImages:   s.TotalImages,
+			Approved:      s.Approved,
+			Edited:        s.Edited,
+			Auto:          s.Auto,
+			Rejected:      s.Rejected,
+			Missing:       s.Missing,
+			Done:          s.Done,
+			Remaining:     s.Remaining,
+		}
+	}
+	h.Response.Success(c, http.StatusOK, result)
+}
+
 func (h *TissueMaskHandler) GetByWorkspaceID(c *gin.Context) {
 	var req request.ListRequest
 	if err := c.ShouldBindQuery(&req); err != nil {
