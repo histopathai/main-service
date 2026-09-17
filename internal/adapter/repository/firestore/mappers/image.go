@@ -35,6 +35,12 @@ func (im *ImageMapper) ToFirestoreMap(entity *model.Image) map[string]interface{
 	if entity.Height != nil {
 		m[fields.ImageHeight.FirestoreName()] = *entity.Height
 	}
+	if entity.MPP != nil {
+		m[fields.ImageMPP.FirestoreName()] = *entity.MPP
+	}
+	if entity.MagnificationLabel != nil {
+		m[fields.ImageMagnificationLabel.FirestoreName()] = *entity.MagnificationLabel
+	}
 
 	// Magnification (nested object or null)
 	if entity.Magnification != nil {
@@ -128,6 +134,12 @@ func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model
 	if v, ok := data[fields.ImageHeight.FirestoreName()].(int64); ok {
 		height := int(v)
 		image.Height = &height
+	}
+	if v, ok := data[fields.ImageMPP.FirestoreName()].(float64); ok {
+		image.MPP = &v
+	}
+	if v, ok := data[fields.ImageMagnificationLabel.FirestoreName()].(string); ok {
+		image.MagnificationLabel = &v
 	}
 
 	// Magnification

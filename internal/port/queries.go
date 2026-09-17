@@ -49,9 +49,24 @@ type ContentQuery interface {
 	HierarchicalQueries[*model.Content]
 }
 
+// TissueMaskWorkspaceStats is returned by GetWorkspaceStats for one workspace.
+type TissueMaskWorkspaceStats struct {
+	WorkspaceID   string
+	WorkspaceName string
+	TotalImages   int
+	Approved      int
+	Edited        int
+	Auto          int
+	Rejected      int
+	Missing       int
+	Done          int
+	Remaining     int
+}
+
 type TissueMaskQuery interface {
 	Queries[*model.TissueMask]
 	GetByWsID(ctx context.Context, spec query.Specification, workspaceID string) (*query.Result[*model.TissueMask], error)
+	GetWorkspaceStats(ctx context.Context) ([]TissueMaskWorkspaceStats, error)
 }
 
 type AnnotationReviewQuery interface {

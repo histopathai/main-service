@@ -34,6 +34,9 @@ const (
 	ImageMagnificationNativeLevel       ImageField = "magnification.native_level"
 	ImageMagnificationScanMagnification ImageField = "magnification.scan_magnification"
 
+	ImageMPP                ImageField = "mpp"
+	ImageMagnificationLabel ImageField = "magnification_label"
+
 	ImageMarkedAsCompleted ImageField = "marked_as_completed"
 )
 
@@ -111,6 +114,10 @@ func (f ImageField) DomainName() string {
 		return "MagnificationNativeLevel"
 	case ImageMagnificationScanMagnification:
 		return "MagnificationScanMagnification"
+	case ImageMPP:
+		return "MPP"
+	case ImageMagnificationLabel:
+		return "MagnificationLabel"
 	case ImageMarkedAsCompleted:
 		return "MarkedAsCompleted"
 	default:
@@ -128,6 +135,7 @@ func (f ImageField) IsValid() bool {
 		ImageTissuePreviewContentID,
 		ImageSize, ImageMagnification,
 		ImageMagnificationObjective, ImageMagnificationNativeLevel, ImageMagnificationScanMagnification,
+		ImageMPP, ImageMagnificationLabel,
 		ImageMarkedAsCompleted:
 		return true
 	default:
@@ -144,5 +152,6 @@ var ImageFields = []ImageField{
 	ImageTissuePreviewContentID,
 	ImageSize, ImageMagnification,
 	ImageMagnificationObjective, ImageMagnificationNativeLevel, ImageMagnificationScanMagnification,
+	ImageMPP, ImageMagnificationLabel,
 	ImageMarkedAsCompleted,
 }

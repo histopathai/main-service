@@ -37,39 +37,39 @@ type Container struct {
 	Cache           cache.Cache
 
 	// Repositories
-	WorkspaceRepo      port.WorkspaceRepository
-	PatientRepo        port.PatientRepository
-	ImageRepo          port.ImageRepository
-	ContentRepo        port.ContentRepository
+	WorkspaceRepo        port.WorkspaceRepository
+	PatientRepo          port.PatientRepository
+	ImageRepo            port.ImageRepository
+	ContentRepo          port.ContentRepository
 	AnnotationRepo       port.AnnotationRepository
 	AnnotationReviewRepo port.AnnotationReviewRepository
 	AnnotationTypeRepo   port.AnnotationTypeRepository
 	TissueMaskRepo       port.TissueMaskRepository
-	UOW                port.UnitOfWorkFactory
-	TileServer         *proxy.TileServer
+	UOW                  port.UnitOfWorkFactory
+	TileServer           *proxy.TileServer
 
 	// Storages
 	OriginStorage    port.Storage
 	ProcessedStorage port.Storage
 
 	// Use Cases
-	WorkspaceUseCase      port.WorkspaceUseCase
-	PatientUseCase        port.PatientUseCase
-	ImageUseCase          port.ImageUseCase
+	WorkspaceUseCase        port.WorkspaceUseCase
+	PatientUseCase          port.PatientUseCase
+	ImageUseCase            port.ImageUseCase
 	AnnotationUseCase       port.AnnotationUseCase
 	AnnotationReviewUseCase port.AnnotationReviewUseCase
 	AnnotationTypeUseCase   port.AnnotationTypeUseCase
 	TissueMaskUseCase       port.TissueMaskUseCase
 
 	// Queries
-	WorkspaceQuery           port.WorkspaceQuery
-	PatientQuery             port.PatientQuery
-	ImageQuery               port.ImageQuery
-	ContentQuery             port.ContentQuery
-	AnnotationQuery          port.AnnotationQuery
-	AnnotationReviewQuery    port.AnnotationReviewQuery
-	AnnotationTypeQuery      port.AnnotationTypeQuery
-	TissueMaskQuery          port.TissueMaskQuery
+	WorkspaceQuery        port.WorkspaceQuery
+	PatientQuery          port.PatientQuery
+	ImageQuery            port.ImageQuery
+	ContentQuery          port.ContentQuery
+	AnnotationQuery       port.AnnotationQuery
+	AnnotationReviewQuery port.AnnotationReviewQuery
+	AnnotationTypeQuery   port.AnnotationTypeQuery
+	TissueMaskQuery       port.TissueMaskQuery
 
 	// Event Infrastructure
 	EventPublisher     portevent.EventPublisher
@@ -86,17 +86,17 @@ type Container struct {
 	ImageProcessingWorker port.ImageProcessingWorker
 
 	// HTTP Layer
-	WorkspaceHandler      *handler.WorkspaceHandler
-	PatientHandler        *handler.PatientHandler
-	ImageHandler          *handler.ImageHandler
+	WorkspaceHandler        *handler.WorkspaceHandler
+	PatientHandler          *handler.PatientHandler
+	ImageHandler            *handler.ImageHandler
 	AnnotationHandler       *handler.AnnotationHandler
 	AnnotationReviewHandler *handler.AnnotationReviewHandler
 	AnnotationTypeHandler   *handler.AnnotationTypeHandler
 	TissueMaskHandler       *handler.TissueMaskHandler
-	AuthMiddleware        *middleware.AuthMiddleware
-	TimeoutMiddleware     *middleware.TimeoutMiddleware
-	TileProxyHandler      *handler.TileProxyHandler
-	Router                *router.Router
+	AuthMiddleware          *middleware.AuthMiddleware
+	TimeoutMiddleware       *middleware.TimeoutMiddleware
+	TileProxyHandler        *handler.TileProxyHandler
+	Router                  *router.Router
 }
 
 func New(ctx context.Context, cfg *config.Config, logger *slog.Logger) (*Container, error) {
@@ -229,7 +229,7 @@ func (c *Container) initQueries(ctx context.Context) error {
 	c.AnnotationQuery = appquery.NewAnnotationQuery(c.AnnotationRepo)
 	c.AnnotationReviewQuery = appquery.NewAnnotationReviewQuery(c.AnnotationReviewRepo)
 	c.AnnotationTypeQuery = appquery.NewAnnotationTypeQuery(c.AnnotationTypeRepo)
-	c.TissueMaskQuery = appquery.NewTissueMaskQuery(c.TissueMaskRepo)
+	c.TissueMaskQuery = appquery.NewTissueMaskQuery(c.TissueMaskRepo, c.WorkspaceRepo, c.ImageRepo)
 	c.Logger.Info("Queries initialized")
 	return nil
 }

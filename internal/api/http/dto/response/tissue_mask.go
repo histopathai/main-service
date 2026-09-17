@@ -119,6 +119,24 @@ func NewTissueMaskResponse(m *model.TissueMask) *TissueMaskResponse {
 	}
 }
 
+// TissueMaskWorkspaceStatsResponse is a lightweight per-workspace summary
+type TissueMaskWorkspaceStatsResponse struct {
+	WorkspaceID   string `json:"workspace_id"`
+	WorkspaceName string `json:"workspace_name"`
+	TotalImages   int    `json:"total_images"`   // processed images > 3000px in either dimension
+	Approved      int    `json:"approved"`        // masks with status=approved
+	Edited        int    `json:"edited"`          // masks with status=edited (has polygons, unreviewed)
+	Auto          int    `json:"auto"`            // masks with status=auto (worker default, unreviewed)
+	Rejected      int    `json:"rejected"`        // masks with status=rejected
+	Missing       int    `json:"missing"`         // no mask document at all
+	Done          int    `json:"done"`            // approved + rejected (terminal states)
+	Remaining     int    `json:"remaining"`       // total_images - done
+}
+
+type TissueMaskWorkspaceStatsListResponseDoc struct {
+	Data []TissueMaskWorkspaceStatsResponse `json:"data"`
+}
+
 // Swagger docs
 type TissueMaskDataResponse struct {
 	Data TissueMaskResponse `json:"data"`
