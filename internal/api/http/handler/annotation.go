@@ -266,6 +266,48 @@ func (ah *AnnotationHandler) GetByWsID(c *gin.Context) {
 	ah.Response.SuccessList(c, annotationsResp, paginationResp)
 }
 
+// GetLabelSetsByWsID godoc
+// @Summary Label sets of a workspace
+// @Description Who labelled what: one entry per annotator and annotation type, over the region annotations of the workspace (global ones have no polygon and are left out), with the polygon count and the images that carry the set. Polygons are not read, so this stays cheap on large workspaces. Patches are made from one label set at a time — labels of different annotators are never evaluated together.
+// @Tags Annotations
+// @Produce json
+// @Param workspace_id path string true "Workspace ID"
+// @Success 200 {object} response.LabelSetListResponseDoc
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 500 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /annotations/workspace/{workspace_id}/label-sets [get]
+func (ah *AnnotationHandler) GetLabelSetsByWsID(c *gin.Context) {
+	workspaceID := c.Param("workspace_id")
+	if workspaceID == "" {
+		ah.HandleError(c, errors.NewValidationError("invalid workspace ID", map[string]interface{}{
+			"workspace_id": "Workspace ID cannot be empty",
+		}))
+		return
+	}
+
+	sets, err := ah.AQuery.LabelSetsByWsID(c.Request.Context(), workspaceID)
+	if err != nil {
+		ah.HandleError(c, err)
+		return
+	}
+
+	result := make([]response.LabelSetResponse, len(sets))
+	for i, s := range sets {
+		result[i] = response.LabelSetResponse{
+			CreatorID:        s.CreatorID,
+			AnnotationTypeID: s.AnnotationTypeID,
+			Resources:        s.Resources,
+			Name:             s.Name,
+			PolygonCount:     s.Polygons,
+			ImageCount:       len(s.ImageIDs),
+			ImageIDs:         s.ImageIDs,
+		}
+	}
+	ah.Response.Success(c, http.StatusOK, result)
+}
+
 // Count godoc
 // @Summary Count annotations
 // @Description Count annotations with optional filters via query parameters

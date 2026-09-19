@@ -207,6 +207,7 @@ func (r *Router) setupAnnotationRoutes(rg *gin.RouterGroup) {
 		// Queries
 		annotations.GET("/image/:image_id", r.annotationHandler.GetByParentID)
 		annotations.GET("/workspace/:workspace_id", r.annotationHandler.GetByWsID)
+		annotations.GET("/workspace/:workspace_id/label-sets", r.annotationHandler.GetLabelSetsByWsID)
 		annotations.GET("/count", r.annotationHandler.Count) // Count (changed from POST to GET)
 	}
 }

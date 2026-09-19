@@ -91,3 +91,19 @@ type AnnotationListResponseDoc struct {
 	Data       []AnnotationResponse `json:"data"`
 	Pagination *PaginationResponse  `json:"pagination,omitempty"`
 }
+
+// LabelSetResponse is what one annotator labelled with one annotation type in a workspace.
+type LabelSetResponse struct {
+	CreatorID        string   `json:"creator_id"         example:"user-123"`
+	AnnotationTypeID string   `json:"annotation_type_id" example:"anno_type-123"`
+	Resources        []string `json:"resources"          example:"manual"`
+	// Name is the annotations' own name when all annotations of the type agree on it, otherwise empty.
+	Name         string   `json:"name"          example:"Gleason Pattern"`
+	PolygonCount int      `json:"polygon_count" example:"1147"`
+	ImageCount   int      `json:"image_count"   example:"771"`
+	ImageIDs     []string `json:"image_ids"`
+}
+
+type LabelSetListResponseDoc struct {
+	Data []LabelSetResponse `json:"data"`
+}
