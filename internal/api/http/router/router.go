@@ -93,6 +93,10 @@ func (r *Router) SetupRoutes() *gin.Engine {
 	v1 := r.engine.Group("/api/v1")
 	{
 		v1.Use(r.authMiddleware.RequireAuth())
+		// Only members of a user group get in; a registered but not yet approved
+		// account ("unassigned") has nothing to do here.
+		v1.Use(r.authMiddleware.RequireRole(
+			middleware.RoleAdmin, middleware.RolePathologist, middleware.RoleDatascientist))
 
 		r.setupWorkspaceRoutes(v1)
 		r.setupPatientRoutes(v1)
@@ -109,8 +113,15 @@ func (r *Router) SetupRoutes() *gin.Engine {
 	return r.engine
 }
 
+// readOnlyForDatascientists guards the dataset labelling and dataset builder
+// groups: data scientists look at the data, they do not change a record.
+func (r *Router) readOnlyForDatascientists() gin.HandlerFunc {
+	return r.authMiddleware.DenyWrites(middleware.RoleDatascientist)
+}
+
 func (r *Router) setupWorkspaceRoutes(rg *gin.RouterGroup) {
 	workspaces := rg.Group("/workspaces")
+	workspaces.Use(r.readOnlyForDatascientists())
 	{
 		// CRUD Operations
 		workspaces.POST("", r.workspaceHandler.Create)    // Create
@@ -132,6 +143,7 @@ func (r *Router) setupWorkspaceRoutes(rg *gin.RouterGroup) {
 
 func (r *Router) setupPatientRoutes(rg *gin.RouterGroup) {
 	patients := rg.Group("/patients")
+	patients.Use(r.readOnlyForDatascientists())
 	{
 		// CRUD Operations
 		patients.POST("", r.patientHandler.Create)    // Create
@@ -157,6 +169,7 @@ func (r *Router) setupPatientRoutes(rg *gin.RouterGroup) {
 
 func (r *Router) setupImageRoutes(rg *gin.RouterGroup) {
 	images := rg.Group("/images")
+	images.Use(r.readOnlyForDatascientists())
 	{
 		// CRUD Operations
 		images.POST("", r.imageHandler.UploadImage) // Upload
@@ -180,6 +193,7 @@ func (r *Router) setupImageRoutes(rg *gin.RouterGroup) {
 
 func (r *Router) setupAnnotationRoutes(rg *gin.RouterGroup) {
 	annotations := rg.Group("/annotations")
+	annotations.Use(r.readOnlyForDatascientists())
 	{
 		// CRUD Operations
 		annotations.POST("", r.annotationHandler.Create)    // Create
@@ -199,6 +213,7 @@ func (r *Router) setupAnnotationRoutes(rg *gin.RouterGroup) {
 
 func (r *Router) setupAnnotationReviewRoutes(rg *gin.RouterGroup) {
 	annotationReviews := rg.Group("/annotation-reviews")
+	annotationReviews.Use(r.readOnlyForDatascientists())
 	{
 		annotationReviews.POST("", r.annotationReviewHandler.Create)
 		annotationReviews.GET("/:id", r.annotationReviewHandler.Get)
@@ -210,6 +225,7 @@ func (r *Router) setupAnnotationReviewRoutes(rg *gin.RouterGroup) {
 
 func (r *Router) setupAnnotationTypeRoutes(rg *gin.RouterGroup) {
 	annotationTypes := rg.Group("/annotation-types")
+	annotationTypes.Use(r.readOnlyForDatascientists())
 	{
 		// CRUD Operations
 		annotationTypes.POST("", r.annotationTypeHandler.Create)    // Create
@@ -228,7 +244,8 @@ func (r *Router) setupAnnotationTypeRoutes(rg *gin.RouterGroup) {
 
 func (r *Router) setupTissueMaskRoutes(rg *gin.RouterGroup) {
 	tissueMasks := rg.Group("/tissue-masks")
-	tissueMasks.Use(r.authMiddleware.RequireRole("admin"))
+	// Read-write for every group (the /api/v1 gate already requires one): unlike
+	// the groups above, data scientists curate tissue masks too.
 	{
 		tissueMasks.GET("/image/:image_id", r.tissueMaskHandler.GetByImageID)
 		tissueMasks.PUT("/image/:image_id", r.tissueMaskHandler.Save)
