@@ -11,6 +11,28 @@ import (
 	"github.com/histopathai/main-service/internal/shared/errors"
 )
 
+// Platform roles, as auth-service sends them in X-User-Role.
+const (
+	RoleAdmin         = "admin"
+	RolePathologist   = "pathologist"
+	RoleDatascientist = "datascientist"
+)
+
+// normalizeRole lower-cases a role and maps the names used before the user
+// groups existed. auth-service normalizes them too, so this only matters while
+// an older auth-service is still running; remove it once the role migration
+// has been applied.
+func normalizeRole(role string) string {
+	switch role = strings.ToLower(strings.TrimSpace(role)); role {
+	case "user":
+		return RolePathologist
+	case "viewer":
+		return RoleDatascientist
+	default:
+		return role
+	}
+}
+
 type AuthMiddleware struct {
 	logger *slog.Logger
 }
@@ -68,7 +90,7 @@ func (am *AuthMiddleware) RequireAuth() gin.HandlerFunc {
 			userRole = debugUserRole.(string)
 		}
 
-		c.Set("user_role", userRole)
+		c.Set("user_role", normalizeRole(userRole))
 		c.Next()
 	}
 }
@@ -107,6 +129,38 @@ func (am *AuthMiddleware) RequireRole(roles ...string) gin.HandlerFunc {
 		c.JSON(http.StatusForbidden, response.ErrorResponse{
 			ErrorType: string(errors.ErrorTypeForbidden),
 			Message:   "insufficient role",
+		})
+		c.Abort()
+	}
+}
+
+// DenyWrites makes a route group read-only for the given roles: they may GET,
+// anything that changes a record is refused.
+func (am *AuthMiddleware) DenyWrites(roles ...string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		switch c.Request.Method {
+		case http.MethodGet, http.MethodHead, http.MethodOptions:
+			c.Next()
+			return
+		}
+		// No role in the context means RequireAuth did not run before this:
+		// a wiring mistake, so fail closed.
+		role, err := GetAuthenticatedUserRole(c)
+		refused := err != nil
+		for _, readOnly := range roles {
+			if strings.EqualFold(role, readOnly) {
+				refused = true
+			}
+		}
+		if !refused {
+			c.Next()
+			return
+		}
+		am.logger.Warn("Write refused for read-only role",
+			"path", c.Request.URL.Path, "method", c.Request.Method, "role", role)
+		c.JSON(http.StatusForbidden, response.ErrorResponse{
+			ErrorType: string(errors.ErrorTypeForbidden),
+			Message:   "this role has read-only access here",
 		})
 		c.Abort()
 	}

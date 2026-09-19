@@ -21,7 +21,7 @@ import (
 	validator "github.com/histopathai/main-service/internal/shared/query"
 )
 
-// TissueMaskHandler serves the admin-only tissue mask API. Masks are keyed by
+// TissueMaskHandler serves the tissue mask API, read-write for every user group. Masks are keyed by
 // image ID.
 type TissueMaskHandler struct {
 	helper.BaseHandler
@@ -41,7 +41,7 @@ func NewTissueMaskHandler(query port.TissueMaskQuery, useCase port.TissueMaskUse
 
 // GetByImageID godoc
 // @Summary Get the tissue mask of an image
-// @Description Admin only. Polygons are in level-0 pixels; the preview they were computed on is served at /proxy/{image_id}/tissue_preview.png.
+// @Description Any user group (admin, pathologist, datascientist). Polygons are in level-0 pixels; the preview they were computed on is served at /proxy/{image_id}/tissue_preview.png.
 // @Tags Tissue Masks
 // @Produce json
 // @Param image_id path string true "Image ID"
@@ -67,7 +67,7 @@ func (h *TissueMaskHandler) GetByImageID(c *gin.Context) {
 
 // Save godoc
 // @Summary Save an edited tissue mask
-// @Description Admin only. Replaces the mask of an image and sets its status to edited; a previous approval is cleared.
+// @Description Any user group (admin, pathologist, datascientist). Replaces the mask of an image and sets its status to edited; a previous approval is cleared.
 // @Tags Tissue Masks
 // @Accept json
 // @Produce json
@@ -149,7 +149,7 @@ func (h *TissueMaskHandler) Save(c *gin.Context) {
 
 // Approve godoc
 // @Summary Approve a tissue mask
-// @Description Admin only. Marks the current polygons as reviewed and clears a rejection. Approving an approved mask is a no-op.
+// @Description Any user group (admin, pathologist, datascientist). Marks the current polygons as reviewed and clears a rejection. Approving an approved mask is a no-op.
 // @Tags Tissue Masks
 // @Accept json
 // @Produce json
@@ -169,7 +169,7 @@ func (h *TissueMaskHandler) Approve(c *gin.Context) {
 
 // Reject godoc
 // @Summary Reject a tissue mask
-// @Description Admin only. Marks the image as unusable for tissue-based work (e.g. no tissue, failed stain) with an optional reason and clears an approval. The worker never overwrites a rejected mask; saving the mask again makes it edited.
+// @Description Any user group (admin, pathologist, datascientist). Marks the image as unusable for tissue-based work (e.g. no tissue, failed stain) with an optional reason and clears an approval. The worker never overwrites a rejected mask; saving the mask again makes it edited.
 // @Tags Tissue Masks
 // @Accept json
 // @Produce json
@@ -218,7 +218,7 @@ func (h *TissueMaskHandler) review(c *gin.Context, apply func(context.Context, c
 
 // GetByWorkspaceID godoc
 // @Summary List tissue masks of a workspace
-// @Description Admin only. Returns summaries without polygons, e.g. to show review status next to images.
+// @Description Any user group (admin, pathologist, datascientist). Returns summaries without polygons, e.g. to show review status next to images.
 // @Tags Tissue Masks
 // @Produce json
 // @Param workspace_id path string true "Workspace ID"
@@ -235,7 +235,7 @@ func (h *TissueMaskHandler) review(c *gin.Context, apply func(context.Context, c
 // @Router /tissue-masks/workspace/{workspace_id} [get]
 // GetWorkspaceStats godoc
 // @Summary Per-workspace tissue mask completion stats
-// @Description Admin only. Returns a compact table: per workspace, how many images need masks and how many are done (approved/rejected) vs remaining.
+// @Description Any user group (admin, pathologist, datascientist). Returns a compact table: per workspace, how many images need masks and how many are done (approved/rejected) vs remaining.
 // @Tags Tissue Masks
 // @Produce json
 // @Success 200 {object} response.TissueMaskWorkspaceStatsListResponseDoc
