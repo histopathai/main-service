@@ -36,6 +36,8 @@ func TestLabelSetsByWsID(t *testing.T) {
 		// One person with hand-drawn and model-made polygons of one type.
 		row("selva", "t-tumor", "manual", "Tümör Bölgesi", "img-c"),
 		row("selva", "t-tumor", "model", "Tümör Bölgesi", "img-c"),
+		// Drawn before the resource field existed: counts as manual, not as a kind of its own.
+		row("selva", "t-gleason", "", "Gleason Pattern", "img-d"),
 	}})
 
 	sets, err := q.LabelSetsByWsID(context.Background(), "ws")
@@ -46,7 +48,7 @@ func TestLabelSetsByWsID(t *testing.T) {
 		{CreatorID: imported, AnnotationTypeID: "t-score", Resources: []string{"imported"}, Name: "",
 			Polygons: 2, ImageIDs: []string{"img-a", "img-b"}},
 		{CreatorID: "selva", AnnotationTypeID: "t-gleason", Resources: []string{"manual"}, Name: "Gleason Pattern",
-			Polygons: 1, ImageIDs: []string{"img-c"}},
+			Polygons: 2, ImageIDs: []string{"img-c", "img-d"}},
 		{CreatorID: "selva", AnnotationTypeID: "t-tumor", Resources: []string{"manual", "model"}, Name: "Tümör Bölgesi",
 			Polygons: 2, ImageIDs: []string{"img-c"}},
 	}, sets)

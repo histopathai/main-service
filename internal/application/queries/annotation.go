@@ -56,7 +56,12 @@ func groupLabelSets(rows []port.AnnotationLabelRow) []port.LabelSet {
 			groups[k] = g
 		}
 		g.polygons++
-		g.resources[r.Resource] = struct{}{}
+		// Annotations drawn before the field existed carry no resource; they were drawn by hand.
+		resource := r.Resource
+		if resource == "" {
+			resource = "manual"
+		}
+		g.resources[resource] = struct{}{}
 		g.images[r.ImageID] = struct{}{}
 		if names[r.AnnotationTypeID] == nil {
 			names[r.AnnotationTypeID] = map[string]struct{}{}
