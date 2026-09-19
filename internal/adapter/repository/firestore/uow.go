@@ -64,6 +64,12 @@ func (f *FirestoreUnitOfWorkFactory) GetImageRepo() port.ImageRepository {
 	return f.imageRepo
 }
 
+// GetAnnotationLabelReader is not a repository of the unit of work: it only
+// reads, in one projected query, and never takes part in a transaction.
+func (f *FirestoreUnitOfWorkFactory) GetAnnotationLabelReader() port.AnnotationLabelReader {
+	return NewAnnotationLabelReader(f.client)
+}
+
 func (f *FirestoreUnitOfWorkFactory) GetAnnotationRepo() port.AnnotationRepository {
 	return f.annotationRepo
 }

@@ -37,16 +37,17 @@ type Container struct {
 	Cache           cache.Cache
 
 	// Repositories
-	WorkspaceRepo        port.WorkspaceRepository
-	PatientRepo          port.PatientRepository
-	ImageRepo            port.ImageRepository
-	ContentRepo          port.ContentRepository
-	AnnotationRepo       port.AnnotationRepository
-	AnnotationReviewRepo port.AnnotationReviewRepository
-	AnnotationTypeRepo   port.AnnotationTypeRepository
-	TissueMaskRepo       port.TissueMaskRepository
-	UOW                  port.UnitOfWorkFactory
-	TileServer           *proxy.TileServer
+	WorkspaceRepo         port.WorkspaceRepository
+	PatientRepo           port.PatientRepository
+	ImageRepo             port.ImageRepository
+	ContentRepo           port.ContentRepository
+	AnnotationRepo        port.AnnotationRepository
+	AnnotationLabelReader port.AnnotationLabelReader
+	AnnotationReviewRepo  port.AnnotationReviewRepository
+	AnnotationTypeRepo    port.AnnotationTypeRepository
+	TissueMaskRepo        port.TissueMaskRepository
+	UOW                   port.UnitOfWorkFactory
+	TileServer            *proxy.TileServer
 
 	// Storages
 	OriginStorage    port.Storage
@@ -193,6 +194,7 @@ func (c *Container) initRepositories(ctx context.Context) error {
 	c.ImageRepo = uowFactory.GetImageRepo()
 	c.ContentRepo = uowFactory.GetContentRepo()
 	c.AnnotationRepo = uowFactory.GetAnnotationRepo()
+	c.AnnotationLabelReader = uowFactory.GetAnnotationLabelReader()
 	c.AnnotationReviewRepo = uowFactory.GetAnnotationReviewRepo()
 	c.AnnotationTypeRepo = uowFactory.GetAnnotationTypeRepo()
 	c.TissueMaskRepo = uowFactory.GetTissueMaskRepo()
@@ -226,7 +228,7 @@ func (c *Container) initQueries(ctx context.Context) error {
 	c.PatientQuery = appquery.NewPatientQuery(c.PatientRepo)
 	c.ImageQuery = appquery.NewImageQuery(c.ImageRepo, c.TissueMaskRepo)
 	c.ContentQuery = appquery.NewContentQuery(c.ContentRepo)
-	c.AnnotationQuery = appquery.NewAnnotationQuery(c.AnnotationRepo)
+	c.AnnotationQuery = appquery.NewAnnotationQuery(c.AnnotationRepo, c.AnnotationLabelReader)
 	c.AnnotationReviewQuery = appquery.NewAnnotationReviewQuery(c.AnnotationReviewRepo)
 	c.AnnotationTypeQuery = appquery.NewAnnotationTypeQuery(c.AnnotationTypeRepo)
 	c.TissueMaskQuery = appquery.NewTissueMaskQuery(c.TissueMaskRepo, c.WorkspaceRepo, c.ImageRepo)

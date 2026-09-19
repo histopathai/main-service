@@ -64,7 +64,8 @@ func TestRoleGates(t *testing.T) {
 	}
 	reads := []string{
 		"/api/v1/workspaces", "/api/v1/patients/p1", "/api/v1/images/i1",
-		"/api/v1/annotations/image/i1", "/api/v1/annotation-reviews/annotation/a1",
+		"/api/v1/annotations/image/i1", "/api/v1/annotations/workspace/w1/label-sets",
+		"/api/v1/annotation-reviews/annotation/a1",
 		"/api/v1/annotation-types", "/api/v1/tissue-masks/image/i1", "/api/v1/proxy/i1/image.dzi",
 	}
 	tissueWrites := []struct{ method, path string }{

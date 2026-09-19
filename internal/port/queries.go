@@ -39,6 +39,8 @@ type AnnotationTypeQuery interface {
 type AnnotationQuery interface {
 	Queries[*model.Annotation]
 	HierarchicalQueries[*model.Annotation]
+	// LabelSetsByWsID lists who labelled what in a workspace, with the images of each label set.
+	LabelSetsByWsID(ctx context.Context, wsID string) ([]LabelSet, error)
 }
 type ImageQuery interface {
 	Queries[*model.Image]
