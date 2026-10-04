@@ -46,6 +46,7 @@ type Container struct {
 	AnnotationReviewRepo  port.AnnotationReviewRepository
 	AnnotationTypeRepo    port.AnnotationTypeRepository
 	TissueMaskRepo        port.TissueMaskRepository
+	BlindTestStore        port.BlindTestStore
 	UOW                   port.UnitOfWorkFactory
 	TileServer            *proxy.TileServer
 
@@ -61,6 +62,7 @@ type Container struct {
 	AnnotationReviewUseCase port.AnnotationReviewUseCase
 	AnnotationTypeUseCase   port.AnnotationTypeUseCase
 	TissueMaskUseCase       port.TissueMaskUseCase
+	BlindTestUseCase        port.BlindTestUseCase
 
 	// Queries
 	WorkspaceQuery        port.WorkspaceQuery
@@ -94,6 +96,7 @@ type Container struct {
 	AnnotationReviewHandler *handler.AnnotationReviewHandler
 	AnnotationTypeHandler   *handler.AnnotationTypeHandler
 	TissueMaskHandler       *handler.TissueMaskHandler
+	BlindTestHandler        *handler.BlindTestHandler
 	AuthMiddleware          *middleware.AuthMiddleware
 	TimeoutMiddleware       *middleware.TimeoutMiddleware
 	TileProxyHandler        *handler.TileProxyHandler
@@ -198,6 +201,7 @@ func (c *Container) initRepositories(ctx context.Context) error {
 	c.AnnotationReviewRepo = uowFactory.GetAnnotationReviewRepo()
 	c.AnnotationTypeRepo = uowFactory.GetAnnotationTypeRepo()
 	c.TissueMaskRepo = uowFactory.GetTissueMaskRepo()
+	c.BlindTestStore = firestorerepo.NewBlindTestStore(c.FirestoreClient)
 	c.Logger.Info("Repositories initialized")
 	return nil
 }
@@ -219,6 +223,7 @@ func (c *Container) initUseCases(ctx context.Context) error {
 	c.AnnotationReviewUseCase = appusecase.NewAnnotationReviewUseCase(c.AnnotationReviewRepo, c.UOW)
 	c.AnnotationTypeUseCase = appusecase.NewAnnotationTypeUseCase(c.AnnotationTypeRepo, c.UOW)
 	c.TissueMaskUseCase = appusecase.NewTissueMaskUseCase(c.UOW)
+	c.BlindTestUseCase = appusecase.NewBlindTestUseCase(c.BlindTestStore, c.ProcessedStorage)
 	c.Logger.Info("Use cases initialized")
 	return nil
 }
@@ -433,6 +438,8 @@ func (c *Container) initHTTPLayer(ctx context.Context) error {
 		c.Logger,
 	)
 
+	c.BlindTestHandler = handler.NewBlindTestHandler(c.BlindTestUseCase, c.Logger)
+
 	// Middleware
 	c.AuthMiddleware = middleware.NewAuthMiddleware(c.Logger)
 	c.TimeoutMiddleware = middleware.NewTimeoutMiddleware(
@@ -461,6 +468,7 @@ func (c *Container) initHTTPLayer(ctx context.Context) error {
 		c.AnnotationReviewHandler,
 		c.AnnotationTypeHandler,
 		c.TissueMaskHandler,
+		c.BlindTestHandler,
 		c.TileProxyHandler,
 		c.AuthMiddleware,
 		c.TimeoutMiddleware,

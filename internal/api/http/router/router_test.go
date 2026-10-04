@@ -23,7 +23,7 @@ func newGateRouter() *gin.Engine {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	r := NewRouter(&RouterConfig{Logger: logger, RequestTimeout: time.Second},
-		nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil,
 		middleware.NewAuthMiddleware(logger),
 		middleware.NewTimeoutMiddleware(time.Second, logger))
 	return r.SetupRoutes()
@@ -99,6 +99,26 @@ func TestRoleGates(t *testing.T) {
 		for _, role := range []string{"admin", "pathologist", "datascientist"} {
 			assert.True(t, allowed(status(engine, route.method, route.path, role)), "%s %s as %s", route.method, route.path, role)
 		}
+	}
+
+	// Blind tests: every group may take one; the results carry the answer key
+	// and are for admins only.
+	blindTakes := []struct{ method, path string }{
+		{http.MethodGet, "/api/v1/blind-tests"},
+		{http.MethodGet, "/api/v1/blind-tests/s1"},
+		{http.MethodGet, "/api/v1/blind-tests/s1/images/i1"},
+		{http.MethodPut, "/api/v1/blind-tests/s1/answers/i1"},
+		{http.MethodPost, "/api/v1/blind-tests/s1/complete"},
+	}
+	for _, route := range blindTakes {
+		for _, role := range []string{"admin", "pathologist", "datascientist"} {
+			assert.True(t, allowed(status(engine, route.method, route.path, role)), "%s %s as %s", route.method, route.path, role)
+		}
+		assert.Equal(t, http.StatusForbidden, status(engine, route.method, route.path, "unassigned"), "%s %s as unassigned", route.method, route.path)
+	}
+	assert.True(t, allowed(status(engine, http.MethodGet, "/api/v1/blind-tests/s1/results", "admin")), "results as admin")
+	for _, role := range []string{"pathologist", "datascientist", "user", "viewer", "unassigned"} {
+		assert.Equal(t, http.StatusForbidden, status(engine, http.MethodGet, "/api/v1/blind-tests/s1/results", role), "results as %s", role)
 	}
 
 	// Not in a group: nothing under /api/v1, reads included.
