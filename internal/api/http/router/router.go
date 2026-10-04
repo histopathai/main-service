@@ -33,6 +33,7 @@ type Router struct {
 	annotationReviewHandler *handler.AnnotationReviewHandler
 	annotationTypeHandler   *handler.AnnotationTypeHandler
 	tissueMaskHandler       *handler.TissueMaskHandler
+	blindTestHandler        *handler.BlindTestHandler
 	tileProxyHandler        *handler.TileProxyHandler
 
 	// Middleware
@@ -52,6 +53,7 @@ func NewRouter(
 	annotationReviewHandler *handler.AnnotationReviewHandler,
 	annotationTypeHandler *handler.AnnotationTypeHandler,
 	tissueMaskHandler *handler.TissueMaskHandler,
+	blindTestHandler *handler.BlindTestHandler,
 	tileProxyHandler *handler.TileProxyHandler,
 	authMiddleware *middleware.AuthMiddleware,
 	timeoutMiddleware *middleware.TimeoutMiddleware,
@@ -66,6 +68,7 @@ func NewRouter(
 		annotationReviewHandler: annotationReviewHandler,
 		annotationTypeHandler:   annotationTypeHandler,
 		tissueMaskHandler:       tissueMaskHandler,
+		blindTestHandler:        blindTestHandler,
 		tileProxyHandler:        tileProxyHandler,
 		authMiddleware:          authMiddleware,
 		timeoutMiddleware:       timeoutMiddleware,
@@ -105,6 +108,7 @@ func (r *Router) SetupRoutes() *gin.Engine {
 		r.setupAnnotationReviewRoutes(v1)
 		r.setupAnnotationTypeRoutes(v1)
 		r.setupTissueMaskRoutes(v1)
+		r.setupBlindTestRoutes(v1)
 
 		// Tile Proxy
 		v1.GET("/proxy/:imageId/*objectPath", r.tileProxyHandler.ProxyTile)
@@ -254,6 +258,20 @@ func (r *Router) setupTissueMaskRoutes(rg *gin.RouterGroup) {
 		tissueMasks.POST("/image/:image_id/reject", r.tissueMaskHandler.Reject)
 		tissueMasks.GET("/workspace/:workspace_id", r.tissueMaskHandler.GetByWorkspaceID)
 		tissueMasks.GET("/workspace-stats", r.tissueMaskHandler.GetWorkspaceStats)
+	}
+}
+
+// setupBlindTestRoutes: every user group may take a blind test; the results
+// carry the answer key and are for admins only.
+func (r *Router) setupBlindTestRoutes(rg *gin.RouterGroup) {
+	blindTests := rg.Group("/blind-tests")
+	{
+		blindTests.GET("", r.blindTestHandler.List)
+		blindTests.GET("/:id", r.blindTestHandler.Get)
+		blindTests.GET("/:id/images/:image_id", r.blindTestHandler.Image)
+		blindTests.PUT("/:id/answers/:image_id", r.blindTestHandler.Answer)
+		blindTests.POST("/:id/complete", r.blindTestHandler.Complete)
+		blindTests.GET("/:id/results", r.authMiddleware.RequireRole(middleware.RoleAdmin), r.blindTestHandler.Results)
 	}
 }
 
