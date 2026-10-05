@@ -7,7 +7,9 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+	"strings"
 	"time"
+	"unicode/utf8"
 
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/port"
@@ -80,10 +82,7 @@ func (uc *BlindTestUseCase) Answer(ctx context.Context, setID, userID, userRole,
 	}
 	return uc.store.UpdateResponse(ctx, setID, userID, func(cur *port.BlindTestResponse) (*port.BlindTestResponse, error) {
 		now := uc.now()
-		if cur == nil {
-			cur = &port.BlindTestResponse{SetID: setID, UserID: userID, UserRole: userRole, StartedAt: now,
-				Answers: map[string]port.BlindTestAnswer{}}
-		}
+		cur = startResponse(cur, setID, userID, userRole, now)
 		if cur.CompletedAt != nil {
 			return nil, errors.NewConflictError("this blind test is already completed", nil)
 		}
@@ -91,6 +90,48 @@ func (uc *BlindTestUseCase) Answer(ctx context.Context, setID, userID, userRole,
 		cur.UpdatedAt = now
 		return cur, nil
 	})
+}
+
+// Note writes the user's note on one image of the set; empty text removes it.
+// Allowed after completion too: only the answers are locked.
+func (uc *BlindTestUseCase) Note(ctx context.Context, setID, userID, userRole, imageID, text string) (*port.BlindTestResponse, error) {
+	text = strings.TrimSpace(text)
+	if utf8.RuneCountInString(text) > port.BlindTestNoteMaxLen {
+		return nil, errors.NewValidationError("note is too long",
+			map[string]interface{}{"max_length": port.BlindTestNoteMaxLen})
+	}
+	set, err := uc.activeSet(ctx, setID)
+	if err != nil {
+		return nil, err
+	}
+	if !contains(set.ImageIDs, imageID) {
+		return nil, errors.NewNotFoundError("image is not part of this blind test")
+	}
+	return uc.store.UpdateResponse(ctx, setID, userID, func(cur *port.BlindTestResponse) (*port.BlindTestResponse, error) {
+		now := uc.now()
+		cur = startResponse(cur, setID, userID, userRole, now)
+		if text == "" {
+			delete(cur.Notes, imageID)
+		} else {
+			cur.Notes[imageID] = port.BlindTestNote{Text: text, UpdatedAt: now}
+		}
+		cur.UpdatedAt = now
+		return cur, nil
+	})
+}
+
+// startResponse returns the user's response, a new one if there is none, with its maps ready.
+func startResponse(cur *port.BlindTestResponse, setID, userID, userRole string, now time.Time) *port.BlindTestResponse {
+	if cur == nil {
+		cur = &port.BlindTestResponse{SetID: setID, UserID: userID, UserRole: userRole, StartedAt: now}
+	}
+	if cur.Answers == nil {
+		cur.Answers = map[string]port.BlindTestAnswer{}
+	}
+	if cur.Notes == nil {
+		cur.Notes = map[string]port.BlindTestNote{}
+	}
+	return cur
 }
 
 // Complete locks the user's answers. Every image must be answered first.
@@ -179,6 +220,7 @@ func ParticipantOrder(ids []string, setID, userID string) []string {
 func BuildBlindTestResults(set port.BlindTestSet, key port.BlindTestKey, responses []port.BlindTestResponse) *port.BlindTestResults {
 	res := &port.BlindTestResults{Set: set, RunID: key.RunID}
 	votes := map[string][2]int{}
+	notes := map[string][]port.BlindTestImageNote{}
 	var pooled []port.BlindTestAnswerPair
 	sort.Slice(responses, func(i, j int) bool { return responses[i].StartedAt.Before(responses[j].StartedAt) })
 	for _, r := range responses {
@@ -199,6 +241,10 @@ func BuildBlindTestResults(set port.BlindTestSet, key port.BlindTestKey, respons
 				votes[id] = v
 			}
 		}
+		for id, n := range r.Notes {
+			notes[id] = append(notes[id], port.BlindTestImageNote{UserID: r.UserID, Answer: r.Answers[id].Label,
+				Completed: r.CompletedAt != nil, Text: n.Text, UpdatedAt: n.UpdatedAt})
+		}
 		res.Users = append(res.Users, port.BlindTestUserResult{Response: r, Score: Score(pairs)})
 		if r.CompletedAt != nil {
 			pooled = append(pooled, pairs...)
@@ -209,7 +255,7 @@ func BuildBlindTestResults(set port.BlindTestSet, key port.BlindTestKey, respons
 		item := key.Items[id]
 		v := votes[id]
 		res.Images = append(res.Images, port.BlindTestImageResult{ImageID: id, Label: item.Label, Source: item.Source,
-			VotedReal: v[0], VotedSynthetic: v[1]})
+			VotedReal: v[0], VotedSynthetic: v[1], Notes: notes[id]})
 	}
 	return res
 }

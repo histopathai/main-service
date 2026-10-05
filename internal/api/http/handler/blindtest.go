@@ -114,6 +114,45 @@ func (h *BlindTestHandler) Answer(c *gin.Context) {
 	h.Response.Success(c, http.StatusOK, response.NewBlindTestProgressResponse(resp))
 }
 
+// Note godoc
+// @Summary Write a note on one image of a blind test
+// @Description Any user group. Why the caller took the image for real or synthetic; empty removes the note. Allowed after the test is completed too (only the answers are locked).
+// @Tags Blind Tests
+// @Accept json
+// @Produce json
+// @Param id path string true "Blind test ID"
+// @Param image_id path string true "Image ID"
+// @Param request body request.BlindTestNoteRequest true "Note text (at most 2000 characters)"
+// @Success 200 {object} response.BlindTestProgressResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /blind-tests/{id}/notes/{image_id} [put]
+func (h *BlindTestHandler) Note(c *gin.Context) {
+	userID, err := middleware.GetAuthenticatedUserID(c)
+	if err != nil {
+		h.HandleError(c, err)
+		return
+	}
+	role, err := middleware.GetAuthenticatedUserRole(c)
+	if err != nil {
+		h.HandleError(c, err)
+		return
+	}
+	var req request.BlindTestNoteRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.HandleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{"error": err.Error()}))
+		return
+	}
+	resp, err := h.UseCase.Note(c.Request.Context(), c.Param("id"), userID, role, c.Param("image_id"), req.Note)
+	if err != nil {
+		h.HandleError(c, err)
+		return
+	}
+	h.Response.Success(c, http.StatusOK, response.NewBlindTestProgressResponse(resp))
+}
+
 // Complete godoc
 // @Summary Complete a blind test
 // @Description Any user group. Locks the caller's answers; every image must be answered.

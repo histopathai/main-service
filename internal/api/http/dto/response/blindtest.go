@@ -24,17 +24,21 @@ func NewBlindTestSummaryResponses(list []port.BlindTestSummary) []BlindTestSumma
 	return out
 }
 
-// BlindTestProgressResponse is the participant's own answers: image id -> real | synthetic.
+// BlindTestProgressResponse is the participant's own answers (image id -> real | synthetic) and notes.
 type BlindTestProgressResponse struct {
 	Answers     map[string]string `json:"answers"`
+	Notes       map[string]string `json:"notes"`
 	CompletedAt *time.Time        `json:"completed_at"`
 }
 
 func NewBlindTestProgressResponse(r *port.BlindTestResponse) BlindTestProgressResponse {
-	out := BlindTestProgressResponse{Answers: map[string]string{}}
+	out := BlindTestProgressResponse{Answers: map[string]string{}, Notes: map[string]string{}}
 	if r != nil {
 		for id, a := range r.Answers {
 			out.Answers[id] = a.Label
+		}
+		for id, n := range r.Notes {
+			out.Notes[id] = n.Text
 		}
 		out.CompletedAt = r.CompletedAt
 	}
@@ -88,12 +92,21 @@ type BlindTestUserResultResponse struct {
 	Score       BlindTestScoreResponse `json:"score"`
 }
 
+type BlindTestImageNoteResponse struct {
+	UserID    string    `json:"user_id"`
+	Answer    string    `json:"answer" example:"synthetic"`
+	Completed bool      `json:"completed"`
+	Note      string    `json:"note"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type BlindTestImageResultResponse struct {
-	ImageID        string            `json:"image_id"`
-	Label          string            `json:"label" example:"synthetic"`
-	Source         map[string]string `json:"source"`
-	VotedReal      int               `json:"voted_real"`
-	VotedSynthetic int               `json:"voted_synthetic"`
+	ImageID        string                       `json:"image_id"`
+	Label          string                       `json:"label" example:"synthetic"`
+	Source         map[string]string            `json:"source"`
+	VotedReal      int                          `json:"voted_real"`
+	VotedSynthetic int                          `json:"voted_synthetic"`
+	Notes          []BlindTestImageNoteResponse `json:"notes"`
 }
 
 // BlindTestResultsResponse is for admins only: it carries the answer key.
@@ -117,8 +130,13 @@ func NewBlindTestResultsResponse(r *port.BlindTestResults) BlindTestResultsRespo
 			Score: newBlindTestScoreResponse(u.Score)})
 	}
 	for i, img := range r.Images {
+		notes := make([]BlindTestImageNoteResponse, len(img.Notes))
+		for j, n := range img.Notes {
+			notes[j] = BlindTestImageNoteResponse{UserID: n.UserID, Answer: n.Answer, Completed: n.Completed,
+				Note: n.Text, UpdatedAt: n.UpdatedAt}
+		}
 		out.Images[i] = BlindTestImageResultResponse{ImageID: img.ImageID, Label: img.Label, Source: img.Source,
-			VotedReal: img.VotedReal, VotedSynthetic: img.VotedSynthetic}
+			VotedReal: img.VotedReal, VotedSynthetic: img.VotedSynthetic, Notes: notes}
 	}
 	return out
 }

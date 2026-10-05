@@ -270,6 +270,7 @@ func (r *Router) setupBlindTestRoutes(rg *gin.RouterGroup) {
 		blindTests.GET("/:id", r.blindTestHandler.Get)
 		blindTests.GET("/:id/images/:image_id", r.blindTestHandler.Image)
 		blindTests.PUT("/:id/answers/:image_id", r.blindTestHandler.Answer)
+		blindTests.PUT("/:id/notes/:image_id", r.blindTestHandler.Note)
 		blindTests.POST("/:id/complete", r.blindTestHandler.Complete)
 		blindTests.GET("/:id/results", r.authMiddleware.RequireRole(middleware.RoleAdmin), r.blindTestHandler.Results)
 	}
