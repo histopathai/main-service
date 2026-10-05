@@ -108,6 +108,7 @@ func TestRoleGates(t *testing.T) {
 		{http.MethodGet, "/api/v1/blind-tests/s1"},
 		{http.MethodGet, "/api/v1/blind-tests/s1/images/i1"},
 		{http.MethodPut, "/api/v1/blind-tests/s1/answers/i1"},
+		{http.MethodPut, "/api/v1/blind-tests/s1/notes/i1"},
 		{http.MethodPost, "/api/v1/blind-tests/s1/complete"},
 	}
 	for _, route := range blindTakes {

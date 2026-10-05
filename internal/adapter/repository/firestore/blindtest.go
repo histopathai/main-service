@@ -18,7 +18,7 @@ import (
 //	blind_test_sets/{set_id}                    name, description, image_ids, active, created_at
 //	blind_test_keys/{set_id}                    run_id, items: {image_id: {label, source}}   — admins only
 //	blind_test_responses/{set_id}__{user_id}    set_id, user_id, user_role, answers: {image_id: {label, answered_at}},
-//	                                            started_at, updated_at, completed_at
+//	                                            notes: {image_id: {text, updated_at}}, started_at, updated_at, completed_at
 //
 // The key lives in its own collection so that reading a set can never bring it
 // along. Sets and keys are written by the experiments repository's upload
@@ -185,7 +185,7 @@ func blindTestSetFromDoc(doc *firestore.DocumentSnapshot) port.BlindTestSet {
 func blindTestResponseFromData(data map[string]interface{}) *port.BlindTestResponse {
 	r := &port.BlindTestResponse{SetID: str(data, "set_id"), UserID: str(data, "user_id"),
 		UserRole: str(data, "user_role"), StartedAt: timeOf(data, "started_at"), UpdatedAt: timeOf(data, "updated_at"),
-		Answers: map[string]port.BlindTestAnswer{}}
+		Answers: map[string]port.BlindTestAnswer{}, Notes: map[string]port.BlindTestNote{}}
 	if t, ok := data["completed_at"].(time.Time); ok {
 		r.CompletedAt = &t
 	}
@@ -193,6 +193,11 @@ func blindTestResponseFromData(data map[string]interface{}) *port.BlindTestRespo
 	for id, raw := range answers {
 		a, _ := raw.(map[string]interface{})
 		r.Answers[id] = port.BlindTestAnswer{Label: str(a, "label"), AnsweredAt: timeOf(a, "answered_at")}
+	}
+	notes, _ := data["notes"].(map[string]interface{})
+	for id, raw := range notes {
+		n, _ := raw.(map[string]interface{})
+		r.Notes[id] = port.BlindTestNote{Text: str(n, "text"), UpdatedAt: timeOf(n, "updated_at")}
 	}
 	return r
 }
@@ -202,8 +207,12 @@ func blindTestResponseToData(r *port.BlindTestResponse) map[string]interface{} {
 	for id, a := range r.Answers {
 		answers[id] = map[string]interface{}{"label": a.Label, "answered_at": a.AnsweredAt}
 	}
+	notes := map[string]interface{}{}
+	for id, n := range r.Notes {
+		notes[id] = map[string]interface{}{"text": n.Text, "updated_at": n.UpdatedAt}
+	}
 	data := map[string]interface{}{
-		"set_id": r.SetID, "user_id": r.UserID, "user_role": r.UserRole, "answers": answers,
+		"set_id": r.SetID, "user_id": r.UserID, "user_role": r.UserRole, "answers": answers, "notes": notes,
 		"started_at": r.StartedAt, "updated_at": r.UpdatedAt, "completed_at": nil,
 	}
 	if r.CompletedAt != nil {

@@ -85,6 +85,10 @@ func (s *blindStore) UpdateResponse(_ context.Context, setID, userID string,
 		for k, v := range r.Answers {
 			copied.Answers[k] = v
 		}
+		copied.Notes = map[string]port.BlindTestNote{}
+		for k, v := range r.Notes {
+			copied.Notes[k] = v
+		}
 		cur = &copied
 	}
 	next, err := change(cur)
@@ -242,4 +246,83 @@ func TestBlindTest_BinomialTwoSided(t *testing.T) {
 	assert.InDelta(t, appusecase.BinomialTwoSided(1, 10), appusecase.BinomialTwoSided(9, 10), 1e-12)
 	assert.Less(t, appusecase.BinomialTwoSided(130, 200), 1e-4)
 	assert.Equal(t, 1.0, appusecase.BinomialTwoSided(0, 0))
+}
+
+func TestBlindTest_NotesAreIndependentOfAnswersAndOutliveCompletion(t *testing.T) {
+	uc := appusecase.NewBlindTestUseCase(newBlindStore(), &blindStorage{})
+	ctx := context.Background()
+
+	// A note before any answer starts the response.
+	r, err := uc.Note(ctx, "s1", "u1", "pathologist", "a", "  çekirdekler fazla düzgün  ")
+	require.NoError(t, err)
+	assert.Equal(t, "çekirdekler fazla düzgün", r.Notes["a"].Text, "trimmed")
+	assert.Empty(t, r.Answers)
+	assert.Equal(t, "pathologist", r.UserRole)
+
+	// Changing the answer keeps the note.
+	answerAll(t, uc, "u1", map[string]string{"a": "real"})
+	r, err = uc.Answer(ctx, "s1", "u1", "pathologist", "a", "synthetic")
+	require.NoError(t, err)
+	assert.Equal(t, "çekirdekler fazla düzgün", r.Notes["a"].Text)
+
+	// After completion answers are locked, notes are not.
+	answerAll(t, uc, "u1", map[string]string{"b": "real", "c": "synthetic", "d": "synthetic"})
+	_, err = uc.Complete(ctx, "s1", "u1")
+	require.NoError(t, err)
+	r, err = uc.Note(ctx, "s1", "u1", "pathologist", "d", "sonradan: doku mimarisi tekrarlıyor")
+	require.NoError(t, err)
+	assert.Equal(t, "sonradan: doku mimarisi tekrarlıyor", r.Notes["d"].Text)
+	_, err = uc.Answer(ctx, "s1", "u1", "pathologist", "d", "real")
+	assert.Equal(t, errors.ErrorTypeConflict, errType(err))
+
+	// Empty text removes the note.
+	r, err = uc.Note(ctx, "s1", "u1", "pathologist", "a", "   ")
+	require.NoError(t, err)
+	assert.NotContains(t, r.Notes, "a")
+}
+
+func TestBlindTest_NoteValidation(t *testing.T) {
+	uc := appusecase.NewBlindTestUseCase(newBlindStore(), &blindStorage{})
+	ctx := context.Background()
+
+	_, err := uc.Note(ctx, "s1", "u1", "pathologist", "zzz", "x")
+	assert.Equal(t, errors.ErrorTypeNotFound, errType(err))
+	_, err = uc.Note(ctx, "off", "u1", "pathologist", "x", "x")
+	assert.Equal(t, errors.ErrorTypeNotFound, errType(err))
+
+	// The limit counts characters, not bytes: 2000 Turkish letters are fine, 2001 are not.
+	_, err = uc.Note(ctx, "s1", "u1", "pathologist", "a", strings.Repeat("ş", port.BlindTestNoteMaxLen))
+	require.NoError(t, err)
+	_, err = uc.Note(ctx, "s1", "u1", "pathologist", "a", strings.Repeat("ş", port.BlindTestNoteMaxLen+1))
+	assert.Equal(t, errors.ErrorTypeValidation, errType(err))
+}
+
+func TestBlindTest_ResultsCarryNotesWithTheAnswer(t *testing.T) {
+	store := newBlindStore()
+	uc := appusecase.NewBlindTestUseCase(store, &blindStorage{})
+	ctx := context.Background()
+
+	answerAll(t, uc, "u1", map[string]string{"a": "real", "b": "real", "c": "real", "d": "synthetic"})
+	_, err := uc.Note(ctx, "s1", "u1", "pathologist", "c", "renkler doğal")
+	require.NoError(t, err)
+	_, err = uc.Complete(ctx, "s1", "u1")
+	require.NoError(t, err)
+	_, err = uc.Note(ctx, "s1", "u2", "pathologist", "c", "henüz cevap yok")
+	require.NoError(t, err)
+
+	res, err := uc.Results(ctx, "s1")
+	require.NoError(t, err)
+	require.Len(t, res.Images, 4)
+	notes := res.Images[2].Notes
+	require.Len(t, notes, 2)
+	byUser := map[string]port.BlindTestImageNote{}
+	for _, n := range notes {
+		byUser[n.UserID] = n
+	}
+	assert.Equal(t, "real", byUser["u1"].Answer)
+	assert.True(t, byUser["u1"].Completed)
+	assert.Equal(t, "renkler doğal", byUser["u1"].Text)
+	assert.Equal(t, "", byUser["u2"].Answer, "a note without an answer")
+	assert.False(t, byUser["u2"].Completed)
+	assert.Empty(t, res.Images[0].Notes)
 }

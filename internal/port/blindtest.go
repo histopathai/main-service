@@ -45,12 +45,25 @@ type BlindTestAnswer struct {
 	AnsweredAt time.Time
 }
 
+// BlindTestNote is a participant's free-text remark on one image: why they
+// took it for real or synthetic. Kept apart from the answer, so a note may
+// come before the answer, survives a changed answer, and may still be written
+// after the test is completed (the participant never sees the key).
+type BlindTestNote struct {
+	Text      string
+	UpdatedAt time.Time
+}
+
+// BlindTestNoteMaxLen is the longest note accepted, in characters.
+const BlindTestNoteMaxLen = 2000
+
 // BlindTestResponse is one user's answers to one set.
 type BlindTestResponse struct {
 	SetID       string
 	UserID      string
 	UserRole    string
 	Answers     map[string]BlindTestAnswer
+	Notes       map[string]BlindTestNote
 	StartedAt   time.Time
 	UpdatedAt   time.Time
 	CompletedAt *time.Time
@@ -124,6 +137,18 @@ type BlindTestImageResult struct {
 	Source         map[string]string
 	VotedReal      int
 	VotedSynthetic int
+	Notes          []BlindTestImageNote
+}
+
+// BlindTestImageNote is one participant's note on an image, with their answer
+// to it (empty if they have not answered). Notes of unfinished tests are
+// included too.
+type BlindTestImageNote struct {
+	UserID    string
+	Answer    string
+	Completed bool
+	Text      string
+	UpdatedAt time.Time
 }
 
 // BlindTestResults is the admin's view: the key, every response and the scores.
@@ -141,6 +166,8 @@ type BlindTestUseCase interface {
 	Get(ctx context.Context, setID, userID string) (*BlindTestView, error)
 	Answer(ctx context.Context, setID, userID, userRole, imageID, label string) (*BlindTestResponse, error)
 	Complete(ctx context.Context, setID, userID string) (*BlindTestResponse, error)
+	// Note writes the user's note on an image; empty text removes it.
+	Note(ctx context.Context, setID, userID, userRole, imageID, text string) (*BlindTestResponse, error)
 	OpenImage(ctx context.Context, setID, imageID string) (io.ReadCloser, error)
 	Results(ctx context.Context, setID string) (*BlindTestResults, error)
 }
