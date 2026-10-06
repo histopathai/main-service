@@ -268,7 +268,8 @@ func BuildBlindTestResults(set port.BlindTestSet, key port.BlindTestKey, respons
 			notes[id] = append(notes[id], port.BlindTestImageNote{UserID: r.UserID, Answer: r.Answers[id].Label,
 				Completed: r.CompletedAt != nil, Text: n.Text, UpdatedAt: n.UpdatedAt})
 		}
-		res.Users = append(res.Users, port.BlindTestUserResult{Response: r, Score: Score(pairs)})
+		res.Users = append(res.Users, port.BlindTestUserResult{Response: r, Score: Score(pairs),
+			Order: ParticipantOrder(set.ImageIDs, set.ID, r.UserID)})
 		if r.CompletedAt != nil {
 			pooled = append(pooled, pairs...)
 		}

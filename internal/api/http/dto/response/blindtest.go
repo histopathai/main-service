@@ -87,11 +87,14 @@ type BlindTestUserResultResponse struct {
 	UserID   string `json:"user_id"`
 	UserRole string `json:"user_role"`
 	// Guest is set for people who joined through an invitation link (no platform account).
-	Guest       *BlindTestGuestProfileResponse `json:"guest"`
-	StartedAt   time.Time                      `json:"started_at"`
-	UpdatedAt   time.Time                      `json:"updated_at"`
-	CompletedAt *time.Time                     `json:"completed_at"`
-	Score       BlindTestScoreResponse         `json:"score"`
+	Guest *BlindTestGuestProfileResponse `json:"guest"`
+	// Order is the order this participant was shown the images in; Answers their answer per image.
+	Order       []string               `json:"order"`
+	Answers     map[string]string      `json:"answers"`
+	StartedAt   time.Time              `json:"started_at"`
+	UpdatedAt   time.Time              `json:"updated_at"`
+	CompletedAt *time.Time             `json:"completed_at"`
+	Score       BlindTestScoreResponse `json:"score"`
 }
 
 type BlindTestImageNoteResponse struct {
@@ -131,7 +134,12 @@ func NewBlindTestResultsResponse(r *port.BlindTestResults) BlindTestResultsRespo
 		if u.Guest != nil {
 			guest = &BlindTestGuestProfileResponse{Name: u.Guest.Name}
 		}
+		answers := map[string]string{}
+		for id, a := range u.Response.Answers {
+			answers[id] = a.Label
+		}
 		out.Users = append(out.Users, BlindTestUserResultResponse{UserID: u.Response.UserID, UserRole: u.Response.UserRole, Guest: guest,
+			Order: u.Order, Answers: answers,
 			StartedAt: u.Response.StartedAt, UpdatedAt: u.Response.UpdatedAt, CompletedAt: u.Response.CompletedAt,
 			Score: newBlindTestScoreResponse(u.Score)})
 	}

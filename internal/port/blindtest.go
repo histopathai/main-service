@@ -129,6 +129,8 @@ type BlindTestScore struct {
 type BlindTestUserResult struct {
 	Response BlindTestResponse
 	Score    BlindTestScore
+	// Order is the order the participant was shown the images in.
+	Order []string
 	// Guest is set for people who joined through an invitation link.
 	Guest *BlindTestGuestProfile
 }

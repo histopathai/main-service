@@ -326,3 +326,20 @@ func TestBlindTest_ResultsCarryNotesWithTheAnswer(t *testing.T) {
 	assert.False(t, byUser["u2"].Completed)
 	assert.Empty(t, res.Images[0].Notes)
 }
+
+func TestBlindTest_ResultsCarryEachParticipantsOrder(t *testing.T) {
+	store := newBlindStore()
+	uc := appusecase.NewBlindTestUseCase(store, &blindStorage{})
+	ctx := context.Background()
+	answerAll(t, uc, "u1", map[string]string{"a": "real"})
+	answerAll(t, uc, "u2", map[string]string{"b": "synthetic"})
+
+	res, err := uc.Results(ctx, "s1")
+	require.NoError(t, err)
+	require.Len(t, res.Users, 2)
+	for _, u := range res.Users {
+		view, err := uc.Get(ctx, "s1", u.Response.UserID)
+		require.NoError(t, err)
+		assert.Equal(t, view.Set.ImageIDs, u.Order, "the order %s was shown", u.Response.UserID)
+	}
+}
