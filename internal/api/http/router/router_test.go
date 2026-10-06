@@ -23,7 +23,7 @@ func newGateRouter() *gin.Engine {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	r := NewRouter(&RouterConfig{Logger: logger, RequestTimeout: time.Second},
-		nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 		middleware.NewAuthMiddleware(logger),
 		middleware.NewTimeoutMiddleware(time.Second, logger))
 	return r.SetupRoutes()
@@ -121,6 +121,39 @@ func TestRoleGates(t *testing.T) {
 	for _, role := range []string{"pathologist", "datascientist", "user", "viewer", "unassigned"} {
 		assert.Equal(t, http.StatusForbidden, status(engine, http.MethodGet, "/api/v1/blind-tests/s1/results", role), "results as %s", role)
 	}
+
+	// Invitation links of a blind test: admins only.
+	for _, route := range []struct{ method, path string }{
+		{http.MethodPost, "/api/v1/blind-tests/s1/invites"},
+		{http.MethodGet, "/api/v1/blind-tests/s1/invites"},
+		{http.MethodPut, "/api/v1/blind-tests/s1/invites/inv1"},
+	} {
+		assert.True(t, allowed(status(engine, route.method, route.path, "admin")), "%s %s as admin", route.method, route.path)
+		for _, role := range []string{"pathologist", "datascientist", "unassigned"} {
+			assert.Equal(t, http.StatusForbidden, status(engine, route.method, route.path, role), "%s %s as %s", route.method, route.path, role)
+		}
+	}
+
+	// Public invitation routes need no platform user (the handler checks the
+	// link and guest tokens); without any identity header they are not refused
+	// by the user gates.
+	for _, route := range []struct{ method, path string }{
+		{http.MethodGet, "/api/v1/public/blind-tests/invites/tok"},
+		{http.MethodPost, "/api/v1/public/blind-tests/invites/tok/join"},
+		{http.MethodPost, "/api/v1/public/blind-tests/invites/tok/resume"},
+		{http.MethodGet, "/api/v1/public/blind-tests/invites/tok/test"},
+		{http.MethodPut, "/api/v1/public/blind-tests/invites/tok/test/answers/i1"},
+		{http.MethodPut, "/api/v1/public/blind-tests/invites/tok/test/notes/i1"},
+		{http.MethodPost, "/api/v1/public/blind-tests/invites/tok/test/complete"},
+		{http.MethodGet, "/api/v1/public/blind-tests/invites/tok/test/images/i1"},
+	} {
+		req := httptest.NewRequest(route.method, route.path, nil)
+		w := httptest.NewRecorder()
+		engine.ServeHTTP(w, req)
+		assert.True(t, allowed(w.Code) && w.Code != http.StatusNotFound, "%s %s without a user: %d", route.method, route.path, w.Code)
+	}
+	// ...and they reach nothing else: results stay behind the admin gate.
+	assert.Equal(t, http.StatusNotFound, status(engine, http.MethodGet, "/api/v1/public/blind-tests/s1/results", ""))
 
 	// Not in a group: nothing under /api/v1, reads included.
 	for _, role := range []string{"unassigned", "something-else"} {

@@ -84,8 +84,13 @@ func newBlindTestScoreResponse(s port.BlindTestScore) BlindTestScoreResponse {
 }
 
 type BlindTestUserResultResponse struct {
-	UserID      string                 `json:"user_id"`
-	UserRole    string                 `json:"user_role"`
+	UserID   string `json:"user_id"`
+	UserRole string `json:"user_role"`
+	// Guest is set for people who joined through an invitation link (no platform account).
+	Guest *BlindTestGuestProfileResponse `json:"guest"`
+	// Order is the order this participant was shown the images in; Answers their answer per image.
+	Order       []string               `json:"order"`
+	Answers     map[string]string      `json:"answers"`
 	StartedAt   time.Time              `json:"started_at"`
 	UpdatedAt   time.Time              `json:"updated_at"`
 	CompletedAt *time.Time             `json:"completed_at"`
@@ -125,7 +130,16 @@ func NewBlindTestResultsResponse(r *port.BlindTestResults) BlindTestResultsRespo
 		Pooled: newBlindTestScoreResponse(r.Pooled), Users: []BlindTestUserResultResponse{},
 		Images: make([]BlindTestImageResultResponse, len(r.Images))}
 	for _, u := range r.Users {
-		out.Users = append(out.Users, BlindTestUserResultResponse{UserID: u.Response.UserID, UserRole: u.Response.UserRole,
+		var guest *BlindTestGuestProfileResponse
+		if u.Guest != nil {
+			guest = &BlindTestGuestProfileResponse{Name: u.Guest.Name}
+		}
+		answers := map[string]string{}
+		for id, a := range u.Response.Answers {
+			answers[id] = a.Label
+		}
+		out.Users = append(out.Users, BlindTestUserResultResponse{UserID: u.Response.UserID, UserRole: u.Response.UserRole, Guest: guest,
+			Order: u.Order, Answers: answers,
 			StartedAt: u.Response.StartedAt, UpdatedAt: u.Response.UpdatedAt, CompletedAt: u.Response.CompletedAt,
 			Score: newBlindTestScoreResponse(u.Score)})
 	}
@@ -139,4 +153,56 @@ func NewBlindTestResultsResponse(r *port.BlindTestResults) BlindTestResultsRespo
 			VotedReal: img.VotedReal, VotedSynthetic: img.VotedSynthetic, Notes: notes}
 	}
 	return out
+}
+
+// BlindTestInviteResponse is an invitation link as admins see it; the link is
+// /kor-test/katil/{token} on the web app.
+type BlindTestInviteResponse struct {
+	ID              string     `json:"id"`
+	Token           string     `json:"token"`
+	SetID           string     `json:"set_id"`
+	MaxParticipants int        `json:"max_participants" example:"10"`
+	Participants    int        `json:"participants" example:"7"`
+	ExpiresAt       *time.Time `json:"expires_at"`
+	Active          bool       `json:"active"`
+	CreatedAt       time.Time  `json:"created_at"`
+}
+
+func NewBlindTestInviteResponse(inv *port.BlindTestInvite) BlindTestInviteResponse {
+	return BlindTestInviteResponse{ID: inv.ID, Token: inv.Token, SetID: inv.SetID, MaxParticipants: inv.MaxParticipants,
+		Participants: inv.Participants, ExpiresAt: inv.ExpiresAt, Active: inv.Active, CreatedAt: inv.CreatedAt}
+}
+
+func NewBlindTestInviteResponses(list []port.BlindTestInvite) []BlindTestInviteResponse {
+	out := make([]BlindTestInviteResponse, len(list))
+	for i := range list {
+		out[i] = NewBlindTestInviteResponse(&list[i])
+	}
+	return out
+}
+
+// BlindTestInviteInfoResponse is what anyone holding the link sees before joining.
+type BlindTestInviteInfoResponse struct {
+	SetName      string `json:"set_name"     example:"Set A"`
+	Images       int    `json:"images"       example:"200"`
+	Participants int    `json:"participants" example:"7"`
+	Max          int    `json:"max"          example:"10"`
+	Joinable     bool   `json:"joinable"`
+	Closed       bool   `json:"closed"`
+	Expired      bool   `json:"expired"`
+}
+
+func NewBlindTestInviteInfoResponse(i *port.BlindTestInviteInfo) BlindTestInviteInfoResponse {
+	return BlindTestInviteInfoResponse{SetName: i.SetName, Images: i.Images,
+		Participants: i.Participants, Max: i.Max, Joinable: i.Joinable, Closed: i.Closed, Expired: i.Expired}
+}
+
+// BlindTestGuestSessionResponse: session_token goes in the X-Guest-Session header.
+type BlindTestGuestSessionResponse struct {
+	SessionToken string `json:"session_token"`
+	Name         string `json:"name" example:"Ayşe Yılmaz"`
+}
+
+type BlindTestGuestProfileResponse struct {
+	Name string `json:"name" example:"AYSE YILMAZ"`
 }
