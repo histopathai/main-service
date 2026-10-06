@@ -77,9 +77,9 @@ type BlindTestInviteStore interface {
 }
 
 // BlindTestInviteInfo is what anyone holding the link may know before joining.
+// No description: guests learn nothing of the set beyond its neutral name.
 type BlindTestInviteInfo struct {
 	SetName      string
-	Description  string
 	Images       int
 	Participants int
 	Max          int

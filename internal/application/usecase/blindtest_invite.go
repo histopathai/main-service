@@ -145,7 +145,7 @@ func (uc *BlindTestInviteUseCase) Info(ctx context.Context, token string) (*port
 	info := &port.BlindTestInviteInfo{Participants: inv.Participants, Max: inv.MaxParticipants,
 		Closed: !inv.Active || set == nil || !set.Active, Expired: inv.ExpiresAt != nil && uc.now().After(*inv.ExpiresAt)}
 	if set != nil {
-		info.SetName, info.Description, info.Images = set.Name, set.Description, len(set.ImageIDs)
+		info.SetName, info.Images = set.Name, len(set.ImageIDs)
 	}
 	info.Joinable = !info.Closed && !info.Expired && inv.Participants < inv.MaxParticipants
 	return info, nil

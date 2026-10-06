@@ -238,6 +238,9 @@ func (h *BlindTestGuestHandler) Get(c *gin.Context) {
 		h.HandleError(c, err)
 		return
 	}
+	// A set's description is written for the team and may name the model or the
+	// run; guests see the neutral set name only.
+	view.Set.Description = ""
 	h.Response.Success(c, http.StatusOK, response.NewBlindTestResponse(view))
 }
 

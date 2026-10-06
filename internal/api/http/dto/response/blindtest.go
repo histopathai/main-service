@@ -176,7 +176,6 @@ func NewBlindTestInviteResponses(list []port.BlindTestInvite) []BlindTestInviteR
 // BlindTestInviteInfoResponse is what anyone holding the link sees before joining.
 type BlindTestInviteInfoResponse struct {
 	SetName      string `json:"set_name"     example:"Set A"`
-	Description  string `json:"description"`
 	Images       int    `json:"images"       example:"200"`
 	Participants int    `json:"participants" example:"7"`
 	Max          int    `json:"max"          example:"10"`
@@ -186,7 +185,7 @@ type BlindTestInviteInfoResponse struct {
 }
 
 func NewBlindTestInviteInfoResponse(i *port.BlindTestInviteInfo) BlindTestInviteInfoResponse {
-	return BlindTestInviteInfoResponse{SetName: i.SetName, Description: i.Description, Images: i.Images,
+	return BlindTestInviteInfoResponse{SetName: i.SetName, Images: i.Images,
 		Participants: i.Participants, Max: i.Max, Joinable: i.Joinable, Closed: i.Closed, Expired: i.Expired}
 }
 
