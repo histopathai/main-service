@@ -23,6 +23,7 @@ const BlindTestImagePrefix = "blind-tests"
 type BlindTestUseCase struct {
 	store   port.BlindTestStore
 	storage port.Storage
+	guests  port.BlindTestGuestLister
 	now     func() time.Time
 }
 
@@ -172,6 +173,12 @@ func (uc *BlindTestUseCase) OpenImage(ctx context.Context, setID, imageID string
 	return uc.storage.Get(ctx, model.Content{Path: BlindTestImagePrefix + "/" + setID + "/" + imageID + ".png"})
 }
 
+// WithGuests lets the results name the people who joined through invitation links.
+func (uc *BlindTestUseCase) WithGuests(guests port.BlindTestGuestLister) *BlindTestUseCase {
+	uc.guests = guests
+	return uc
+}
+
 // Results is for admins: the answer key, every response and the scores.
 func (uc *BlindTestUseCase) Results(ctx context.Context, setID string) (*port.BlindTestResults, error) {
 	set, err := uc.store.GetSet(ctx, setID)
@@ -192,7 +199,24 @@ func (uc *BlindTestUseCase) Results(ctx context.Context, setID string) (*port.Bl
 	if err != nil {
 		return nil, err
 	}
-	return BuildBlindTestResults(*set, *key, responses), nil
+	res := BuildBlindTestResults(*set, *key, responses)
+	if uc.guests != nil {
+		guests, err := uc.guests.ListGuests(ctx, setID)
+		if err != nil {
+			return nil, err
+		}
+		byUser := map[string]port.BlindTestGuest{}
+		for _, g := range guests {
+			byUser[BlindTestGuestUserID(g)] = g
+		}
+		for i, u := range res.Users {
+			if g, ok := byUser[u.Response.UserID]; ok {
+				res.Users[i].Guest = &port.BlindTestGuestProfile{Name: g.Name, Institution: g.Institution,
+					ExperienceYears: g.ExperienceYears}
+			}
+		}
+	}
+	return res, nil
 }
 
 func (uc *BlindTestUseCase) activeSet(ctx context.Context, setID string) (*port.BlindTestSet, error) {

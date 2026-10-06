@@ -34,6 +34,8 @@ type Router struct {
 	annotationTypeHandler   *handler.AnnotationTypeHandler
 	tissueMaskHandler       *handler.TissueMaskHandler
 	blindTestHandler        *handler.BlindTestHandler
+	blindTestInviteHandler  *handler.BlindTestInviteHandler
+	blindTestGuestHandler   *handler.BlindTestGuestHandler
 	tileProxyHandler        *handler.TileProxyHandler
 
 	// Middleware
@@ -54,6 +56,8 @@ func NewRouter(
 	annotationTypeHandler *handler.AnnotationTypeHandler,
 	tissueMaskHandler *handler.TissueMaskHandler,
 	blindTestHandler *handler.BlindTestHandler,
+	blindTestInviteHandler *handler.BlindTestInviteHandler,
+	blindTestGuestHandler *handler.BlindTestGuestHandler,
 	tileProxyHandler *handler.TileProxyHandler,
 	authMiddleware *middleware.AuthMiddleware,
 	timeoutMiddleware *middleware.TimeoutMiddleware,
@@ -69,6 +73,8 @@ func NewRouter(
 		annotationTypeHandler:   annotationTypeHandler,
 		tissueMaskHandler:       tissueMaskHandler,
 		blindTestHandler:        blindTestHandler,
+		blindTestInviteHandler:  blindTestInviteHandler,
+		blindTestGuestHandler:   blindTestGuestHandler,
 		tileProxyHandler:        tileProxyHandler,
 		authMiddleware:          authMiddleware,
 		timeoutMiddleware:       timeoutMiddleware,
@@ -91,6 +97,12 @@ func (r *Router) SetupRoutes() *gin.Engine {
 
 	// Swagger documentation endpoint
 	r.engine.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+
+	// Blind test invitations: people without a platform account, from a shared
+	// link. Outside the /api/v1 user gates on purpose; the link token and the
+	// guest's session token are checked by the handler (auth-service forwards
+	// this prefix without a user and strips identity headers).
+	r.setupPublicBlindTestRoutes()
 
 	// API v1 routes
 	v1 := r.engine.Group("/api/v1")
@@ -273,6 +285,27 @@ func (r *Router) setupBlindTestRoutes(rg *gin.RouterGroup) {
 		blindTests.PUT("/:id/notes/:image_id", r.blindTestHandler.Note)
 		blindTests.POST("/:id/complete", r.blindTestHandler.Complete)
 		blindTests.GET("/:id/results", r.authMiddleware.RequireRole(middleware.RoleAdmin), r.blindTestHandler.Results)
+
+		invites := blindTests.Group("/:id/invites", r.authMiddleware.RequireRole(middleware.RoleAdmin))
+		invites.POST("", r.blindTestInviteHandler.Create)
+		invites.GET("", r.blindTestInviteHandler.List)
+		invites.PUT("/:invite_id", r.blindTestInviteHandler.Update)
+	}
+}
+
+func (r *Router) setupPublicBlindTestRoutes() {
+	invite := r.engine.Group("/api/v1/public/blind-tests/invites/:token")
+	{
+		invite.GET("", r.blindTestGuestHandler.Info)
+		invite.POST("/join", r.blindTestGuestHandler.Join)
+		invite.POST("/resume", r.blindTestGuestHandler.Resume)
+
+		test := invite.Group("/test", r.blindTestGuestHandler.RequireGuest)
+		test.GET("", r.blindTestGuestHandler.Get)
+		test.GET("/images/:image_id", r.blindTestGuestHandler.Image)
+		test.PUT("/answers/:image_id", r.blindTestGuestHandler.Answer)
+		test.PUT("/notes/:image_id", r.blindTestGuestHandler.Note)
+		test.POST("/complete", r.blindTestGuestHandler.Complete)
 	}
 }
 

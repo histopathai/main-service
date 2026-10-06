@@ -129,6 +129,8 @@ type BlindTestScore struct {
 type BlindTestUserResult struct {
 	Response BlindTestResponse
 	Score    BlindTestScore
+	// Guest is set for people who joined through an invitation link.
+	Guest *BlindTestGuestProfile
 }
 
 type BlindTestImageResult struct {
