@@ -129,8 +129,7 @@ func NewBlindTestResultsResponse(r *port.BlindTestResults) BlindTestResultsRespo
 	for _, u := range r.Users {
 		var guest *BlindTestGuestProfileResponse
 		if u.Guest != nil {
-			guest = &BlindTestGuestProfileResponse{Name: u.Guest.Name, Institution: u.Guest.Institution,
-				ExperienceYears: u.Guest.ExperienceYears}
+			guest = &BlindTestGuestProfileResponse{Name: u.Guest.Name}
 		}
 		out.Users = append(out.Users, BlindTestUserResultResponse{UserID: u.Response.UserID, UserRole: u.Response.UserRole, Guest: guest,
 			StartedAt: u.Response.StartedAt, UpdatedAt: u.Response.UpdatedAt, CompletedAt: u.Response.CompletedAt,
@@ -198,7 +197,5 @@ type BlindTestGuestSessionResponse struct {
 }
 
 type BlindTestGuestProfileResponse struct {
-	Name            string `json:"name"`
-	Institution     string `json:"institution"`
-	ExperienceYears *int   `json:"experience_years"`
+	Name string `json:"name" example:"AYSE YILMAZ"`
 }

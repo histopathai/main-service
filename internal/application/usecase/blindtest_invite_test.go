@@ -177,16 +177,14 @@ func TestInvite_JoinValidatesAndTakesANameOnce(t *testing.T) {
 		{join("Ayşe Yılmaz", "12a4"), "pin_invalid"},
 		{join("Ayşe Yılmaz", "12345"), "pin_invalid"},
 		{port.BlindTestJoin{Name: "Ayşe Yılmaz", PIN: "1234"}, "consent_required"},
-		{port.BlindTestJoin{Name: "Ayşe Yılmaz", PIN: "1234", Consent: true, ExperienceYears: intPtr(-1)}, "experience_invalid"},
 	} {
 		_, err := uc.Join(ctx, inv.Token, tc.j)
 		assert.Equal(t, tc.code, code(err), "%+v", tc.j)
 	}
 
-	s, err := uc.Join(ctx, inv.Token, port.BlindTestJoin{Name: "  Ayşe   Yılmaz ", PIN: "1234", Consent: true,
-		Institution: "Uludağ Üniversitesi", ExperienceYears: intPtr(12)})
+	s, err := uc.Join(ctx, inv.Token, join("  ayşe   yılmaz ", "1234"))
 	require.NoError(t, err)
-	assert.Equal(t, "Ayşe Yılmaz", s.Guest.Name, "spaces tidied")
+	assert.Equal(t, "AYSE YILMAZ", s.Guest.Name, "capitals, ASCII, spaces tidied")
 	assert.Equal(t, "ayse-yilmaz", s.Guest.NameKey)
 	assert.True(t, strings.HasPrefix(s.Token, s.Guest.ID+"."))
 	assert.NotContains(t, s.Guest.PinHash, "1234")
@@ -317,8 +315,7 @@ func TestInvite_GuestsTakeTheTestAndAreNamedInResults(t *testing.T) {
 	ctx := context.Background()
 	inv, err := invUC.Create(ctx, "s1", "admin", 10, nil)
 	require.NoError(t, err)
-	s, err := invUC.Join(ctx, inv.Token, port.BlindTestJoin{Name: "Ayşe Yılmaz", PIN: "1234", Consent: true,
-		Institution: "Uludağ", ExperienceYears: intPtr(12)})
+	s, err := invUC.Join(ctx, inv.Token, join("Ayşe Yılmaz", "1234"))
 	require.NoError(t, err)
 
 	user := appusecase.BlindTestGuestUserID(s.Guest)
@@ -335,8 +332,21 @@ func TestInvite_GuestsTakeTheTestAndAreNamedInResults(t *testing.T) {
 	u := res.Users[0]
 	assert.Equal(t, "guest", u.Response.UserRole)
 	require.NotNil(t, u.Guest)
-	assert.Equal(t, port.BlindTestGuestProfile{Name: "Ayşe Yılmaz", Institution: "Uludağ", ExperienceYears: intPtr(12)}, *u.Guest)
+	assert.Equal(t, port.BlindTestGuestProfile{Name: "AYSE YILMAZ"}, *u.Guest)
 	assert.Equal(t, 2, u.Score.Correct)
 }
 
 func intPtr(i int) *int { return &i }
+
+func TestInvite_GuestDisplayName(t *testing.T) {
+	for in, want := range map[string]string{
+		"ayşe yılmaz":       "AYSE YILMAZ",
+		"  Çağrı   Öztürk ": "CAGRI OZTURK",
+		"İlknur Işık":       "ILKNUR ISIK",
+		"ŞÜKRÜ GÖKÇE":       "SUKRU GOKCE",
+		"dr. mehmet ali":    "DR. MEHMET ALI",
+		"Hâlâ Îmece":        "HALA IMECE",
+	} {
+		assert.Equal(t, want, appusecase.GuestDisplayName(in), in)
+	}
+}

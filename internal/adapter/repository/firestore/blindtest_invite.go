@@ -15,8 +15,8 @@ import (
 // joined through them:
 //
 //	blind_test_invites/{sha256(token)}   token, set_id, max_participants, expires_at, active, created_by, created_at
-//	blind_test_guests/{guest_id}         invite_id, set_id, name, name_key, institution, experience_years,
-//	                                     pin_hash, session_hashes, failed_attempts, locked_until, consent_at, created_at
+//	blind_test_guests/{guest_id}         invite_id, set_id, name, name_key, pin_hash, session_hashes,
+//	                                     failed_attempts, locked_until, consent_at, created_at
 //
 // Their answers live with everyone else's in blind_test_responses
 // (user_id "guest_{guest_id}").
@@ -240,13 +240,9 @@ func inviteFromDoc(doc *firestore.DocumentSnapshot) port.BlindTestInvite {
 
 func guestToData(g port.BlindTestGuest) map[string]interface{} {
 	data := map[string]interface{}{
-		"invite_id": g.InviteID, "set_id": g.SetID, "name": g.Name, "name_key": g.NameKey,
-		"institution": g.Institution, "experience_years": nil, "pin_hash": g.PinHash,
+		"invite_id": g.InviteID, "set_id": g.SetID, "name": g.Name, "name_key": g.NameKey, "pin_hash": g.PinHash,
 		"session_hashes": g.SessionHashes, "failed_attempts": g.FailedAttempts, "locked_until": nil,
 		"consent_at": g.ConsentAt, "created_at": g.CreatedAt,
-	}
-	if g.ExperienceYears != nil {
-		data["experience_years"] = *g.ExperienceYears
 	}
 	if g.LockedUntil != nil {
 		data["locked_until"] = *g.LockedUntil
@@ -260,13 +256,8 @@ func guestToData(g port.BlindTestGuest) map[string]interface{} {
 func guestFromDoc(doc *firestore.DocumentSnapshot) port.BlindTestGuest {
 	data := doc.Data()
 	g := port.BlindTestGuest{ID: doc.Ref.ID, InviteID: str(data, "invite_id"), SetID: str(data, "set_id"),
-		Name: str(data, "name"), NameKey: str(data, "name_key"), Institution: str(data, "institution"),
-		PinHash: str(data, "pin_hash"), FailedAttempts: intOf(data, "failed_attempts"),
+		Name: str(data, "name"), NameKey: str(data, "name_key"), PinHash: str(data, "pin_hash"), FailedAttempts: intOf(data, "failed_attempts"),
 		ConsentAt: timeOf(data, "consent_at"), CreatedAt: timeOf(data, "created_at")}
-	if _, ok := data["experience_years"].(int64); ok {
-		y := intOf(data, "experience_years")
-		g.ExperienceYears = &y
-	}
 	if t, ok := data["locked_until"].(time.Time); ok {
 		g.LockedUntil = &t
 	}

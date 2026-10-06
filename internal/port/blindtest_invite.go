@@ -7,9 +7,8 @@ import (
 )
 
 // Blind test invitations: one shared link per set, sent to a group of
-// pathologists who have no platform account. Opening it, a person gives a
-// name (and optionally their institution and years of experience), chooses a
-// 4-digit PIN and takes the test. The same link brings them back: the browser
+// pathologists who have no platform account. Opening it, a person gives their
+// name, chooses a 4-digit PIN and takes the test. The same link brings them back: the browser
 // remembers them, and on another device their name and PIN do. The admin caps
 // the number of people a link admits and can close it.
 
@@ -34,14 +33,13 @@ type BlindTestInvite struct {
 // BlindTestGuest is a person who joined through an invitation.
 type BlindTestGuest struct {
 	// ID is unique per invitation and name: a name is taken once per link.
-	ID              string
-	InviteID        string
-	SetID           string
-	Name            string
-	NameKey         string
-	Institution     string
-	ExperienceYears *int
-	PinHash         string
+	ID       string
+	InviteID string
+	SetID    string
+	// Name is stored in capitals with Turkish letters as ASCII ("AYSE YILMAZ").
+	Name    string
+	NameKey string
+	PinHash string
 	// SessionHashes are SHA-256 (hex) of the session secrets handed out (one per device, newest last).
 	SessionHashes  []string
 	FailedAttempts int
@@ -52,9 +50,7 @@ type BlindTestGuest struct {
 
 // BlindTestGuestProfile is what the results show of a guest participant.
 type BlindTestGuestProfile struct {
-	Name            string
-	Institution     string
-	ExperienceYears *int
+	Name string
 }
 
 var (
@@ -94,11 +90,9 @@ type BlindTestInviteInfo struct {
 }
 
 type BlindTestJoin struct {
-	Name            string
-	PIN             string
-	Institution     string
-	ExperienceYears *int
-	Consent         bool
+	Name    string
+	PIN     string
+	Consent bool
 }
 
 // BlindTestGuestSession is handed to a guest on join or resume; Token goes in

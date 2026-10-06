@@ -26,12 +26,11 @@ type UpdateBlindTestInviteRequest struct {
 }
 
 // BlindTestJoinRequest: a person joining through an invitation link.
+// The name is kept in capitals with Turkish letters in ASCII ("AYSE YILMAZ").
 type BlindTestJoinRequest struct {
-	Name            string `json:"name" example:"Ayşe Yılmaz"`
-	PIN             string `json:"pin" example:"4821"`
-	Institution     string `json:"institution,omitempty" example:"Bursa Uludağ Üniversitesi"`
-	ExperienceYears *int   `json:"experience_years,omitempty" example:"12"`
-	Consent         bool   `json:"consent"`
+	Name    string `json:"name" example:"Ayşe Yılmaz"`
+	PIN     string `json:"pin" example:"4821"`
+	Consent bool   `json:"consent"`
 }
 
 // BlindTestResumeRequest: coming back with the name and PIN given on joining.

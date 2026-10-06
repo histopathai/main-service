@@ -150,7 +150,7 @@ func (h *BlindTestGuestHandler) Info(c *gin.Context) {
 
 // Join godoc
 // @Summary Join a blind test through an invitation link
-// @Description Public. Name (unique in the link), 4-digit PIN, optional institution and years of experience, consent. details.code on refusal: name_invalid, pin_invalid, consent_required, name_taken, invite_full, invite_closed, invite_expired.
+// @Description Public. Name (unique in the link; kept in capitals, Turkish letters in ASCII), 4-digit PIN, consent. details.code on refusal: name_invalid, pin_invalid, consent_required, name_taken, invite_full, invite_closed, invite_expired.
 // @Tags Blind Test Invitations
 // @Accept json
 // @Produce json
@@ -168,8 +168,8 @@ func (h *BlindTestGuestHandler) Join(c *gin.Context) {
 		h.HandleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{"error": err.Error()}))
 		return
 	}
-	s, err := h.Invites.Join(c.Request.Context(), c.Param("token"), port.BlindTestJoin{Name: req.Name, PIN: req.PIN,
-		Institution: req.Institution, ExperienceYears: req.ExperienceYears, Consent: req.Consent})
+	s, err := h.Invites.Join(c.Request.Context(), c.Param("token"),
+		port.BlindTestJoin{Name: req.Name, PIN: req.PIN, Consent: req.Consent})
 	if err != nil {
 		h.HandleError(c, err)
 		return

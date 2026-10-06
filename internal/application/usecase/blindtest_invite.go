@@ -30,8 +30,6 @@ const (
 	guestPINLock             = 15 * time.Minute
 	maxGuestSessions         = 5
 	maxGuestNameLen          = 80
-	maxGuestInstitutionLen   = 120
-	maxGuestExperienceYears  = 70
 	inviteTokenBytes         = 24
 	guestSessionSecretBytes  = 32
 	guestIDInvitePrefixChars = 12
@@ -162,13 +160,6 @@ func (uc *BlindTestInviteUseCase) Join(ctx context.Context, token string, j port
 	if !pinPattern.MatchString(j.PIN) {
 		return nil, coded(errors.ErrorTypeValidation, "PIN must be 4 digits", "pin_invalid", nil)
 	}
-	institution := strings.Join(strings.Fields(j.Institution), " ")
-	if utf8.RuneCountInString(institution) > maxGuestInstitutionLen {
-		return nil, coded(errors.ErrorTypeValidation, "institution is too long", "institution_invalid", nil)
-	}
-	if j.ExperienceYears != nil && (*j.ExperienceYears < 0 || *j.ExperienceYears > maxGuestExperienceYears) {
-		return nil, coded(errors.ErrorTypeValidation, "experience_years must be between 0 and 70", "experience_invalid", nil)
-	}
 	if !j.Consent {
 		return nil, coded(errors.ErrorTypeValidation, "consent is required", "consent_required", nil)
 	}
@@ -194,7 +185,7 @@ func (uc *BlindTestInviteUseCase) Join(ctx context.Context, token string, j port
 		return nil, err
 	}
 	g := port.BlindTestGuest{ID: guestID(inv.ID, key), InviteID: inv.ID, SetID: inv.SetID, Name: name, NameKey: key,
-		Institution: institution, ExperienceYears: j.ExperienceYears, PinHash: string(pinHash),
+		PinHash:       string(pinHash),
 		SessionHashes: []string{sessionHash}, ConsentAt: now, CreatedAt: now}
 	switch err := uc.invites.AddGuest(ctx, g, inv.MaxParticipants); {
 	case stderrors.Is(err, port.ErrBlindTestNameTaken):
@@ -351,22 +342,35 @@ func guestID(inviteID, nameKey string) string {
 	return inviteID[:min(guestIDInvitePrefixChars, len(inviteID))] + "_" + nameKey
 }
 
-// guestName tidies a typed name and makes its key: Turkish letters folded to
-// ASCII, case ignored, anything else a single dash — "Ayşe  YILMAZ" and
-// "ayse yilmaz" are the same person.
+// turkishToASCII spells Turkish letters (and the circumflexed vowels) in ASCII.
+var turkishToASCII = map[rune]rune{'ı': 'i', 'İ': 'I', 'ş': 's', 'Ş': 'S', 'ğ': 'g', 'Ğ': 'G', 'ü': 'u', 'Ü': 'U',
+	'ö': 'o', 'Ö': 'O', 'ç': 'c', 'Ç': 'C', 'â': 'a', 'Â': 'A', 'î': 'i', 'Î': 'I', 'û': 'u', 'Û': 'U'}
+
+// GuestDisplayName is how a guest's name is kept and shown: spaces tidied,
+// Turkish letters in ASCII, all capitals — "ayşe  yılmaz" -> "AYSE YILMAZ".
+// The web form writes names the same way while they are typed.
+func GuestDisplayName(raw string) string {
+	var b strings.Builder
+	for _, r := range strings.Join(strings.Fields(raw), " ") {
+		if f, ok := turkishToASCII[r]; ok {
+			r = f
+		}
+		b.WriteRune(unicode.ToUpper(r))
+	}
+	return b.String()
+}
+
+// guestName returns the name as kept (GuestDisplayName) and its key: case
+// ignored, anything but letters and digits a single dash — "Ayşe  YILMAZ",
+// "ayse yilmaz" and "AYSE YILMAZ" are the same person.
 func guestName(raw string) (name, key string, err error) {
-	name = strings.Join(strings.Fields(raw), " ")
+	name = GuestDisplayName(raw)
 	if n := utf8.RuneCountInString(name); n < 2 || n > maxGuestNameLen {
 		return "", "", coded(errors.ErrorTypeValidation, "name must be 2 to 80 characters", "name_invalid", nil)
 	}
-	fold := map[rune]rune{'ı': 'i', 'İ': 'i', 'I': 'i', 'ş': 's', 'Ş': 's', 'ğ': 'g', 'Ğ': 'g', 'ü': 'u', 'Ü': 'u',
-		'ö': 'o', 'Ö': 'o', 'ç': 'c', 'Ç': 'c', 'â': 'a', 'Â': 'a', 'î': 'i', 'Î': 'i', 'û': 'u', 'Û': 'u'}
 	var b strings.Builder
 	dash := false
 	for _, r := range name {
-		if f, ok := fold[r]; ok {
-			r = f
-		}
 		r = unicode.ToLower(r)
 		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
 			b.WriteRune(r)

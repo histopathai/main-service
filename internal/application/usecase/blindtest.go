@@ -211,8 +211,7 @@ func (uc *BlindTestUseCase) Results(ctx context.Context, setID string) (*port.Bl
 		}
 		for i, u := range res.Users {
 			if g, ok := byUser[u.Response.UserID]; ok {
-				res.Users[i].Guest = &port.BlindTestGuestProfile{Name: g.Name, Institution: g.Institution,
-					ExperienceYears: g.ExperienceYears}
+				res.Users[i].Guest = &port.BlindTestGuestProfile{Name: g.Name}
 			}
 		}
 	}
