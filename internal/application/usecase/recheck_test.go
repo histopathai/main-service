@@ -369,7 +369,6 @@ func TestRecheckDoneNeedsAnOutcomeAndSometimesANote(t *testing.T) {
 		{"maybe", "x"},
 		{port.RecheckOutcomeNoChange, " "},
 		{port.RecheckOutcomeUndecided, ""},
-		{port.RecheckOutcomeUnsuitable, " "},
 		{port.RecheckOutcomeCorrected, strings.Repeat("a", port.RecheckNoteMaxLen+1)},
 	} {
 		_, err := uc.SetDone(ctx, "img1", "expert", true, tc.outcome, tc.note)
@@ -385,8 +384,8 @@ func TestRecheckUnsuitableIsAnOutcome(t *testing.T) {
 	ctx := context.Background()
 	_, err := uc.Request(ctx, "img1", "admin", port.RecheckReasonSubtypeMissing, "")
 	require.NoError(t, err)
-	r, err := uc.SetDone(ctx, "img1", "expert", true, port.RecheckOutcomeUnsuitable, "Tümör dokusu yetersiz")
-	require.NoError(t, err)
+	r, err := uc.SetDone(ctx, "img1", "expert", true, port.RecheckOutcomeUnsuitable, "")
+	require.NoError(t, err, "no note needed")
 	assert.Equal(t, port.RecheckOutcomeUnsuitable, r.Outcome)
 	assert.Equal(t, port.RecheckStatusDone, r.Status)
 }

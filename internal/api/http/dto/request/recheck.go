@@ -12,7 +12,7 @@ type RecheckStatusRequest struct {
 	Done *bool `json:"done" binding:"required" example:"true"`
 	// Outcome is required when done: corrected, no_change, undecided or unsuitable.
 	Outcome string `json:"outcome" example:"no_change"`
-	// Note says why; required for every outcome but corrected.
+	// Note says why; required for no_change and undecided.
 	Note string `json:"note" example:"Kanal yapıları belirgin, tek sıra dizilim yok; IDC ile uyumlu."`
 }
 

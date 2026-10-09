@@ -242,7 +242,7 @@ func (uc *RecheckUseCase) SetDone(ctx context.Context, imageID, userID string, d
 			return nil, errors.NewValidationError("outcome must be corrected, no_change, undecided or unsuitable",
 				map[string]interface{}{"outcome": outcome})
 		}
-		if outcome != port.RecheckOutcomeCorrected && note == "" {
+		if (outcome == port.RecheckOutcomeNoChange || outcome == port.RecheckOutcomeUndecided) && note == "" {
 			return nil, errors.NewValidationError("this outcome needs a note saying why", map[string]interface{}{"outcome": outcome})
 		}
 		if utf8.RuneCountInString(note) > port.RecheckNoteMaxLen {
