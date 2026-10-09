@@ -10,9 +10,9 @@ type RecheckRequestRequest struct {
 // RecheckStatusRequest marks a request done with the expert's answer, or open again.
 type RecheckStatusRequest struct {
 	Done *bool `json:"done" binding:"required" example:"true"`
-	// Outcome is required when done: corrected, no_change or undecided.
+	// Outcome is required when done: corrected, no_change, undecided or unsuitable.
 	Outcome string `json:"outcome" example:"no_change"`
-	// Note says why; required for no_change and undecided.
+	// Note says why; required for every outcome but corrected.
 	Note string `json:"note" example:"Kanal yapıları belirgin, tek sıra dizilim yok; IDC ile uyumlu."`
 }
 

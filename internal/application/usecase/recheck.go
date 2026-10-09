@@ -239,7 +239,7 @@ func (uc *RecheckUseCase) SetDone(ctx context.Context, imageID, userID string, d
 	note = strings.TrimSpace(note)
 	if done {
 		if !port.IsRecheckOutcome(outcome) {
-			return nil, errors.NewValidationError("outcome must be corrected, no_change or undecided",
+			return nil, errors.NewValidationError("outcome must be corrected, no_change, undecided or unsuitable",
 				map[string]interface{}{"outcome": outcome})
 		}
 		if outcome != port.RecheckOutcomeCorrected && note == "" {

@@ -37,16 +37,23 @@ func IsRecheckReason(code string) bool {
 	return false
 }
 
-// What the expert concluded when finishing a request. "no_change" and
-// "undecided" need a note saying why.
+// What the expert concluded when finishing a request. Every outcome but
+// "corrected" needs a note saying why.
 const (
 	RecheckOutcomeCorrected = "corrected" // Etiketler düzeltildi
 	RecheckOutcomeNoChange  = "no_change" // Değişiklik gerekmedi, mevcut etiket doğru
 	RecheckOutcomeUndecided = "undecided" // Karar verilemedi
+	// RecheckOutcomeUnsuitable: the image is not fit for the study (too little
+	// tumour, poor section, another lesion); its labels are left as they are.
+	RecheckOutcomeUnsuitable = "unsuitable" // Çalışmaya uygun değil
 )
 
 func IsRecheckOutcome(code string) bool {
-	return code == RecheckOutcomeCorrected || code == RecheckOutcomeNoChange || code == RecheckOutcomeUndecided
+	switch code {
+	case RecheckOutcomeCorrected, RecheckOutcomeNoChange, RecheckOutcomeUndecided, RecheckOutcomeUnsuitable:
+		return true
+	}
+	return false
 }
 
 // RecheckNoteMaxLen is the longest note accepted, in characters.
