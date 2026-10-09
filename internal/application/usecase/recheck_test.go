@@ -37,7 +37,7 @@ func (s *recheckStore) Update(_ context.Context, id string,
 		current = &r
 	}
 	next, err := change(current)
-	if err != nil {
+	if err != nil || next == nil {
 		return nil, err
 	}
 	s.requests[id] = *next
@@ -134,7 +134,22 @@ var (
 	path2  = port.RecheckViewer{ID: "path2", Role: port.RecheckRolePathologist}
 )
 
+// recheckAnnotations is the fake annotation repository: annotations by image.
+type recheckAnnotations map[string][]*model.Annotation
+
+func (m recheckAnnotations) Find(_ context.Context, spec query.Specification) (*query.Result[*model.Annotation], error) {
+	return &query.Result[*model.Annotation]{Data: m[filterValue(spec, "ParentID").(string)]}, nil
+}
+
+var labels = recheckAnnotations{}
+
+func polygon() *[]vobj.Point {
+	pts := []vobj.Point{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 1, Y: 1}}
+	return &pts
+}
+
 func newRecheck() (*appusecase.RecheckUseCase, *recheckStore) {
+	labels = recheckAnnotations{}
 	store := &recheckStore{requests: map[string]port.RecheckRequest{}}
 	images := recheckImages{
 		"img1":  {Entity: vobj.Entity{ID: "img1", Name: "24.jpg", Parent: vobj.ParentRef{ID: "p1"}}, WsID: "ws1"},
@@ -146,7 +161,7 @@ func newRecheck() (*appusecase.RecheckUseCase, *recheckStore) {
 		"p1": {Entity: vobj.Entity{ID: "p1", Name: "24", Parent: vobj.ParentRef{ID: "ws1"}}},
 		"p2": {Entity: vobj.Entity{ID: "p2", Name: "60", Parent: vobj.ParentRef{ID: "ws1"}}},
 	}
-	return appusecase.NewRecheckUseCase(store, images, patients), store
+	return appusecase.NewRecheckUseCase(store, images, patients, labels), store
 }
 
 func isType(err error, t errors.ErrorType) bool {
@@ -485,4 +500,70 @@ func TestRecheckPathologistsSeeAndFinishOnlyTheirOwn(t *testing.T) {
 	r, err := uc.SetDone(ctx, path1, "img1", true, port.RecheckOutcomeCorrected, "")
 	require.NoError(t, err)
 	assert.Equal(t, "path1", r.CompletedBy)
+}
+
+func TestRecheckReconcileFinishesWhenTheMissingLabelIsEntered(t *testing.T) {
+	uc, store := newRecheck()
+	ctx := context.Background()
+	labels["img1"] = []*model.Annotation{{Polygon: polygon()}} // polygon, no subtype
+	r, err := uc.Request(ctx, "img1", "admin", port.RecheckReasonSubtypeMissing, "", "path1")
+	require.NoError(t, err)
+	assert.Equal(t, port.RecheckStatusOpen, r.Status)
+	assert.Nil(t, r.Reasons[0].ResolvedAt)
+
+	require.NoError(t, uc.Reconcile(ctx, "img1", "path1"), "nothing changed: no write")
+	assert.Equal(t, port.RecheckStatusOpen, store.requests["img1"].Status)
+
+	labels["img1"] = append(labels["img1"], &model.Annotation{IsGlobal: true}) // subtype entered
+	require.NoError(t, uc.Reconcile(ctx, "img1", "path1"))
+	got := store.requests["img1"]
+	assert.Equal(t, port.RecheckStatusDone, got.Status)
+	assert.True(t, got.AutoCompleted)
+	assert.Equal(t, port.RecheckOutcomeCorrected, got.Outcome)
+	assert.Equal(t, "path1", got.CompletedBy)
+	assert.NotNil(t, got.Reasons[0].ResolvedAt)
+
+	labels["img1"] = labels["img1"][:1] // subtype deleted again
+	require.NoError(t, uc.Reconcile(ctx, "img1", "path1"))
+	got = store.requests["img1"]
+	assert.Equal(t, port.RecheckStatusOpen, got.Status, "an auto-finished request reopens")
+	assert.False(t, got.AutoCompleted)
+	assert.Nil(t, got.Reasons[0].ResolvedAt)
+}
+
+func TestRecheckReconcileLeavesTheExpertsWorkAlone(t *testing.T) {
+	uc, store := newRecheck()
+	ctx := context.Background()
+	labels["img1"] = []*model.Annotation{{Polygon: polygon()}}
+	_, err := uc.Request(ctx, "img1", "admin", port.RecheckReasonSubtypeMissing, "", "path1")
+	require.NoError(t, err)
+	_, err = uc.Request(ctx, "img1", "admin", port.RecheckReasonSubtype, "", "path1")
+	require.NoError(t, err)
+
+	labels["img1"] = append(labels["img1"], &model.Annotation{IsGlobal: true})
+	require.NoError(t, uc.Reconcile(ctx, "img1", "path1"))
+	got := store.requests["img1"]
+	assert.Equal(t, port.RecheckStatusOpen, got.Status, "\"Alt tip yeniden incelenmeli\" still needs the expert")
+	assert.NotNil(t, got.Reasons[0].ResolvedAt, "the missing subtype is settled")
+
+	_, err = uc.SetDone(ctx, path1, "img1", true, port.RecheckOutcomeNoChange, "doğru")
+	require.NoError(t, err)
+	labels["img1"] = labels["img1"][:1]
+	require.NoError(t, uc.Reconcile(ctx, "img1", "path1"))
+	assert.Equal(t, port.RecheckStatusDone, store.requests["img1"].Status, "finished by the expert: not reopened")
+}
+
+func TestRecheckRequestSettlesAMissingLabelThatIsThere(t *testing.T) {
+	uc, _ := newRecheck()
+	labels["img1"] = []*model.Annotation{{IsGlobal: true}, {Polygon: polygon()}}
+	r, err := uc.Request(context.Background(), "img1", "admin", port.RecheckReasonPolygonMissing, "", "path1")
+	require.NoError(t, err)
+	assert.Equal(t, port.RecheckStatusDone, r.Status, "nothing is missing: finished at once")
+	assert.True(t, r.AutoCompleted)
+}
+
+func TestRecheckReconcileWithoutARequest(t *testing.T) {
+	uc, store := newRecheck()
+	require.NoError(t, uc.Reconcile(context.Background(), "img2", "x"))
+	assert.Empty(t, store.requests)
 }

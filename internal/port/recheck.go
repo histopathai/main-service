@@ -28,6 +28,13 @@ const (
 	RecheckReasonDataset = "dataset"
 )
 
+// IsMissingLabelReason: a reason about a label that is not there, which the
+// labels themselves can settle (see RecheckUseCase.Reconcile).
+func IsMissingLabelReason(code string) bool {
+	return code == RecheckReasonSubtypeMissing || code == RecheckReasonGlobalLabelMissing ||
+		code == RecheckReasonPolygonMissing
+}
+
 func IsRecheckReason(code string) bool {
 	switch code {
 	case RecheckReasonSubtype, RecheckReasonPolygon, RecheckReasonPolygonMissing,
@@ -83,6 +90,9 @@ type RecheckReason struct {
 	Note        string
 	RequestedBy string
 	RequestedAt time.Time
+	// ResolvedAt is set while a missing-label reason is settled by the image's
+	// labels (the label is there now); cleared when it goes missing again.
+	ResolvedAt *time.Time
 }
 
 // RecheckRequest is the request on one image; its ID is the image ID.
@@ -106,6 +116,9 @@ type RecheckRequest struct {
 	// Outcome and CompletionNote are the expert's answer, set when done.
 	Outcome        string
 	CompletionNote string
+	// AutoCompleted: finished because every reason was a missing label that got
+	// entered, not by the expert; reopened if a label goes missing again.
+	AutoCompleted bool
 }
 
 type RecheckStore interface {
@@ -113,6 +126,7 @@ type RecheckStore interface {
 	List(ctx context.Context, status string) ([]RecheckRequest, error)
 	// Update reads the request of the image (nil if none), lets change modify
 	// it and writes it back, atomically.
+	// When change returns nil, nothing is written and Update returns nil, nil.
 	Update(ctx context.Context, imageID string,
 		change func(current *RecheckRequest) (*RecheckRequest, error)) (*RecheckRequest, error)
 	Delete(ctx context.Context, imageID string) error
@@ -140,7 +154,15 @@ type RecheckUseCase interface {
 	// RequestWorkspace sends every image of the workspace with the reason
 	// "dataset" and the note to assigneeID; returns how many images it reached.
 	RequestWorkspace(ctx context.Context, wsID, userID, note, assigneeID string) (int, error)
+	// Reconcile settles the image's missing-label reasons from its labels as
+	// they are now, finishing the request when nothing is missing any more.
+	RecheckReconciler
 	// WithdrawWorkspace takes the reason "dataset" off the workspace's images,
 	// removing requests left without a reason; other reasons stay.
 	WithdrawWorkspace(ctx context.Context, wsID string) (int, error)
+}
+
+// RecheckReconciler is called after an image's annotations change.
+type RecheckReconciler interface {
+	Reconcile(ctx context.Context, imageID, actorID string) error
 }
