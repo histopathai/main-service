@@ -15,7 +15,8 @@ import (
 //
 //	recheck_requests/{image_id}   image_name, patient_id, patient_name, ws_id, status (open | done),
 //	                              reasons: [{code, note, requested_by, requested_at}],
-//	                              created_at, updated_at, completed_by, completed_at
+//	                              created_at, updated_at, completed_by, completed_at,
+//	                              outcome (corrected | no_change | undecided), completion_note
 type RecheckStoreImpl struct {
 	client     *firestore.Client
 	collection string
@@ -146,7 +147,8 @@ func recheckFromData(id string, data map[string]interface{}) port.RecheckRequest
 	r := port.RecheckRequest{ImageID: id, ImageName: str(data, "image_name"), PatientID: str(data, "patient_id"),
 		PatientName: str(data, "patient_name"), WsID: str(data, "ws_id"), Status: str(data, "status"),
 		CreatedAt: timeOf(data, "created_at"), UpdatedAt: timeOf(data, "updated_at"),
-		CompletedBy: str(data, "completed_by")}
+		CompletedBy: str(data, "completed_by"), Outcome: str(data, "outcome"),
+		CompletionNote: str(data, "completion_note")}
 	if t, ok := data["completed_at"].(time.Time); ok {
 		r.CompletedAt = &t
 	}
@@ -169,6 +171,7 @@ func recheckToData(r *port.RecheckRequest) map[string]interface{} {
 		"image_name": r.ImageName, "patient_id": r.PatientID, "patient_name": r.PatientName, "ws_id": r.WsID,
 		"status": r.Status, "reasons": reasons, "created_at": r.CreatedAt, "updated_at": r.UpdatedAt,
 		"completed_by": r.CompletedBy, "completed_at": nil,
+		"outcome": r.Outcome, "completion_note": r.CompletionNote,
 	}
 	if r.CompletedAt != nil {
 		data["completed_at"] = *r.CompletedAt

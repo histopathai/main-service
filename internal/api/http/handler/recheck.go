@@ -80,7 +80,7 @@ func (h *RecheckHandler) Request(c *gin.Context) {
 
 // SetStatus godoc
 // @Summary Mark an Ek Kontrol request done, or open again
-// @Description Admins and pathologists.
+// @Description Admins and pathologists. Done needs the outcome (corrected, no_change, undecided); no_change and undecided need a note saying why.
 // @Tags Recheck
 // @Accept json
 // @Produce json
@@ -104,7 +104,7 @@ func (h *RecheckHandler) SetStatus(c *gin.Context) {
 		h.HandleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{"error": err.Error()}))
 		return
 	}
-	r, err := h.UseCase.SetDone(c.Request.Context(), c.Param("image_id"), userID, *req.Done)
+	r, err := h.UseCase.SetDone(c.Request.Context(), c.Param("image_id"), userID, *req.Done, req.Outcome, req.Note)
 	if err != nil {
 		h.HandleError(c, err)
 		return

@@ -14,17 +14,19 @@ type RecheckReasonResponse struct {
 }
 
 type RecheckResponse struct {
-	ImageID     string                  `json:"image_id"`
-	ImageName   string                  `json:"image_name"   example:"24.jpg"`
-	PatientID   string                  `json:"patient_id"`
-	PatientName string                  `json:"patient_name" example:"24"`
-	WsID        string                  `json:"ws_id"`
-	Status      string                  `json:"status"       example:"open"`
-	Reasons     []RecheckReasonResponse `json:"reasons"`
-	CreatedAt   time.Time               `json:"created_at"`
-	UpdatedAt   time.Time               `json:"updated_at"`
-	CompletedBy string                  `json:"completed_by,omitempty"`
-	CompletedAt *time.Time              `json:"completed_at"`
+	ImageID        string                  `json:"image_id"`
+	ImageName      string                  `json:"image_name"   example:"24.jpg"`
+	PatientID      string                  `json:"patient_id"`
+	PatientName    string                  `json:"patient_name" example:"24"`
+	WsID           string                  `json:"ws_id"`
+	Status         string                  `json:"status"       example:"open"`
+	Reasons        []RecheckReasonResponse `json:"reasons"`
+	CreatedAt      time.Time               `json:"created_at"`
+	UpdatedAt      time.Time               `json:"updated_at"`
+	CompletedBy    string                  `json:"completed_by,omitempty"`
+	CompletedAt    *time.Time              `json:"completed_at"`
+	Outcome        string                  `json:"outcome,omitempty"         example:"no_change"`
+	CompletionNote string                  `json:"completion_note,omitempty"`
 }
 
 func NewRecheckResponse(r *port.RecheckRequest) RecheckResponse {
@@ -35,7 +37,8 @@ func NewRecheckResponse(r *port.RecheckRequest) RecheckResponse {
 	}
 	return RecheckResponse{ImageID: r.ImageID, ImageName: r.ImageName, PatientID: r.PatientID,
 		PatientName: r.PatientName, WsID: r.WsID, Status: r.Status, Reasons: reasons, CreatedAt: r.CreatedAt,
-		UpdatedAt: r.UpdatedAt, CompletedBy: r.CompletedBy, CompletedAt: r.CompletedAt}
+		UpdatedAt: r.UpdatedAt, CompletedBy: r.CompletedBy, CompletedAt: r.CompletedAt, Outcome: r.Outcome,
+		CompletionNote: r.CompletionNote}
 }
 
 func NewRecheckResponses(list []port.RecheckRequest) []RecheckResponse {

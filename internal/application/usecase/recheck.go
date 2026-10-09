@@ -82,9 +82,14 @@ func withReason(current *port.RecheckRequest, imageID string, reason port.Rechec
 	if !replaced {
 		next.Reasons = append(next.Reasons, reason)
 	}
-	next.Status, next.CompletedBy, next.CompletedAt = port.RecheckStatusOpen, "", nil
+	reopen(next)
 	next.UpdatedAt = reason.RequestedAt
 	return next
+}
+
+// reopen clears what finishing set.
+func reopen(r *port.RecheckRequest) {
+	r.Status, r.CompletedBy, r.CompletedAt, r.Outcome, r.CompletionNote = port.RecheckStatusOpen, "", nil, "", ""
 }
 
 func (uc *RecheckUseCase) Request(ctx context.Context, imageID, userID, code, note string) (*port.RecheckRequest, error) {
@@ -230,7 +235,20 @@ func (uc *RecheckUseCase) WithdrawWorkspace(ctx context.Context, wsID string) (i
 	return len(ids), nil
 }
 
-func (uc *RecheckUseCase) SetDone(ctx context.Context, imageID, userID string, done bool) (*port.RecheckRequest, error) {
+func (uc *RecheckUseCase) SetDone(ctx context.Context, imageID, userID string, done bool, outcome, note string) (*port.RecheckRequest, error) {
+	note = strings.TrimSpace(note)
+	if done {
+		if !port.IsRecheckOutcome(outcome) {
+			return nil, errors.NewValidationError("outcome must be corrected, no_change or undecided",
+				map[string]interface{}{"outcome": outcome})
+		}
+		if outcome != port.RecheckOutcomeCorrected && note == "" {
+			return nil, errors.NewValidationError("this outcome needs a note saying why", map[string]interface{}{"outcome": outcome})
+		}
+		if utf8.RuneCountInString(note) > port.RecheckNoteMaxLen {
+			return nil, errors.NewValidationError("note is too long", map[string]interface{}{"max": port.RecheckNoteMaxLen})
+		}
+	}
 	now := uc.now()
 	return uc.store.Update(ctx, imageID, func(current *port.RecheckRequest) (*port.RecheckRequest, error) {
 		if current == nil {
@@ -238,8 +256,9 @@ func (uc *RecheckUseCase) SetDone(ctx context.Context, imageID, userID string, d
 		}
 		if done {
 			current.Status, current.CompletedBy, current.CompletedAt = port.RecheckStatusDone, userID, &now
+			current.Outcome, current.CompletionNote = outcome, note
 		} else {
-			current.Status, current.CompletedBy, current.CompletedAt = port.RecheckStatusOpen, "", nil
+			reopen(current)
 		}
 		current.UpdatedAt = now
 		return current, nil

@@ -7,9 +7,13 @@ type RecheckRequestRequest struct {
 	Note string `json:"note" example:"IDC mi ILC mi, E-cadherin kesitine de bakın."`
 }
 
-// RecheckStatusRequest marks a request done, or open again.
+// RecheckStatusRequest marks a request done with the expert's answer, or open again.
 type RecheckStatusRequest struct {
 	Done *bool `json:"done" binding:"required" example:"true"`
+	// Outcome is required when done: corrected, no_change or undecided.
+	Outcome string `json:"outcome" example:"no_change"`
+	// Note says why; required for no_change and undecided.
+	Note string `json:"note" example:"Kanal yapıları belirgin, tek sıra dizilim yok; IDC ile uyumlu."`
 }
 
 // RecheckWorkspaceRequest sends every image of a workspace to Ek Kontrol.

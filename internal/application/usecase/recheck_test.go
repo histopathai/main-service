@@ -199,7 +199,7 @@ func TestRecheckDoneAndReopen(t *testing.T) {
 	_, err := uc.Request(ctx, "img1", "admin", port.RecheckReasonSubtype, "")
 	require.NoError(t, err)
 
-	r, err := uc.SetDone(ctx, "img1", "expert", true)
+	r, err := uc.SetDone(ctx, "img1", "expert", true, port.RecheckOutcomeCorrected, "")
 	require.NoError(t, err)
 	assert.Equal(t, port.RecheckStatusDone, r.Status)
 	assert.Equal(t, "expert", r.CompletedBy)
@@ -209,7 +209,7 @@ func TestRecheckDoneAndReopen(t *testing.T) {
 	require.NoError(t, err)
 	assert.Empty(t, open)
 
-	r, err = uc.SetDone(ctx, "img1", "expert", false)
+	r, err = uc.SetDone(ctx, "img1", "expert", false, "", "")
 	require.NoError(t, err)
 	assert.Equal(t, port.RecheckStatusOpen, r.Status)
 	assert.Nil(t, r.CompletedAt)
@@ -221,7 +221,7 @@ func TestRecheckNewReasonReopensADoneRequest(t *testing.T) {
 	ctx := context.Background()
 	_, err := uc.Request(ctx, "img1", "admin", port.RecheckReasonSubtype, "")
 	require.NoError(t, err)
-	_, err = uc.SetDone(ctx, "img1", "expert", true)
+	_, err = uc.SetDone(ctx, "img1", "expert", true, port.RecheckOutcomeCorrected, "")
 	require.NoError(t, err)
 	r, err := uc.Request(ctx, "img1", "admin", port.RecheckReasonPolygonMissing, "")
 	require.NoError(t, err)
@@ -231,7 +231,7 @@ func TestRecheckNewReasonReopensADoneRequest(t *testing.T) {
 
 func TestRecheckSetDoneWithoutRequest(t *testing.T) {
 	uc, _ := newRecheck()
-	_, err := uc.SetDone(context.Background(), "img1", "expert", true)
+	_, err := uc.SetDone(context.Background(), "img1", "expert", true, port.RecheckOutcomeCorrected, "")
 	assert.True(t, isType(err, errors.ErrorTypeNotFound))
 }
 
@@ -264,7 +264,7 @@ func TestRecheckWorkspaceSendsEveryLiveImage(t *testing.T) {
 	ctx := context.Background()
 	_, err := uc.Request(ctx, "img1", "admin", port.RecheckReasonSubtype, "")
 	require.NoError(t, err)
-	_, err = uc.SetDone(ctx, "img1", "expert", true)
+	_, err = uc.SetDone(ctx, "img1", "expert", true, port.RecheckOutcomeCorrected, "")
 	require.NoError(t, err)
 
 	n, err := uc.RequestWorkspace(ctx, "ws1", "admin", "  Yeni yüklendi, gözden geçirilmeli  ")
@@ -327,4 +327,47 @@ func codes(r port.RecheckRequest) []string {
 		out[i] = reason.Code
 	}
 	return out
+}
+
+func TestRecheckDoneKeepsTheExpertsAnswer(t *testing.T) {
+	uc, _ := newRecheck()
+	ctx := context.Background()
+	_, err := uc.Request(ctx, "img1", "admin", port.RecheckReasonSubtype, "")
+	require.NoError(t, err)
+
+	r, err := uc.SetDone(ctx, "img1", "expert", true, port.RecheckOutcomeNoChange, "  IDC ile uyumlu  ")
+	require.NoError(t, err)
+	assert.Equal(t, port.RecheckOutcomeNoChange, r.Outcome)
+	assert.Equal(t, "IDC ile uyumlu", r.CompletionNote)
+
+	r, err = uc.SetDone(ctx, "img1", "expert", false, "", "")
+	require.NoError(t, err)
+	assert.Empty(t, r.Outcome, "reopening clears the answer")
+	assert.Empty(t, r.CompletionNote)
+
+	_, err = uc.SetDone(ctx, "img1", "expert", true, port.RecheckOutcomeCorrected, "")
+	require.NoError(t, err)
+	r, err = uc.Request(ctx, "img1", "admin", port.RecheckReasonPolygon, "")
+	require.NoError(t, err)
+	assert.Empty(t, r.Outcome, "a new reason clears the answer")
+}
+
+func TestRecheckDoneNeedsAnOutcomeAndSometimesANote(t *testing.T) {
+	uc, _ := newRecheck()
+	ctx := context.Background()
+	_, err := uc.Request(ctx, "img1", "admin", port.RecheckReasonSubtype, "")
+	require.NoError(t, err)
+	for _, tc := range []struct{ outcome, note string }{
+		{"", ""},
+		{"maybe", "x"},
+		{port.RecheckOutcomeNoChange, " "},
+		{port.RecheckOutcomeUndecided, ""},
+		{port.RecheckOutcomeCorrected, strings.Repeat("a", port.RecheckNoteMaxLen+1)},
+	} {
+		_, err := uc.SetDone(ctx, "img1", "expert", true, tc.outcome, tc.note)
+		assert.True(t, isType(err, errors.ErrorTypeValidation), "%q %q", tc.outcome, tc.note)
+	}
+	r, err := uc.SetDone(ctx, "img1", "expert", true, port.RecheckOutcomeUndecided, "E-cadherin gerekli")
+	require.NoError(t, err)
+	assert.Equal(t, port.RecheckStatusDone, r.Status)
 }

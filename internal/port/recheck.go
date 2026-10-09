@@ -36,6 +36,18 @@ func IsRecheckReason(code string) bool {
 	return false
 }
 
+// What the expert concluded when finishing a request. "no_change" and
+// "undecided" need a note saying why.
+const (
+	RecheckOutcomeCorrected = "corrected" // Etiketler düzeltildi
+	RecheckOutcomeNoChange  = "no_change" // Değişiklik gerekmedi, mevcut etiket doğru
+	RecheckOutcomeUndecided = "undecided" // Karar verilemedi
+)
+
+func IsRecheckOutcome(code string) bool {
+	return code == RecheckOutcomeCorrected || code == RecheckOutcomeNoChange || code == RecheckOutcomeUndecided
+}
+
 // RecheckNoteMaxLen is the longest note accepted, in characters.
 const RecheckNoteMaxLen = 500
 
@@ -61,6 +73,9 @@ type RecheckRequest struct {
 	UpdatedAt   time.Time
 	CompletedBy string
 	CompletedAt *time.Time
+	// Outcome and CompletionNote are the expert's answer, set when done.
+	Outcome        string
+	CompletionNote string
 }
 
 type RecheckStore interface {
@@ -83,8 +98,9 @@ type RecheckUseCase interface {
 	// there is none and reopening it if it was done. The same reason given
 	// again replaces its note.
 	Request(ctx context.Context, imageID, userID, code, note string) (*RecheckRequest, error)
-	// SetDone marks the request done, or open again.
-	SetDone(ctx context.Context, imageID, userID string, done bool) (*RecheckRequest, error)
+	// SetDone marks the request done with the expert's outcome and note, or
+	// open again (outcome and note are cleared).
+	SetDone(ctx context.Context, imageID, userID string, done bool, outcome, note string) (*RecheckRequest, error)
 	Cancel(ctx context.Context, imageID string) error
 	// RequestWorkspace sends every image of the workspace with the reason
 	// "dataset" and the note; returns how many images it reached.
