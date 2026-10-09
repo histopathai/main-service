@@ -19,6 +19,7 @@ type RecheckResponse struct {
 	PatientID      string                  `json:"patient_id"`
 	PatientName    string                  `json:"patient_name" example:"24"`
 	WsID           string                  `json:"ws_id"`
+	AssigneeID     string                  `json:"assignee_id"`
 	Status         string                  `json:"status"       example:"open"`
 	Reasons        []RecheckReasonResponse `json:"reasons"`
 	CreatedAt      time.Time               `json:"created_at"`
@@ -36,7 +37,7 @@ func NewRecheckResponse(r *port.RecheckRequest) RecheckResponse {
 			RequestedAt: reason.RequestedAt}
 	}
 	return RecheckResponse{ImageID: r.ImageID, ImageName: r.ImageName, PatientID: r.PatientID,
-		PatientName: r.PatientName, WsID: r.WsID, Status: r.Status, Reasons: reasons, CreatedAt: r.CreatedAt,
+		PatientName: r.PatientName, WsID: r.WsID, AssigneeID: r.AssigneeID, Status: r.Status, Reasons: reasons, CreatedAt: r.CreatedAt,
 		UpdatedAt: r.UpdatedAt, CompletedBy: r.CompletedBy, CompletedAt: r.CompletedAt, Outcome: r.Outcome,
 		CompletionNote: r.CompletionNote}
 }

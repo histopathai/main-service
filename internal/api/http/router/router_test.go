@@ -131,6 +131,7 @@ func TestRoleGates(t *testing.T) {
 	for _, route := range []struct{ method, path string }{
 		{http.MethodPost, "/api/v1/recheck-requests/i1/reasons"},
 		{http.MethodDelete, "/api/v1/recheck-requests/i1"},
+		{http.MethodPut, "/api/v1/recheck-requests/i1/assignee"},
 		{http.MethodPost, "/api/v1/recheck-workspaces/w1"},
 		{http.MethodDelete, "/api/v1/recheck-workspaces/w1"},
 	} {

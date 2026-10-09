@@ -13,7 +13,7 @@ import (
 
 // RecheckStoreImpl keeps the Ek Kontrol requests, one document per image:
 //
-//	recheck_requests/{image_id}   image_name, patient_id, patient_name, ws_id, status (open | done),
+//	recheck_requests/{image_id}   image_name, patient_id, patient_name, ws_id, assignee_id, status (open | done),
 //	                              reasons: [{code, note, requested_by, requested_at}],
 //	                              created_at, updated_at, completed_by, completed_at,
 //	                              outcome (corrected | no_change | undecided), completion_note
@@ -145,7 +145,8 @@ func (s *RecheckStoreImpl) Delete(ctx context.Context, imageID string) error {
 
 func recheckFromData(id string, data map[string]interface{}) port.RecheckRequest {
 	r := port.RecheckRequest{ImageID: id, ImageName: str(data, "image_name"), PatientID: str(data, "patient_id"),
-		PatientName: str(data, "patient_name"), WsID: str(data, "ws_id"), Status: str(data, "status"),
+		PatientName: str(data, "patient_name"), WsID: str(data, "ws_id"), AssigneeID: str(data, "assignee_id"),
+		Status:    str(data, "status"),
 		CreatedAt: timeOf(data, "created_at"), UpdatedAt: timeOf(data, "updated_at"),
 		CompletedBy: str(data, "completed_by"), Outcome: str(data, "outcome"),
 		CompletionNote: str(data, "completion_note")}
@@ -169,7 +170,7 @@ func recheckToData(r *port.RecheckRequest) map[string]interface{} {
 	}
 	data := map[string]interface{}{
 		"image_name": r.ImageName, "patient_id": r.PatientID, "patient_name": r.PatientName, "ws_id": r.WsID,
-		"status": r.Status, "reasons": reasons, "created_at": r.CreatedAt, "updated_at": r.UpdatedAt,
+		"assignee_id": r.AssigneeID, "status": r.Status, "reasons": reasons, "created_at": r.CreatedAt, "updated_at": r.UpdatedAt,
 		"completed_by": r.CompletedBy, "completed_at": nil,
 		"outcome": r.Outcome, "completion_note": r.CompletionNote,
 	}
