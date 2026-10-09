@@ -23,7 +23,7 @@ func newGateRouter() *gin.Engine {
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
 	r := NewRouter(&RouterConfig{Logger: logger, RequestTimeout: time.Second},
-		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
+		nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil, nil,
 		middleware.NewAuthMiddleware(logger),
 		middleware.NewTimeoutMiddleware(time.Second, logger))
 	return r.SetupRoutes()
@@ -120,6 +120,28 @@ func TestRoleGates(t *testing.T) {
 	assert.True(t, allowed(status(engine, http.MethodGet, "/api/v1/blind-tests/s1/results", "admin")), "results as admin")
 	for _, role := range []string{"pathologist", "datascientist", "user", "viewer", "unassigned"} {
 		assert.Equal(t, http.StatusForbidden, status(engine, http.MethodGet, "/api/v1/blind-tests/s1/results", role), "results as %s", role)
+	}
+
+	// Ek Kontrol: every group sees the list, admins send and cancel, admins and
+	// pathologists mark a request done.
+	for _, role := range []string{"admin", "pathologist", "datascientist"} {
+		assert.True(t, allowed(status(engine, http.MethodGet, "/api/v1/recheck-requests", role)), "recheck list as %s", role)
+	}
+	assert.Equal(t, http.StatusForbidden, status(engine, http.MethodGet, "/api/v1/recheck-requests", "unassigned"))
+	for _, route := range []struct{ method, path string }{
+		{http.MethodPost, "/api/v1/recheck-requests/i1/reasons"},
+		{http.MethodDelete, "/api/v1/recheck-requests/i1"},
+	} {
+		assert.True(t, allowed(status(engine, route.method, route.path, "admin")), "%s %s as admin", route.method, route.path)
+		for _, role := range []string{"pathologist", "datascientist", "unassigned"} {
+			assert.Equal(t, http.StatusForbidden, status(engine, route.method, route.path, role), "%s %s as %s", route.method, route.path, role)
+		}
+	}
+	for _, role := range []string{"admin", "pathologist"} {
+		assert.True(t, allowed(status(engine, http.MethodPut, "/api/v1/recheck-requests/i1/status", role)), "recheck status as %s", role)
+	}
+	for _, role := range []string{"datascientist", "unassigned"} {
+		assert.Equal(t, http.StatusForbidden, status(engine, http.MethodPut, "/api/v1/recheck-requests/i1/status", role), "recheck status as %s", role)
 	}
 
 	// Invitation links of a blind test: admins only.
