@@ -80,6 +80,61 @@ func (s *RecheckStoreImpl) Update(ctx context.Context, imageID string,
 	return saved, nil
 }
 
+// recheckReadChunk is how many documents one GetAll reads.
+const recheckReadChunk = 300
+
+func (s *RecheckStoreImpl) UpdateMany(ctx context.Context, imageIDs []string,
+	change func(string, *port.RecheckRequest) (*port.RecheckRequest, error)) error {
+	coll := s.client.Collection(s.collection)
+	bw := s.client.BulkWriter(ctx)
+	var jobs []*firestore.BulkWriterJob
+	for start := 0; start < len(imageIDs); start += recheckReadChunk {
+		end := min(start+recheckReadChunk, len(imageIDs))
+		refs := make([]*firestore.DocumentRef, 0, end-start)
+		for _, id := range imageIDs[start:end] {
+			refs = append(refs, coll.Doc(id))
+		}
+		docs, err := s.client.GetAll(ctx, refs)
+		if err != nil {
+			bw.End()
+			return mapFirestoreError(err)
+		}
+		for i, doc := range docs {
+			var current *port.RecheckRequest
+			if doc.Exists() {
+				r := recheckFromData(doc.Ref.ID, doc.Data())
+				current = &r
+			}
+			next, err := change(refs[i].ID, current)
+			if err != nil {
+				bw.End()
+				return err
+			}
+			var job *firestore.BulkWriterJob
+			switch {
+			case next != nil:
+				job, err = bw.Set(refs[i], recheckToData(next))
+			case current != nil:
+				job, err = bw.Delete(refs[i])
+			default:
+				continue
+			}
+			if err != nil {
+				bw.End()
+				return mapFirestoreError(err)
+			}
+			jobs = append(jobs, job)
+		}
+	}
+	bw.End()
+	for _, job := range jobs {
+		if _, err := job.Results(); err != nil {
+			return mapFirestoreError(err)
+		}
+	}
+	return nil
+}
+
 func (s *RecheckStoreImpl) Delete(ctx context.Context, imageID string) error {
 	if _, err := s.client.Collection(s.collection).Doc(imageID).Delete(ctx); err != nil && !notFound(err) {
 		return mapFirestoreError(err)

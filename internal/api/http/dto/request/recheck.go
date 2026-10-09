@@ -11,3 +11,9 @@ type RecheckRequestRequest struct {
 type RecheckStatusRequest struct {
 	Done *bool `json:"done" binding:"required" example:"true"`
 }
+
+// RecheckWorkspaceRequest sends every image of a workspace to Ek Kontrol.
+type RecheckWorkspaceRequest struct {
+	// Note says why; shown once over the workspace in the tab. Required.
+	Note string `json:"note" binding:"required" example:"Yeni yüklendi; poligonlar ve global etiketler uzmanca gözden geçirilmeli."`
+}

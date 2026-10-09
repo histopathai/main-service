@@ -45,3 +45,9 @@ func NewRecheckResponses(list []port.RecheckRequest) []RecheckResponse {
 	}
 	return out
 }
+
+// RecheckWorkspaceResponse is how many images a workspace send or withdraw reached.
+type RecheckWorkspaceResponse struct {
+	WsID   string `json:"ws_id"`
+	Images int    `json:"images" example:"711"`
+}

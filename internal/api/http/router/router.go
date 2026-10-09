@@ -298,7 +298,8 @@ func (r *Router) setupBlindTestRoutes(rg *gin.RouterGroup) {
 }
 
 // setupRecheckRoutes: Ek Kontrol. Every group sees the list; admins send an
-// image back or take it out, admins and pathologists mark it done.
+// image or a whole workspace back or take it out, admins and pathologists
+// mark an image done.
 func (r *Router) setupRecheckRoutes(rg *gin.RouterGroup) {
 	rechecks := rg.Group("/recheck-requests")
 	{
@@ -307,6 +308,11 @@ func (r *Router) setupRecheckRoutes(rg *gin.RouterGroup) {
 		rechecks.DELETE("/:image_id", r.authMiddleware.RequireRole(middleware.RoleAdmin), r.recheckHandler.Cancel)
 		rechecks.PUT("/:image_id/status",
 			r.authMiddleware.RequireRole(middleware.RoleAdmin, middleware.RolePathologist), r.recheckHandler.SetStatus)
+	}
+	workspaces := rg.Group("/recheck-workspaces", r.authMiddleware.RequireRole(middleware.RoleAdmin))
+	{
+		workspaces.POST("/:ws_id", r.recheckHandler.RequestWorkspace)
+		workspaces.DELETE("/:ws_id", r.recheckHandler.WithdrawWorkspace)
 	}
 }
 

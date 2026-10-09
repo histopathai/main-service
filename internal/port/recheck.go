@@ -22,12 +22,15 @@ const (
 	RecheckReasonPolygonMissing     = "polygon_missing"      // Poligon eksik
 	RecheckReasonGlobalLabelMissing = "global_label_missing" // Global etiket eksik
 	RecheckReasonOther              = "other"
+	// RecheckReasonDataset is set on every image of a workspace sent as a
+	// whole; its note says why and is required.
+	RecheckReasonDataset = "dataset"
 )
 
 func IsRecheckReason(code string) bool {
 	switch code {
 	case RecheckReasonSubtype, RecheckReasonPolygon, RecheckReasonPolygonMissing,
-		RecheckReasonGlobalLabelMissing, RecheckReasonOther:
+		RecheckReasonGlobalLabelMissing, RecheckReasonOther, RecheckReasonDataset:
 		return true
 	}
 	return false
@@ -68,6 +71,10 @@ type RecheckStore interface {
 	Update(ctx context.Context, imageID string,
 		change func(current *RecheckRequest) (*RecheckRequest, error)) (*RecheckRequest, error)
 	Delete(ctx context.Context, imageID string) error
+	// UpdateMany does what Update does for many images at once, in batches
+	// (not one transaction); change returning nil deletes the request.
+	UpdateMany(ctx context.Context, imageIDs []string,
+		change func(imageID string, current *RecheckRequest) (*RecheckRequest, error)) error
 }
 
 type RecheckUseCase interface {
@@ -79,4 +86,10 @@ type RecheckUseCase interface {
 	// SetDone marks the request done, or open again.
 	SetDone(ctx context.Context, imageID, userID string, done bool) (*RecheckRequest, error)
 	Cancel(ctx context.Context, imageID string) error
+	// RequestWorkspace sends every image of the workspace with the reason
+	// "dataset" and the note; returns how many images it reached.
+	RequestWorkspace(ctx context.Context, wsID, userID, note string) (int, error)
+	// WithdrawWorkspace takes the reason "dataset" off the workspace's images,
+	// removing requests left without a reason; other reasons stay.
+	WithdrawWorkspace(ctx context.Context, wsID string) (int, error)
 }

@@ -11,6 +11,7 @@ import (
 	"github.com/histopathai/main-service/internal/domain/vobj"
 	"github.com/histopathai/main-service/internal/port"
 	"github.com/histopathai/main-service/internal/shared/errors"
+	"github.com/histopathai/main-service/internal/shared/query"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -48,6 +49,36 @@ func (s *recheckStore) Delete(_ context.Context, id string) error {
 	return nil
 }
 
+func (s *recheckStore) UpdateMany(_ context.Context, ids []string,
+	change func(string, *port.RecheckRequest) (*port.RecheckRequest, error)) error {
+	for _, id := range ids {
+		var current *port.RecheckRequest
+		if r, ok := s.requests[id]; ok {
+			current = &r
+		}
+		next, err := change(id, current)
+		if err != nil {
+			return err
+		}
+		if next == nil {
+			delete(s.requests, id)
+		} else {
+			s.requests[id] = *next
+		}
+	}
+	return nil
+}
+
+// filterValue is the value of the filter on field, as the use case sets it.
+func filterValue(spec query.Specification, field string) interface{} {
+	for _, f := range spec.Filters {
+		if f.Field == field {
+			return f.Value
+		}
+	}
+	return nil
+}
+
 type recheckImages map[string]*model.Image
 
 func (m recheckImages) Read(_ context.Context, id string) (*model.Image, error) {
@@ -55,6 +86,17 @@ func (m recheckImages) Read(_ context.Context, id string) (*model.Image, error) 
 		return img, nil
 	}
 	return nil, errors.NewNotFoundError("image not found")
+}
+
+func (m recheckImages) Find(_ context.Context, spec query.Specification) (*query.Result[*model.Image], error) {
+	ws := filterValue(spec, "WsID")
+	var out []*model.Image
+	for _, img := range m {
+		if img.WsID == ws && !img.Deleted {
+			out = append(out, img)
+		}
+	}
+	return &query.Result[*model.Image]{Data: out}, nil
 }
 
 type recheckPatients map[string]*model.Patient
@@ -66,13 +108,29 @@ func (m recheckPatients) Read(_ context.Context, id string) (*model.Patient, err
 	return nil, errors.NewNotFoundError("patient not found")
 }
 
+func (m recheckPatients) Find(_ context.Context, spec query.Specification) (*query.Result[*model.Patient], error) {
+	ws := filterValue(spec, "ParentID")
+	var out []*model.Patient
+	for _, p := range m {
+		if p.Parent.ID == ws {
+			out = append(out, p)
+		}
+	}
+	return &query.Result[*model.Patient]{Data: out}, nil
+}
+
 func newRecheck() (*appusecase.RecheckUseCase, *recheckStore) {
 	store := &recheckStore{requests: map[string]port.RecheckRequest{}}
 	images := recheckImages{
-		"img1": {Entity: vobj.Entity{ID: "img1", Name: "24.jpg", Parent: vobj.ParentRef{ID: "p1"}}, WsID: "ws1"},
-		"gone": {Entity: vobj.Entity{ID: "gone", Name: "x.jpg", Deleted: true}, WsID: "ws1"},
+		"img1":  {Entity: vobj.Entity{ID: "img1", Name: "24.jpg", Parent: vobj.ParentRef{ID: "p1"}}, WsID: "ws1"},
+		"gone":  {Entity: vobj.Entity{ID: "gone", Name: "x.jpg", Deleted: true}, WsID: "ws1"},
+		"img2":  {Entity: vobj.Entity{ID: "img2", Name: "60.jpg", Parent: vobj.ParentRef{ID: "p2"}}, WsID: "ws1"},
+		"other": {Entity: vobj.Entity{ID: "other", Name: "y.jpg"}, WsID: "ws2"},
 	}
-	patients := recheckPatients{"p1": {Entity: vobj.Entity{ID: "p1", Name: "24"}}}
+	patients := recheckPatients{
+		"p1": {Entity: vobj.Entity{ID: "p1", Name: "24", Parent: vobj.ParentRef{ID: "ws1"}}},
+		"p2": {Entity: vobj.Entity{ID: "p2", Name: "60", Parent: vobj.ParentRef{ID: "ws1"}}},
+	}
 	return appusecase.NewRecheckUseCase(store, images, patients), store
 }
 
@@ -199,4 +257,74 @@ func TestRecheckCancel(t *testing.T) {
 	require.NoError(t, err)
 	require.NoError(t, uc.Cancel(ctx, "img1"))
 	assert.Empty(t, store.requests)
+}
+
+func TestRecheckWorkspaceSendsEveryLiveImage(t *testing.T) {
+	uc, store := newRecheck()
+	ctx := context.Background()
+	_, err := uc.Request(ctx, "img1", "admin", port.RecheckReasonSubtype, "")
+	require.NoError(t, err)
+	_, err = uc.SetDone(ctx, "img1", "expert", true)
+	require.NoError(t, err)
+
+	n, err := uc.RequestWorkspace(ctx, "ws1", "admin", "  Yeni yüklendi, gözden geçirilmeli  ")
+	require.NoError(t, err)
+	assert.Equal(t, 2, n, "img1 and img2; the deleted image and ws2 are left out")
+	require.Contains(t, store.requests, "img2")
+	assert.NotContains(t, store.requests, "gone")
+	assert.NotContains(t, store.requests, "other")
+
+	img2 := store.requests["img2"]
+	assert.Equal(t, "60", img2.PatientName)
+	assert.Equal(t, "ws1", img2.WsID)
+	require.Len(t, img2.Reasons, 1)
+	assert.Equal(t, port.RecheckReasonDataset, img2.Reasons[0].Code)
+	assert.Equal(t, "Yeni yüklendi, gözden geçirilmeli", img2.Reasons[0].Note)
+
+	img1 := store.requests["img1"]
+	assert.Equal(t, port.RecheckStatusOpen, img1.Status, "a new send reopens")
+	assert.Len(t, img1.Reasons, 2, "the image's own reason stays")
+}
+
+func TestRecheckWorkspaceNeedsANoteAndImages(t *testing.T) {
+	uc, store := newRecheck()
+	ctx := context.Background()
+	_, err := uc.RequestWorkspace(ctx, "ws1", "admin", " ")
+	assert.True(t, isType(err, errors.ErrorTypeValidation))
+	_, err = uc.RequestWorkspace(ctx, "empty", "admin", "why")
+	assert.True(t, isType(err, errors.ErrorTypeNotFound))
+	assert.Empty(t, store.requests)
+}
+
+func TestRecheckWorkspaceWithdrawKeepsOtherReasons(t *testing.T) {
+	uc, store := newRecheck()
+	ctx := context.Background()
+	_, err := uc.Request(ctx, "img1", "admin", port.RecheckReasonPolygon, "")
+	require.NoError(t, err)
+	_, err = uc.RequestWorkspace(ctx, "ws1", "admin", "why")
+	require.NoError(t, err)
+	_, err = uc.Request(ctx, "other", "admin", port.RecheckReasonSubtype, "")
+	require.NoError(t, err)
+
+	n, err := uc.WithdrawWorkspace(ctx, "ws1")
+	require.NoError(t, err)
+	assert.Equal(t, 2, n)
+	assert.NotContains(t, store.requests, "img2", "only the dataset reason: removed")
+	require.Contains(t, store.requests, "img1")
+	assert.Equal(t, []string{port.RecheckReasonPolygon}, codes(store.requests["img1"]))
+	assert.Contains(t, store.requests, "other", "another workspace is not touched")
+}
+
+func TestRecheckSingleImageCannotUseTheDatasetReasonWithoutNote(t *testing.T) {
+	uc, _ := newRecheck()
+	_, err := uc.Request(context.Background(), "img1", "admin", port.RecheckReasonDataset, "")
+	assert.True(t, isType(err, errors.ErrorTypeValidation))
+}
+
+func codes(r port.RecheckRequest) []string {
+	out := make([]string, len(r.Reasons))
+	for i, reason := range r.Reasons {
+		out[i] = reason.Code
+	}
+	return out
 }

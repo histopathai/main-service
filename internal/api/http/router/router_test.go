@@ -131,6 +131,8 @@ func TestRoleGates(t *testing.T) {
 	for _, route := range []struct{ method, path string }{
 		{http.MethodPost, "/api/v1/recheck-requests/i1/reasons"},
 		{http.MethodDelete, "/api/v1/recheck-requests/i1"},
+		{http.MethodPost, "/api/v1/recheck-workspaces/w1"},
+		{http.MethodDelete, "/api/v1/recheck-workspaces/w1"},
 	} {
 		assert.True(t, allowed(status(engine, route.method, route.path, "admin")), "%s %s as admin", route.method, route.path)
 		for _, role := range []string{"pathologist", "datascientist", "unassigned"} {

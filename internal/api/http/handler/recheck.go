@@ -129,3 +129,57 @@ func (h *RecheckHandler) Cancel(c *gin.Context) {
 	}
 	c.Status(http.StatusNoContent)
 }
+
+// RequestWorkspace godoc
+// @Summary Send every image of a workspace to Ek Kontrol
+// @Description Admins only. Adds the reason "dataset" with the note to each image (made, replaced or reopened as needed).
+// @Tags Recheck
+// @Accept json
+// @Produce json
+// @Param ws_id path string true "Workspace ID"
+// @Param request body request.RecheckWorkspaceRequest true "Why the workspace is sent"
+// @Success 200 {object} response.RecheckWorkspaceResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse "The workspace has no images"
+// @Failure 401 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /recheck-workspaces/{ws_id} [post]
+func (h *RecheckHandler) RequestWorkspace(c *gin.Context) {
+	userID, err := middleware.GetAuthenticatedUserID(c)
+	if err != nil {
+		h.HandleError(c, err)
+		return
+	}
+	var req request.RecheckWorkspaceRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.HandleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{"error": err.Error()}))
+		return
+	}
+	n, err := h.UseCase.RequestWorkspace(c.Request.Context(), c.Param("ws_id"), userID, req.Note)
+	if err != nil {
+		h.HandleError(c, err)
+		return
+	}
+	h.Response.Success(c, http.StatusOK, response.RecheckWorkspaceResponse{WsID: c.Param("ws_id"), Images: n})
+}
+
+// WithdrawWorkspace godoc
+// @Summary Take a workspace out of Ek Kontrol
+// @Description Admins only. Removes the reason "dataset" from its images; images with other reasons stay listed.
+// @Tags Recheck
+// @Produce json
+// @Param ws_id path string true "Workspace ID"
+// @Success 200 {object} response.RecheckWorkspaceResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /recheck-workspaces/{ws_id} [delete]
+func (h *RecheckHandler) WithdrawWorkspace(c *gin.Context) {
+	n, err := h.UseCase.WithdrawWorkspace(c.Request.Context(), c.Param("ws_id"))
+	if err != nil {
+		h.HandleError(c, err)
+		return
+	}
+	h.Response.Success(c, http.StatusOK, response.RecheckWorkspaceResponse{WsID: c.Param("ws_id"), Images: n})
+}
