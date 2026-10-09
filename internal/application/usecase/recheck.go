@@ -27,25 +27,115 @@ type recheckPatientReader interface {
 	Find(ctx context.Context, spec query.Specification) (*query.Result[*model.Patient], error)
 }
 
-type RecheckUseCase struct {
-	store    port.RecheckStore
-	images   recheckImageReader
-	patients recheckPatientReader
-	now      func() time.Time
+type recheckAnnotationFinder interface {
+	Find(ctx context.Context, spec query.Specification) (*query.Result[*model.Annotation], error)
 }
 
-func NewRecheckUseCase(store port.RecheckStore, images recheckImageReader, patients recheckPatientReader) *RecheckUseCase {
-	return &RecheckUseCase{store: store, images: images, patients: patients, now: time.Now}
+type RecheckUseCase struct {
+	store       port.RecheckStore
+	images      recheckImageReader
+	patients    recheckPatientReader
+	annotations recheckAnnotationFinder
+	now         func() time.Time
+}
+
+func NewRecheckUseCase(store port.RecheckStore, images recheckImageReader, patients recheckPatientReader,
+	annotations recheckAnnotationFinder) *RecheckUseCase {
+	return &RecheckUseCase{store: store, images: images, patients: patients, annotations: annotations, now: time.Now}
+}
+
+// RecheckAutoNote is the completion note of a request finished by Reconcile.
+const RecheckAutoNote = "Eksik etiket girildi (otomatik)"
+
+// imageLabels reports whether the image has a global label and a polygon now.
+func (uc *RecheckUseCase) imageLabels(ctx context.Context, imageID string) (hasGlobal, hasPolygon bool, err error) {
+	for offset := 0; ; offset += recheckPage {
+		spec := query.NewBuilder().
+			Where(fields.EntityParentID.DomainName(), query.OpEqual, imageID).
+			Where(fields.EntityIsDeleted.DomainName(), query.OpEqual, false).
+			Build()
+		spec.Pagination = &query.Pagination{Limit: recheckPage, Offset: offset}
+		page, err := uc.annotations.Find(ctx, spec)
+		if err != nil {
+			return false, false, err
+		}
+		for _, a := range page.Data {
+			if a.IsGlobal {
+				hasGlobal = true
+			} else if a.Polygon != nil && len(*a.Polygon) > 0 {
+				hasPolygon = true
+			}
+		}
+		if !page.HasMore {
+			return hasGlobal, hasPolygon, nil
+		}
+	}
+}
+
+func (uc *RecheckUseCase) Reconcile(ctx context.Context, imageID, actorID string) error {
+	hasGlobal, hasPolygon, err := uc.imageLabels(ctx, imageID)
+	if err != nil {
+		return err
+	}
+	now := uc.now()
+	_, err = uc.store.Update(ctx, imageID, func(current *port.RecheckRequest) (*port.RecheckRequest, error) {
+		if current == nil {
+			return nil, nil
+		}
+		changed, allSettled := false, len(current.Reasons) > 0
+		for i := range current.Reasons {
+			r := &current.Reasons[i]
+			if !port.IsMissingLabelReason(r.Code) {
+				allSettled = false
+				continue
+			}
+			missing := !hasGlobal
+			if r.Code == port.RecheckReasonPolygonMissing {
+				missing = !hasPolygon
+			}
+			switch {
+			case !missing && r.ResolvedAt == nil:
+				r.ResolvedAt, changed = &now, true
+			case missing && r.ResolvedAt != nil:
+				r.ResolvedAt, changed = nil, true
+			}
+			if missing {
+				allSettled = false
+			}
+		}
+		switch {
+		case current.Status == port.RecheckStatusOpen && allSettled:
+			current.Status, current.CompletedBy, current.CompletedAt = port.RecheckStatusDone, actorID, &now
+			current.Outcome, current.CompletionNote, current.AutoCompleted =
+				port.RecheckOutcomeCorrected, RecheckAutoNote, true
+			changed = true
+		case current.Status == port.RecheckStatusDone && current.AutoCompleted && !allSettled:
+			reopen(current)
+			changed = true
+		}
+		if !changed {
+			return nil, nil
+		}
+		current.UpdatedAt = now
+		return current, nil
+	})
+	return err
 }
 
 // List returns the requests by workspace, then image name.
-func (uc *RecheckUseCase) List(ctx context.Context, status string) ([]port.RecheckRequest, error) {
+func (uc *RecheckUseCase) List(ctx context.Context, viewer port.RecheckViewer, status string) ([]port.RecheckRequest, error) {
 	if status != "" && status != port.RecheckStatusOpen && status != port.RecheckStatusDone {
 		return nil, errors.NewValidationError("status must be open or done", map[string]interface{}{"status": status})
 	}
-	list, err := uc.store.List(ctx, status)
+	all, err := uc.store.List(ctx, status)
 	if err != nil {
 		return nil, err
+	}
+	list := all[:0]
+	for _, r := range all {
+		if viewer.Sees(r) {
+			list = append(list, r)
+		}
 	}
 	sort.Slice(list, func(i, j int) bool {
 		if list[i].WsID != list[j].WsID {
@@ -65,6 +155,13 @@ func validateRecheckReason(code, note string) error {
 	}
 	if utf8.RuneCountInString(note) > port.RecheckNoteMaxLen {
 		return errors.NewValidationError("note is too long", map[string]interface{}{"max": port.RecheckNoteMaxLen})
+	}
+	return nil
+}
+
+func validateAssignee(assigneeID string) error {
+	if strings.TrimSpace(assigneeID) == "" {
+		return errors.NewValidationError("choose who the request goes to (assignee_id)", nil)
 	}
 	return nil
 }
@@ -93,11 +190,15 @@ func withReason(current *port.RecheckRequest, imageID string, reason port.Rechec
 // reopen clears what finishing set.
 func reopen(r *port.RecheckRequest) {
 	r.Status, r.CompletedBy, r.CompletedAt, r.Outcome, r.CompletionNote = port.RecheckStatusOpen, "", nil, "", ""
+	r.AutoCompleted = false
 }
 
-func (uc *RecheckUseCase) Request(ctx context.Context, imageID, userID, code, note string) (*port.RecheckRequest, error) {
-	note = strings.TrimSpace(note)
+func (uc *RecheckUseCase) Request(ctx context.Context, imageID, userID, code, note, assigneeID string) (*port.RecheckRequest, error) {
+	note, assigneeID = strings.TrimSpace(note), strings.TrimSpace(assigneeID)
 	if err := validateRecheckReason(code, note); err != nil {
+		return nil, err
+	}
+	if err := validateAssignee(assigneeID); err != nil {
 		return nil, err
 	}
 	image, err := uc.images.Read(ctx, imageID)
@@ -115,10 +216,46 @@ func (uc *RecheckUseCase) Request(ctx context.Context, imageID, userID, code, no
 	}
 
 	reason := port.RecheckReason{Code: code, Note: note, RequestedBy: userID, RequestedAt: uc.now()}
-	return uc.store.Update(ctx, imageID, func(current *port.RecheckRequest) (*port.RecheckRequest, error) {
+	r, err := uc.store.Update(ctx, imageID, func(current *port.RecheckRequest) (*port.RecheckRequest, error) {
 		next := withReason(current, imageID, reason)
 		next.ImageName, next.PatientID, next.PatientName, next.WsID = image.Name, image.Parent.ID, patientName, image.WsID
+		next.AssigneeID = assigneeID
 		return next, nil
+	})
+	if err != nil || !port.IsMissingLabelReason(code) {
+		return r, err
+	}
+	// The label may be there already: settle the reason now, not at the next edit.
+	if err := uc.Reconcile(ctx, imageID, userID); err != nil {
+		return r, nil
+	}
+	if fresh, err := uc.get(ctx, imageID); err == nil && fresh != nil {
+		return fresh, nil
+	}
+	return r, nil
+}
+
+// get reads the image's request without writing it.
+func (uc *RecheckUseCase) get(ctx context.Context, imageID string) (*port.RecheckRequest, error) {
+	var got *port.RecheckRequest
+	_, err := uc.store.Update(ctx, imageID, func(current *port.RecheckRequest) (*port.RecheckRequest, error) {
+		got = current
+		return nil, nil
+	})
+	return got, err
+}
+
+func (uc *RecheckUseCase) Assign(ctx context.Context, imageID, assigneeID string) (*port.RecheckRequest, error) {
+	assigneeID = strings.TrimSpace(assigneeID)
+	if err := validateAssignee(assigneeID); err != nil {
+		return nil, err
+	}
+	return uc.store.Update(ctx, imageID, func(current *port.RecheckRequest) (*port.RecheckRequest, error) {
+		if current == nil {
+			return nil, errors.NewNotFoundError("no recheck request for this image")
+		}
+		current.AssigneeID, current.UpdatedAt = assigneeID, uc.now()
+		return current, nil
 	})
 }
 
@@ -164,9 +301,12 @@ func (uc *RecheckUseCase) patientNames(ctx context.Context, wsID string) (map[st
 	}
 }
 
-func (uc *RecheckUseCase) RequestWorkspace(ctx context.Context, wsID, userID, note string) (int, error) {
-	note = strings.TrimSpace(note)
+func (uc *RecheckUseCase) RequestWorkspace(ctx context.Context, wsID, userID, note, assigneeID string) (int, error) {
+	note, assigneeID = strings.TrimSpace(note), strings.TrimSpace(assigneeID)
 	if err := validateRecheckReason(port.RecheckReasonDataset, note); err != nil {
+		return 0, err
+	}
+	if err := validateAssignee(assigneeID); err != nil {
 		return 0, err
 	}
 	images, err := uc.workspaceImages(ctx, wsID)
@@ -190,6 +330,7 @@ func (uc *RecheckUseCase) RequestWorkspace(ctx context.Context, wsID, userID, no
 		img := byID[id]
 		next := withReason(current, id, reason)
 		next.ImageName, next.PatientID, next.PatientName, next.WsID = img.Name, img.Parent.ID, patients[img.Parent.ID], wsID
+		next.AssigneeID = assigneeID
 		return next, nil
 	})
 	if err != nil {
@@ -238,7 +379,8 @@ func (uc *RecheckUseCase) WithdrawWorkspace(ctx context.Context, wsID string) (i
 	return len(ids), nil
 }
 
-func (uc *RecheckUseCase) SetDone(ctx context.Context, imageID, userID string, done bool, outcome, note string) (*port.RecheckRequest, error) {
+func (uc *RecheckUseCase) SetDone(ctx context.Context, viewer port.RecheckViewer, imageID string, done bool, outcome, note string) (*port.RecheckRequest, error) {
+	userID := viewer.ID
 	note = strings.TrimSpace(note)
 	if done {
 		if !port.IsRecheckOutcome(outcome) {
@@ -255,7 +397,7 @@ func (uc *RecheckUseCase) SetDone(ctx context.Context, imageID, userID string, d
 	now := uc.now()
 	wasUnsuitable := false
 	r, err := uc.store.Update(ctx, imageID, func(current *port.RecheckRequest) (*port.RecheckRequest, error) {
-		if current == nil {
+		if current == nil || !viewer.Sees(*current) {
 			return nil, errors.NewNotFoundError("no recheck request for this image")
 		}
 		wasUnsuitable = current.Status == port.RecheckStatusDone && current.Outcome == port.RecheckOutcomeUnsuitable

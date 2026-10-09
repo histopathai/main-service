@@ -234,7 +234,7 @@ func (c *Container) initUseCases(ctx context.Context) error {
 	c.TissueMaskUseCase = appusecase.NewTissueMaskUseCase(c.UOW)
 	c.BlindTestUseCase = appusecase.NewBlindTestUseCase(c.BlindTestStore, c.ProcessedStorage).WithGuests(c.BlindTestInviteStore)
 	c.BlindTestInviteUseCase = appusecase.NewBlindTestInviteUseCase(c.BlindTestInviteStore, c.BlindTestStore)
-	c.RecheckUseCase = appusecase.NewRecheckUseCase(c.RecheckStore, c.ImageRepo, c.PatientRepo)
+	c.RecheckUseCase = appusecase.NewRecheckUseCase(c.RecheckStore, c.ImageRepo, c.PatientRepo, c.AnnotationRepo)
 	c.Logger.Info("Use cases initialized")
 	return nil
 }
@@ -430,6 +430,7 @@ func (c *Container) initHTTPLayer(ctx context.Context) error {
 		c.AnnotationUseCase,
 		c.Logger,
 	)
+	c.AnnotationHandler.Recheck = c.RecheckUseCase
 
 	c.AnnotationReviewHandler = handler.NewAnnotationReviewHandler(
 		c.AnnotationReviewQuery,

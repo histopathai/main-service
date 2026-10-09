@@ -22,6 +22,10 @@ type AnnotationHandler struct {
 	AQuery     port.AnnotationQuery
 	AUseCase   port.AnnotationUseCase
 	AValidator *validator.Validator
+	// Recheck, when set, settles an image's Ek Kontrol "missing label" reasons
+	// after its annotations change. Best effort: a failure is logged only.
+	Recheck port.RecheckReconciler
+	log     *slog.Logger
 }
 
 func NewAnnotationHandler(query port.AnnotationQuery, useCase port.AnnotationUseCase, logger *slog.Logger) *AnnotationHandler {
@@ -30,7 +34,42 @@ func NewAnnotationHandler(query port.AnnotationQuery, useCase port.AnnotationUse
 		AUseCase:    useCase,
 		AValidator:  validator.NewValidator(fields.NewAnnotationFieldSet()),
 		BaseHandler: helper.NewBaseHandler(logger),
+		log:         logger,
 	}
+}
+
+// reconcileImages tells Ek Kontrol that these images' annotations changed.
+func (ah *AnnotationHandler) reconcileImages(c *gin.Context, imageIDs ...string) {
+	if ah.Recheck == nil {
+		return
+	}
+	actorID, _ := middleware.GetAuthenticatedUserID(c)
+	seen := map[string]bool{}
+	for _, id := range imageIDs {
+		if id == "" || seen[id] {
+			continue
+		}
+		seen[id] = true
+		if err := ah.Recheck.Reconcile(c.Request.Context(), id, actorID); err != nil && ah.log != nil {
+			ah.log.Warn("ek kontrol reconcile failed", "image_id", id, "error", err)
+		}
+	}
+}
+
+// reconcileAnnotations reconciles the images the given annotations belong to.
+func (ah *AnnotationHandler) reconcileAnnotations(c *gin.Context, annotationIDs ...string) {
+	if ah.Recheck == nil {
+		return
+	}
+	var imageIDs []string
+	for _, id := range annotationIDs {
+		a, err := ah.AQuery.Get(c.Request.Context(), id)
+		if err != nil || a == nil || a.Parent.Type != vobj.ParentTypeImage {
+			continue
+		}
+		imageIDs = append(imageIDs, a.Parent.ID)
+	}
+	ah.reconcileImages(c, imageIDs...)
 }
 
 // Create godoc
@@ -95,6 +134,9 @@ func (ah *AnnotationHandler) Create(c *gin.Context) {
 	if err != nil {
 		ah.HandleError(c, err)
 		return
+	}
+	if createdAnnotation.Parent.Type == vobj.ParentTypeImage {
+		ah.reconcileImages(c, createdAnnotation.Parent.ID)
 	}
 
 	annotationResp := response.NewAnnotationResponse(createdAnnotation)
@@ -412,6 +454,7 @@ func (ah *AnnotationHandler) Update(c *gin.Context) {
 		ah.HandleError(c, err)
 		return
 	}
+	ah.reconcileAnnotations(c, annotationID)
 
 	ah.Response.NoContent(c)
 }
@@ -443,6 +486,7 @@ func (ah *AnnotationHandler) SoftDelete(c *gin.Context) {
 		ah.HandleError(c, err)
 		return
 	}
+	ah.reconcileAnnotations(c, annotationID)
 
 	ah.Response.NoContent(c)
 }
@@ -471,6 +515,7 @@ func (ah *AnnotationHandler) SoftDeleteMany(c *gin.Context) {
 		ah.HandleError(c, err)
 		return
 	}
+	ah.reconcileAnnotations(c, ids...)
 
 	ah.Response.NoContent(c)
 }

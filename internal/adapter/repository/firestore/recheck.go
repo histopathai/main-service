@@ -13,8 +13,8 @@ import (
 
 // RecheckStoreImpl keeps the Ek Kontrol requests, one document per image:
 //
-//	recheck_requests/{image_id}   image_name, patient_id, patient_name, ws_id, status (open | done),
-//	                              reasons: [{code, note, requested_by, requested_at}],
+//	recheck_requests/{image_id}   image_name, patient_id, patient_name, ws_id, assignee_id, status (open | done),
+//	                              reasons: [{code, note, requested_by, requested_at, resolved_at}], auto_completed,
 //	                              created_at, updated_at, completed_by, completed_at,
 //	                              outcome (corrected | no_change | undecided), completion_note
 type RecheckStoreImpl struct {
@@ -69,6 +69,9 @@ func (s *RecheckStoreImpl) Update(ctx context.Context, imageID string,
 			return err
 		}
 		saved = next
+		if next == nil {
+			return nil
+		}
 		return tx.Set(ref, recheckToData(next))
 	})
 	if err != nil {
@@ -145,18 +148,24 @@ func (s *RecheckStoreImpl) Delete(ctx context.Context, imageID string) error {
 
 func recheckFromData(id string, data map[string]interface{}) port.RecheckRequest {
 	r := port.RecheckRequest{ImageID: id, ImageName: str(data, "image_name"), PatientID: str(data, "patient_id"),
-		PatientName: str(data, "patient_name"), WsID: str(data, "ws_id"), Status: str(data, "status"),
+		PatientName: str(data, "patient_name"), WsID: str(data, "ws_id"), AssigneeID: str(data, "assignee_id"),
+		Status:    str(data, "status"),
 		CreatedAt: timeOf(data, "created_at"), UpdatedAt: timeOf(data, "updated_at"),
 		CompletedBy: str(data, "completed_by"), Outcome: str(data, "outcome"),
 		CompletionNote: str(data, "completion_note")}
+	r.AutoCompleted, _ = data["auto_completed"].(bool)
 	if t, ok := data["completed_at"].(time.Time); ok {
 		r.CompletedAt = &t
 	}
 	reasons, _ := data["reasons"].([]interface{})
 	for _, raw := range reasons {
 		m, _ := raw.(map[string]interface{})
-		r.Reasons = append(r.Reasons, port.RecheckReason{Code: str(m, "code"), Note: str(m, "note"),
-			RequestedBy: str(m, "requested_by"), RequestedAt: timeOf(m, "requested_at")})
+		reason := port.RecheckReason{Code: str(m, "code"), Note: str(m, "note"),
+			RequestedBy: str(m, "requested_by"), RequestedAt: timeOf(m, "requested_at")}
+		if t, ok := m["resolved_at"].(time.Time); ok {
+			reason.ResolvedAt = &t
+		}
+		r.Reasons = append(r.Reasons, reason)
 	}
 	return r
 }
@@ -164,14 +173,18 @@ func recheckFromData(id string, data map[string]interface{}) port.RecheckRequest
 func recheckToData(r *port.RecheckRequest) map[string]interface{} {
 	reasons := make([]interface{}, len(r.Reasons))
 	for i, reason := range r.Reasons {
-		reasons[i] = map[string]interface{}{"code": reason.Code, "note": reason.Note,
-			"requested_by": reason.RequestedBy, "requested_at": reason.RequestedAt}
+		m := map[string]interface{}{"code": reason.Code, "note": reason.Note,
+			"requested_by": reason.RequestedBy, "requested_at": reason.RequestedAt, "resolved_at": nil}
+		if reason.ResolvedAt != nil {
+			m["resolved_at"] = *reason.ResolvedAt
+		}
+		reasons[i] = m
 	}
 	data := map[string]interface{}{
 		"image_name": r.ImageName, "patient_id": r.PatientID, "patient_name": r.PatientName, "ws_id": r.WsID,
-		"status": r.Status, "reasons": reasons, "created_at": r.CreatedAt, "updated_at": r.UpdatedAt,
+		"assignee_id": r.AssigneeID, "status": r.Status, "reasons": reasons, "created_at": r.CreatedAt, "updated_at": r.UpdatedAt,
 		"completed_by": r.CompletedBy, "completed_at": nil,
-		"outcome": r.Outcome, "completion_note": r.CompletionNote,
+		"outcome": r.Outcome, "completion_note": r.CompletionNote, "auto_completed": r.AutoCompleted,
 	}
 	if r.CompletedAt != nil {
 		data["completed_at"] = *r.CompletedAt

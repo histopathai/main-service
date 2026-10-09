@@ -24,9 +24,21 @@ func NewRecheckHandler(useCase port.RecheckUseCase, logger *slog.Logger) *Rechec
 	return &RecheckHandler{UseCase: useCase, BaseHandler: helper.NewBaseHandler(logger)}
 }
 
+func recheckViewer(c *gin.Context) (port.RecheckViewer, error) {
+	userID, err := middleware.GetAuthenticatedUserID(c)
+	if err != nil {
+		return port.RecheckViewer{}, err
+	}
+	role, err := middleware.GetAuthenticatedUserRole(c)
+	if err != nil {
+		return port.RecheckViewer{}, err
+	}
+	return port.RecheckViewer{ID: userID, Role: role}, nil
+}
+
 // List godoc
 // @Summary List the Ek Kontrol requests
-// @Description Any user group. By workspace, then image name.
+// @Description Any user group; pathologists get only the requests assigned to them. By workspace, then image name.
 // @Tags Recheck
 // @Produce json
 // @Param status query string false "open or done; all when empty"
@@ -36,7 +48,12 @@ func NewRecheckHandler(useCase port.RecheckUseCase, logger *slog.Logger) *Rechec
 // @Security BearerAuth
 // @Router /recheck-requests [get]
 func (h *RecheckHandler) List(c *gin.Context) {
-	list, err := h.UseCase.List(c.Request.Context(), c.Query("status"))
+	viewer, err := recheckViewer(c)
+	if err != nil {
+		h.HandleError(c, err)
+		return
+	}
+	list, err := h.UseCase.List(c.Request.Context(), viewer, c.Query("status"))
 	if err != nil {
 		h.HandleError(c, err)
 		return
@@ -70,7 +87,7 @@ func (h *RecheckHandler) Request(c *gin.Context) {
 		h.HandleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{"error": err.Error()}))
 		return
 	}
-	r, err := h.UseCase.Request(c.Request.Context(), c.Param("image_id"), userID, req.Reason, req.Note)
+	r, err := h.UseCase.Request(c.Request.Context(), c.Param("image_id"), userID, req.Reason, req.Note, req.AssigneeID)
 	if err != nil {
 		h.HandleError(c, err)
 		return
@@ -80,7 +97,7 @@ func (h *RecheckHandler) Request(c *gin.Context) {
 
 // SetStatus godoc
 // @Summary Mark an Ek Kontrol request done, or open again
-// @Description Admins and pathologists. Done needs the outcome (corrected, no_change, undecided, unsuitable); no_change and undecided need a note saying why.
+// @Description Admins, and pathologists for requests assigned to them. Done needs the outcome (corrected, no_change, undecided, unsuitable); no_change and undecided need a note saying why.
 // @Tags Recheck
 // @Accept json
 // @Produce json
@@ -94,7 +111,7 @@ func (h *RecheckHandler) Request(c *gin.Context) {
 // @Security BearerAuth
 // @Router /recheck-requests/{image_id}/status [put]
 func (h *RecheckHandler) SetStatus(c *gin.Context) {
-	userID, err := middleware.GetAuthenticatedUserID(c)
+	viewer, err := recheckViewer(c)
 	if err != nil {
 		h.HandleError(c, err)
 		return
@@ -104,7 +121,7 @@ func (h *RecheckHandler) SetStatus(c *gin.Context) {
 		h.HandleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{"error": err.Error()}))
 		return
 	}
-	r, err := h.UseCase.SetDone(c.Request.Context(), c.Param("image_id"), userID, *req.Done, req.Outcome, req.Note)
+	r, err := h.UseCase.SetDone(c.Request.Context(), viewer, c.Param("image_id"), *req.Done, req.Outcome, req.Note)
 	if err != nil {
 		h.HandleError(c, err)
 		return
@@ -156,7 +173,7 @@ func (h *RecheckHandler) RequestWorkspace(c *gin.Context) {
 		h.HandleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{"error": err.Error()}))
 		return
 	}
-	n, err := h.UseCase.RequestWorkspace(c.Request.Context(), c.Param("ws_id"), userID, req.Note)
+	n, err := h.UseCase.RequestWorkspace(c.Request.Context(), c.Param("ws_id"), userID, req.Note, req.AssigneeID)
 	if err != nil {
 		h.HandleError(c, err)
 		return
@@ -182,4 +199,33 @@ func (h *RecheckHandler) WithdrawWorkspace(c *gin.Context) {
 		return
 	}
 	h.Response.Success(c, http.StatusOK, response.RecheckWorkspaceResponse{WsID: c.Param("ws_id"), Images: n})
+}
+
+// Assign godoc
+// @Summary Give an Ek Kontrol request to another pathologist
+// @Description Admins only. Reasons and status are kept.
+// @Tags Recheck
+// @Accept json
+// @Produce json
+// @Param image_id path string true "Image ID"
+// @Param request body request.RecheckAssignRequest true "The pathologist"
+// @Success 200 {object} response.RecheckResponse
+// @Failure 400 {object} response.ErrorResponse
+// @Failure 403 {object} response.ErrorResponse
+// @Failure 404 {object} response.ErrorResponse
+// @Failure 401 {object} response.ErrorResponse
+// @Security BearerAuth
+// @Router /recheck-requests/{image_id}/assignee [put]
+func (h *RecheckHandler) Assign(c *gin.Context) {
+	var req request.RecheckAssignRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		h.HandleError(c, errors.NewValidationError("invalid request payload", map[string]interface{}{"error": err.Error()}))
+		return
+	}
+	r, err := h.UseCase.Assign(c.Request.Context(), c.Param("image_id"), req.AssigneeID)
+	if err != nil {
+		h.HandleError(c, err)
+		return
+	}
+	h.Response.Success(c, http.StatusOK, response.NewRecheckResponse(r))
 }

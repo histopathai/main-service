@@ -28,6 +28,13 @@ const (
 	RecheckReasonDataset = "dataset"
 )
 
+// IsMissingLabelReason: a reason about a label that is not there, which the
+// labels themselves can settle (see RecheckUseCase.Reconcile).
+func IsMissingLabelReason(code string) bool {
+	return code == RecheckReasonSubtypeMissing || code == RecheckReasonGlobalLabelMissing ||
+		code == RecheckReasonPolygonMissing
+}
+
 func IsRecheckReason(code string) bool {
 	switch code {
 	case RecheckReasonSubtype, RecheckReasonPolygon, RecheckReasonPolygonMissing,
@@ -57,6 +64,24 @@ func IsRecheckOutcome(code string) bool {
 	return false
 }
 
+// RecheckViewer is who asks: pathologists see and finish only the requests
+// assigned to them; admins see and finish all; others see all, read-only.
+type RecheckViewer struct {
+	ID   string
+	Role string
+}
+
+// Roles as main-service's auth middleware names them.
+const (
+	RecheckRoleAdmin       = "admin"
+	RecheckRolePathologist = "pathologist"
+)
+
+// Sees reports whether the viewer may see the request.
+func (v RecheckViewer) Sees(r RecheckRequest) bool {
+	return v.Role != RecheckRolePathologist || r.AssigneeID == v.ID
+}
+
 // RecheckNoteMaxLen is the longest note accepted, in characters.
 const RecheckNoteMaxLen = 500
 
@@ -65,6 +90,9 @@ type RecheckReason struct {
 	Note        string
 	RequestedBy string
 	RequestedAt time.Time
+	// ResolvedAt is set while a missing-label reason is settled by the image's
+	// labels (the label is there now); cleared when it goes missing again.
+	ResolvedAt *time.Time
 }
 
 // RecheckRequest is the request on one image; its ID is the image ID.
@@ -76,6 +104,9 @@ type RecheckRequest struct {
 	PatientID   string
 	PatientName string
 	WsID        string
+	// AssigneeID is the pathologist the admin sent it to; only they (and
+	// admins) see it. Empty for requests made before assignment existed.
+	AssigneeID  string
 	Reasons     []RecheckReason
 	Status      string
 	CreatedAt   time.Time
@@ -85,6 +116,9 @@ type RecheckRequest struct {
 	// Outcome and CompletionNote are the expert's answer, set when done.
 	Outcome        string
 	CompletionNote string
+	// AutoCompleted: finished because every reason was a missing label that got
+	// entered, not by the expert; reopened if a label goes missing again.
+	AutoCompleted bool
 }
 
 type RecheckStore interface {
@@ -92,6 +126,7 @@ type RecheckStore interface {
 	List(ctx context.Context, status string) ([]RecheckRequest, error)
 	// Update reads the request of the image (nil if none), lets change modify
 	// it and writes it back, atomically.
+	// When change returns nil, nothing is written and Update returns nil, nil.
 	Update(ctx context.Context, imageID string,
 		change func(current *RecheckRequest) (*RecheckRequest, error)) (*RecheckRequest, error)
 	Delete(ctx context.Context, imageID string) error
@@ -102,19 +137,32 @@ type RecheckStore interface {
 }
 
 type RecheckUseCase interface {
-	List(ctx context.Context, status string) ([]RecheckRequest, error)
+	// List returns what the viewer may see, with the given status or all.
+	List(ctx context.Context, viewer RecheckViewer, status string) ([]RecheckRequest, error)
 	// Request adds a reason to the image's request, making the request if
 	// there is none and reopening it if it was done. The same reason given
-	// again replaces its note.
-	Request(ctx context.Context, imageID, userID, code, note string) (*RecheckRequest, error)
+	// again replaces its note. The request goes to assigneeID (required),
+	// replacing an earlier assignee.
+	Request(ctx context.Context, imageID, userID, code, note, assigneeID string) (*RecheckRequest, error)
+	// Assign gives the request to another pathologist, reasons and status kept.
+	Assign(ctx context.Context, imageID, assigneeID string) (*RecheckRequest, error)
 	// SetDone marks the request done with the expert's outcome and note, or
-	// open again (outcome and note are cleared).
-	SetDone(ctx context.Context, imageID, userID string, done bool, outcome, note string) (*RecheckRequest, error)
+	// open again (outcome and note are cleared). A pathologist may only
+	// finish requests assigned to them.
+	SetDone(ctx context.Context, viewer RecheckViewer, imageID string, done bool, outcome, note string) (*RecheckRequest, error)
 	Cancel(ctx context.Context, imageID string) error
 	// RequestWorkspace sends every image of the workspace with the reason
-	// "dataset" and the note; returns how many images it reached.
-	RequestWorkspace(ctx context.Context, wsID, userID, note string) (int, error)
+	// "dataset" and the note to assigneeID; returns how many images it reached.
+	RequestWorkspace(ctx context.Context, wsID, userID, note, assigneeID string) (int, error)
+	// Reconcile settles the image's missing-label reasons from its labels as
+	// they are now, finishing the request when nothing is missing any more.
+	RecheckReconciler
 	// WithdrawWorkspace takes the reason "dataset" off the workspace's images,
 	// removing requests left without a reason; other reasons stay.
 	WithdrawWorkspace(ctx context.Context, wsID string) (int, error)
+}
+
+// RecheckReconciler is called after an image's annotations change.
+type RecheckReconciler interface {
+	Reconcile(ctx context.Context, imageID, actorID string) error
 }

@@ -306,6 +306,7 @@ func (r *Router) setupRecheckRoutes(rg *gin.RouterGroup) {
 		rechecks.GET("", r.recheckHandler.List)
 		rechecks.POST("/:image_id/reasons", r.authMiddleware.RequireRole(middleware.RoleAdmin), r.recheckHandler.Request)
 		rechecks.DELETE("/:image_id", r.authMiddleware.RequireRole(middleware.RoleAdmin), r.recheckHandler.Cancel)
+		rechecks.PUT("/:image_id/assignee", r.authMiddleware.RequireRole(middleware.RoleAdmin), r.recheckHandler.Assign)
 		rechecks.PUT("/:image_id/status",
 			r.authMiddleware.RequireRole(middleware.RoleAdmin, middleware.RolePathologist), r.recheckHandler.SetStatus)
 	}
