@@ -167,6 +167,13 @@ func TestRecheckSameReasonReplacesItsNote(t *testing.T) {
 	assert.Equal(t, "second", r.Reasons[0].Note)
 }
 
+func TestRecheckSubtypeMissingIsAReason(t *testing.T) {
+	uc, _ := newRecheck()
+	r, err := uc.Request(context.Background(), "img1", "a", port.RecheckReasonSubtypeMissing, "")
+	require.NoError(t, err)
+	assert.Equal(t, port.RecheckReasonSubtypeMissing, r.Reasons[0].Code)
+}
+
 func TestRecheckOtherReasonsAddUp(t *testing.T) {
 	uc, _ := newRecheck()
 	ctx := context.Background()

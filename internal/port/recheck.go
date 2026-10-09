@@ -21,6 +21,7 @@ const (
 	RecheckReasonPolygon            = "polygon"              // Poligon yeniden incelenmeli
 	RecheckReasonPolygonMissing     = "polygon_missing"      // Poligon eksik
 	RecheckReasonGlobalLabelMissing = "global_label_missing" // Global etiket eksik
+	RecheckReasonSubtypeMissing     = "subtype_missing"      // Alt tip eksik
 	RecheckReasonOther              = "other"
 	// RecheckReasonDataset is set on every image of a workspace sent as a
 	// whole; its note says why and is required.
@@ -30,7 +31,7 @@ const (
 func IsRecheckReason(code string) bool {
 	switch code {
 	case RecheckReasonSubtype, RecheckReasonPolygon, RecheckReasonPolygonMissing,
-		RecheckReasonGlobalLabelMissing, RecheckReasonOther, RecheckReasonDataset:
+		RecheckReasonGlobalLabelMissing, RecheckReasonSubtypeMissing, RecheckReasonOther, RecheckReasonDataset:
 		return true
 	}
 	return false
