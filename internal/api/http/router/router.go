@@ -36,6 +36,7 @@ type Router struct {
 	blindTestHandler        *handler.BlindTestHandler
 	blindTestInviteHandler  *handler.BlindTestInviteHandler
 	blindTestGuestHandler   *handler.BlindTestGuestHandler
+	recheckHandler          *handler.RecheckHandler
 	tileProxyHandler        *handler.TileProxyHandler
 
 	// Middleware
@@ -58,6 +59,7 @@ func NewRouter(
 	blindTestHandler *handler.BlindTestHandler,
 	blindTestInviteHandler *handler.BlindTestInviteHandler,
 	blindTestGuestHandler *handler.BlindTestGuestHandler,
+	recheckHandler *handler.RecheckHandler,
 	tileProxyHandler *handler.TileProxyHandler,
 	authMiddleware *middleware.AuthMiddleware,
 	timeoutMiddleware *middleware.TimeoutMiddleware,
@@ -75,6 +77,7 @@ func NewRouter(
 		blindTestHandler:        blindTestHandler,
 		blindTestInviteHandler:  blindTestInviteHandler,
 		blindTestGuestHandler:   blindTestGuestHandler,
+		recheckHandler:          recheckHandler,
 		tileProxyHandler:        tileProxyHandler,
 		authMiddleware:          authMiddleware,
 		timeoutMiddleware:       timeoutMiddleware,
@@ -121,6 +124,7 @@ func (r *Router) SetupRoutes() *gin.Engine {
 		r.setupAnnotationTypeRoutes(v1)
 		r.setupTissueMaskRoutes(v1)
 		r.setupBlindTestRoutes(v1)
+		r.setupRecheckRoutes(v1)
 
 		// Tile Proxy
 		v1.GET("/proxy/:imageId/*objectPath", r.tileProxyHandler.ProxyTile)
@@ -290,6 +294,25 @@ func (r *Router) setupBlindTestRoutes(rg *gin.RouterGroup) {
 		invites.POST("", r.blindTestInviteHandler.Create)
 		invites.GET("", r.blindTestInviteHandler.List)
 		invites.PUT("/:invite_id", r.blindTestInviteHandler.Update)
+	}
+}
+
+// setupRecheckRoutes: Ek Kontrol. Every group sees the list; admins send an
+// image or a whole workspace back or take it out, admins and pathologists
+// mark an image done.
+func (r *Router) setupRecheckRoutes(rg *gin.RouterGroup) {
+	rechecks := rg.Group("/recheck-requests")
+	{
+		rechecks.GET("", r.recheckHandler.List)
+		rechecks.POST("/:image_id/reasons", r.authMiddleware.RequireRole(middleware.RoleAdmin), r.recheckHandler.Request)
+		rechecks.DELETE("/:image_id", r.authMiddleware.RequireRole(middleware.RoleAdmin), r.recheckHandler.Cancel)
+		rechecks.PUT("/:image_id/status",
+			r.authMiddleware.RequireRole(middleware.RoleAdmin, middleware.RolePathologist), r.recheckHandler.SetStatus)
+	}
+	workspaces := rg.Group("/recheck-workspaces", r.authMiddleware.RequireRole(middleware.RoleAdmin))
+	{
+		workspaces.POST("/:ws_id", r.recheckHandler.RequestWorkspace)
+		workspaces.DELETE("/:ws_id", r.recheckHandler.WithdrawWorkspace)
 	}
 }
 

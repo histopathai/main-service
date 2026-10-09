@@ -48,6 +48,7 @@ type Container struct {
 	TissueMaskRepo        port.TissueMaskRepository
 	BlindTestStore        port.BlindTestStore
 	BlindTestInviteStore  port.BlindTestInviteStore
+	RecheckStore          port.RecheckStore
 	UOW                   port.UnitOfWorkFactory
 	TileServer            *proxy.TileServer
 
@@ -65,6 +66,7 @@ type Container struct {
 	TissueMaskUseCase       port.TissueMaskUseCase
 	BlindTestUseCase        port.BlindTestUseCase
 	BlindTestInviteUseCase  port.BlindTestInviteUseCase
+	RecheckUseCase          port.RecheckUseCase
 
 	// Queries
 	WorkspaceQuery        port.WorkspaceQuery
@@ -101,6 +103,7 @@ type Container struct {
 	BlindTestHandler        *handler.BlindTestHandler
 	BlindTestInviteHandler  *handler.BlindTestInviteHandler
 	BlindTestGuestHandler   *handler.BlindTestGuestHandler
+	RecheckHandler          *handler.RecheckHandler
 	AuthMiddleware          *middleware.AuthMiddleware
 	TimeoutMiddleware       *middleware.TimeoutMiddleware
 	TileProxyHandler        *handler.TileProxyHandler
@@ -207,6 +210,7 @@ func (c *Container) initRepositories(ctx context.Context) error {
 	c.TissueMaskRepo = uowFactory.GetTissueMaskRepo()
 	c.BlindTestStore = firestorerepo.NewBlindTestStore(c.FirestoreClient)
 	c.BlindTestInviteStore = firestorerepo.NewBlindTestInviteStore(c.FirestoreClient)
+	c.RecheckStore = firestorerepo.NewRecheckStore(c.FirestoreClient)
 	c.Logger.Info("Repositories initialized")
 	return nil
 }
@@ -230,6 +234,7 @@ func (c *Container) initUseCases(ctx context.Context) error {
 	c.TissueMaskUseCase = appusecase.NewTissueMaskUseCase(c.UOW)
 	c.BlindTestUseCase = appusecase.NewBlindTestUseCase(c.BlindTestStore, c.ProcessedStorage).WithGuests(c.BlindTestInviteStore)
 	c.BlindTestInviteUseCase = appusecase.NewBlindTestInviteUseCase(c.BlindTestInviteStore, c.BlindTestStore)
+	c.RecheckUseCase = appusecase.NewRecheckUseCase(c.RecheckStore, c.ImageRepo, c.PatientRepo)
 	c.Logger.Info("Use cases initialized")
 	return nil
 }
@@ -447,6 +452,7 @@ func (c *Container) initHTTPLayer(ctx context.Context) error {
 	c.BlindTestHandler = handler.NewBlindTestHandler(c.BlindTestUseCase, c.Logger)
 	c.BlindTestInviteHandler = handler.NewBlindTestInviteHandler(c.BlindTestInviteUseCase, c.Logger)
 	c.BlindTestGuestHandler = handler.NewBlindTestGuestHandler(c.BlindTestInviteUseCase, c.BlindTestUseCase, c.Logger)
+	c.RecheckHandler = handler.NewRecheckHandler(c.RecheckUseCase, c.Logger)
 
 	// Middleware
 	c.AuthMiddleware = middleware.NewAuthMiddleware(c.Logger)
@@ -479,6 +485,7 @@ func (c *Container) initHTTPLayer(ctx context.Context) error {
 		c.BlindTestHandler,
 		c.BlindTestInviteHandler,
 		c.BlindTestGuestHandler,
+		c.RecheckHandler,
 		c.TileProxyHandler,
 		c.AuthMiddleware,
 		c.TimeoutMiddleware,
