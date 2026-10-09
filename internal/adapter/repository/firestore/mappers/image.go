@@ -86,6 +86,16 @@ func (im *ImageMapper) ToFirestoreMap(entity *model.Image) map[string]interface{
 
 	// Completion state
 	m[fields.ImageMarkedAsCompleted.FirestoreName()] = entity.MarkedAsCompleted
+	m[fields.ImageUnsuitable.FirestoreName()] = entity.Unsuitable
+	if entity.UnsuitableBy != nil {
+		m[fields.ImageUnsuitableBy.FirestoreName()] = *entity.UnsuitableBy
+	}
+	if entity.UnsuitableAt != nil {
+		m[fields.ImageUnsuitableAt.FirestoreName()] = *entity.UnsuitableAt
+	}
+	if entity.UnsuitableNote != nil {
+		m[fields.ImageUnsuitableNote.FirestoreName()] = *entity.UnsuitableNote
+	}
 
 	// Processing info
 	processingMap := make(map[string]interface{})
@@ -186,6 +196,18 @@ func (im *ImageMapper) FromFirestoreDoc(doc *firestore.DocumentSnapshot) (*model
 	// Completion state
 	if v, ok := data[fields.ImageMarkedAsCompleted.FirestoreName()].(bool); ok {
 		image.MarkedAsCompleted = v
+	}
+	if v, ok := data[fields.ImageUnsuitable.FirestoreName()].(bool); ok {
+		image.Unsuitable = v
+	}
+	if v, ok := data[fields.ImageUnsuitableBy.FirestoreName()].(string); ok && v != "" {
+		image.UnsuitableBy = &v
+	}
+	if v, ok := data[fields.ImageUnsuitableAt.FirestoreName()].(time.Time); ok {
+		image.UnsuitableAt = &v
+	}
+	if v, ok := data[fields.ImageUnsuitableNote.FirestoreName()].(string); ok && v != "" {
+		image.UnsuitableNote = &v
 	}
 
 	// Processing info
@@ -434,6 +456,34 @@ func (im *ImageMapper) MapUpdates(updates map[string]interface{}) (map[string]in
 				mappedUpdates[fields.ImageMarkedAsCompleted.FirestoreName()] = val
 			} else {
 				return nil, errors.NewValidationError("invalid type for marked_as_completed field", nil)
+			}
+
+		case fields.ImageUnsuitable.DomainName():
+			if val, ok := v.(bool); ok {
+				mappedUpdates[fields.ImageUnsuitable.FirestoreName()] = val
+			} else {
+				return nil, errors.NewValidationError("invalid type for unsuitable field", nil)
+			}
+
+		case fields.ImageUnsuitableBy.DomainName(), fields.ImageUnsuitableNote.DomainName():
+			name := fields.ImageUnsuitableBy.FirestoreName()
+			if k == fields.ImageUnsuitableNote.DomainName() {
+				name = fields.ImageUnsuitableNote.FirestoreName()
+			}
+			if val, ok := v.(string); ok {
+				mappedUpdates[name] = val
+			} else {
+				return nil, errors.NewValidationError("invalid type for "+name+" field", nil)
+			}
+
+		case fields.ImageUnsuitableAt.DomainName():
+			switch val := v.(type) {
+			case nil:
+				mappedUpdates[fields.ImageUnsuitableAt.FirestoreName()] = nil
+			case time.Time:
+				mappedUpdates[fields.ImageUnsuitableAt.FirestoreName()] = val
+			default:
+				return nil, errors.NewValidationError("invalid type for unsuitable_at field", nil)
 			}
 		}
 	}

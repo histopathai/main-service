@@ -80,7 +80,7 @@ func (h *RecheckHandler) Request(c *gin.Context) {
 
 // SetStatus godoc
 // @Summary Mark an Ek Kontrol request done, or open again
-// @Description Admins and pathologists. Done needs the outcome (corrected, no_change, undecided); no_change and undecided need a note saying why.
+// @Description Admins and pathologists. Done needs the outcome (corrected, no_change, undecided, unsuitable); no_change and undecided need a note saying why.
 // @Tags Recheck
 // @Accept json
 // @Produce json

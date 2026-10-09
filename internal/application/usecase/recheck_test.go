@@ -81,6 +81,14 @@ func filterValue(spec query.Specification, field string) interface{} {
 
 type recheckImages map[string]*model.Image
 
+// imageUpdates records Update calls of the fake image repository.
+var imageUpdates = map[string]map[string]interface{}{}
+
+func (m recheckImages) Update(_ context.Context, id string, updates map[string]interface{}) error {
+	imageUpdates[id] = updates
+	return nil
+}
+
 func (m recheckImages) Read(_ context.Context, id string) (*model.Image, error) {
 	if img, ok := m[id]; ok {
 		return img, nil
@@ -165,6 +173,13 @@ func TestRecheckSameReasonReplacesItsNote(t *testing.T) {
 	require.Len(t, r.Reasons, 2)
 	assert.Equal(t, port.RecheckReasonPolygon, r.Reasons[0].Code)
 	assert.Equal(t, "second", r.Reasons[0].Note)
+}
+
+func TestRecheckSubtypeMissingIsAReason(t *testing.T) {
+	uc, _ := newRecheck()
+	r, err := uc.Request(context.Background(), "img1", "a", port.RecheckReasonSubtypeMissing, "")
+	require.NoError(t, err)
+	assert.Equal(t, port.RecheckReasonSubtypeMissing, r.Reasons[0].Code)
 }
 
 func TestRecheckOtherReasonsAddUp(t *testing.T) {
@@ -370,4 +385,44 @@ func TestRecheckDoneNeedsAnOutcomeAndSometimesANote(t *testing.T) {
 	r, err := uc.SetDone(ctx, "img1", "expert", true, port.RecheckOutcomeUndecided, "E-cadherin gerekli")
 	require.NoError(t, err)
 	assert.Equal(t, port.RecheckStatusDone, r.Status)
+}
+
+func TestRecheckUnsuitableIsAnOutcome(t *testing.T) {
+	uc, _ := newRecheck()
+	ctx := context.Background()
+	_, err := uc.Request(ctx, "img1", "admin", port.RecheckReasonSubtypeMissing, "")
+	require.NoError(t, err)
+	r, err := uc.SetDone(ctx, "img1", "expert", true, port.RecheckOutcomeUnsuitable, "")
+	require.NoError(t, err, "no note needed")
+	assert.Equal(t, port.RecheckOutcomeUnsuitable, r.Outcome)
+	assert.Equal(t, port.RecheckStatusDone, r.Status)
+}
+
+func TestRecheckUnsuitableMarksTheImage(t *testing.T) {
+	uc, _ := newRecheck()
+	ctx := context.Background()
+	imageUpdates = map[string]map[string]interface{}{}
+	_, err := uc.Request(ctx, "img1", "admin", port.RecheckReasonSubtypeMissing, "")
+	require.NoError(t, err)
+
+	_, err = uc.SetDone(ctx, "img1", "expert", true, port.RecheckOutcomeCorrected, "")
+	require.NoError(t, err)
+	assert.Empty(t, imageUpdates, "other outcomes leave the image alone")
+
+	_, err = uc.SetDone(ctx, "img1", "expert", true, port.RecheckOutcomeUnsuitable, "Kesit bozuk")
+	require.NoError(t, err)
+	u := imageUpdates["img1"]
+	require.NotNil(t, u)
+	assert.Equal(t, true, u["Unsuitable"])
+	assert.Equal(t, "expert", u["UnsuitableBy"])
+	assert.Equal(t, "Kesit bozuk", u["UnsuitableNote"])
+	assert.NotNil(t, u["UnsuitableAt"])
+
+	imageUpdates = map[string]map[string]interface{}{}
+	_, err = uc.SetDone(ctx, "img1", "expert", false, "", "")
+	require.NoError(t, err)
+	u = imageUpdates["img1"]
+	require.NotNil(t, u, "reopening an unsuitable request clears the image")
+	assert.Equal(t, false, u["Unsuitable"])
+	assert.Nil(t, u["UnsuitableAt"])
 }

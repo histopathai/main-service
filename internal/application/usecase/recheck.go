@@ -7,6 +7,7 @@ import (
 	"time"
 	"unicode/utf8"
 
+	"github.com/histopathai/main-service/internal/application/command"
 	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/model"
 	"github.com/histopathai/main-service/internal/port"
@@ -17,6 +18,8 @@ import (
 type recheckImageReader interface {
 	Read(ctx context.Context, id string) (*model.Image, error)
 	Find(ctx context.Context, spec query.Specification) (*query.Result[*model.Image], error)
+	// Update sets "Çalışmaya uygun değil" on the image when the expert decides so here.
+	Update(ctx context.Context, id string, updates map[string]interface{}) error
 }
 
 type recheckPatientReader interface {
@@ -239,10 +242,10 @@ func (uc *RecheckUseCase) SetDone(ctx context.Context, imageID, userID string, d
 	note = strings.TrimSpace(note)
 	if done {
 		if !port.IsRecheckOutcome(outcome) {
-			return nil, errors.NewValidationError("outcome must be corrected, no_change or undecided",
+			return nil, errors.NewValidationError("outcome must be corrected, no_change, undecided or unsuitable",
 				map[string]interface{}{"outcome": outcome})
 		}
-		if outcome != port.RecheckOutcomeCorrected && note == "" {
+		if (outcome == port.RecheckOutcomeNoChange || outcome == port.RecheckOutcomeUndecided) && note == "" {
 			return nil, errors.NewValidationError("this outcome needs a note saying why", map[string]interface{}{"outcome": outcome})
 		}
 		if utf8.RuneCountInString(note) > port.RecheckNoteMaxLen {
@@ -250,10 +253,12 @@ func (uc *RecheckUseCase) SetDone(ctx context.Context, imageID, userID string, d
 		}
 	}
 	now := uc.now()
-	return uc.store.Update(ctx, imageID, func(current *port.RecheckRequest) (*port.RecheckRequest, error) {
+	wasUnsuitable := false
+	r, err := uc.store.Update(ctx, imageID, func(current *port.RecheckRequest) (*port.RecheckRequest, error) {
 		if current == nil {
 			return nil, errors.NewNotFoundError("no recheck request for this image")
 		}
+		wasUnsuitable = current.Status == port.RecheckStatusDone && current.Outcome == port.RecheckOutcomeUnsuitable
 		if done {
 			current.Status, current.CompletedBy, current.CompletedAt = port.RecheckStatusDone, userID, &now
 			current.Outcome, current.CompletionNote = outcome, note
@@ -263,6 +268,19 @@ func (uc *RecheckUseCase) SetDone(ctx context.Context, imageID, userID string, d
 		current.UpdatedAt = now
 		return current, nil
 	})
+	if err != nil {
+		return nil, err
+	}
+	// "Çalışmaya uygun değil" belongs to the image, so Veri Etiketleyici shows it
+	// too: set it when the expert decides so here, clear it when that is undone.
+	unsuitable := done && outcome == port.RecheckOutcomeUnsuitable
+	if unsuitable || wasUnsuitable {
+		at := func() time.Time { return now }
+		if err := uc.images.Update(ctx, imageID, command.UnsuitableUpdates(unsuitable, userID, note, at)); err != nil {
+			return nil, err
+		}
+	}
+	return r, nil
 }
 
 func (uc *RecheckUseCase) Cancel(ctx context.Context, imageID string) error {

@@ -38,6 +38,12 @@ const (
 	ImageMagnificationLabel ImageField = "magnification_label"
 
 	ImageMarkedAsCompleted ImageField = "marked_as_completed"
+
+	// "Çalışmaya uygun değil": the image is out of the study; who said so, when and why.
+	ImageUnsuitable     ImageField = "unsuitable"
+	ImageUnsuitableBy   ImageField = "unsuitable_by"
+	ImageUnsuitableAt   ImageField = "unsuitable_at"
+	ImageUnsuitableNote ImageField = "unsuitable_note"
 )
 
 func (f ImageField) APIName() string {
@@ -120,6 +126,14 @@ func (f ImageField) DomainName() string {
 		return "MagnificationLabel"
 	case ImageMarkedAsCompleted:
 		return "MarkedAsCompleted"
+	case ImageUnsuitable:
+		return "Unsuitable"
+	case ImageUnsuitableBy:
+		return "UnsuitableBy"
+	case ImageUnsuitableAt:
+		return "UnsuitableAt"
+	case ImageUnsuitableNote:
+		return "UnsuitableNote"
 	default:
 		return ""
 	}
@@ -136,7 +150,8 @@ func (f ImageField) IsValid() bool {
 		ImageSize, ImageMagnification,
 		ImageMagnificationObjective, ImageMagnificationNativeLevel, ImageMagnificationScanMagnification,
 		ImageMPP, ImageMagnificationLabel,
-		ImageMarkedAsCompleted:
+		ImageMarkedAsCompleted,
+		ImageUnsuitable, ImageUnsuitableBy, ImageUnsuitableAt, ImageUnsuitableNote:
 		return true
 	default:
 		return false
@@ -154,4 +169,5 @@ var ImageFields = []ImageField{
 	ImageMagnificationObjective, ImageMagnificationNativeLevel, ImageMagnificationScanMagnification,
 	ImageMPP, ImageMagnificationLabel,
 	ImageMarkedAsCompleted,
+	ImageUnsuitable, ImageUnsuitableBy, ImageUnsuitableAt, ImageUnsuitableNote,
 }

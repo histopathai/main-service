@@ -21,6 +21,7 @@ const (
 	RecheckReasonPolygon            = "polygon"              // Poligon yeniden incelenmeli
 	RecheckReasonPolygonMissing     = "polygon_missing"      // Poligon eksik
 	RecheckReasonGlobalLabelMissing = "global_label_missing" // Global etiket eksik
+	RecheckReasonSubtypeMissing     = "subtype_missing"      // Alt tip eksik
 	RecheckReasonOther              = "other"
 	// RecheckReasonDataset is set on every image of a workspace sent as a
 	// whole; its note says why and is required.
@@ -30,22 +31,30 @@ const (
 func IsRecheckReason(code string) bool {
 	switch code {
 	case RecheckReasonSubtype, RecheckReasonPolygon, RecheckReasonPolygonMissing,
-		RecheckReasonGlobalLabelMissing, RecheckReasonOther, RecheckReasonDataset:
+		RecheckReasonGlobalLabelMissing, RecheckReasonSubtypeMissing, RecheckReasonOther, RecheckReasonDataset:
 		return true
 	}
 	return false
 }
 
 // What the expert concluded when finishing a request. "no_change" and
-// "undecided" need a note saying why.
+// "undecided" need a note saying why; for the others it is optional.
 const (
 	RecheckOutcomeCorrected = "corrected" // Etiketler düzeltildi
 	RecheckOutcomeNoChange  = "no_change" // Değişiklik gerekmedi, mevcut etiket doğru
 	RecheckOutcomeUndecided = "undecided" // Karar verilemedi
+	// RecheckOutcomeUnsuitable: the image is not fit for the study (too little
+	// tumour, poor section, another lesion); its labels are left as they are.
+	// Saying so is enough: the note is optional.
+	RecheckOutcomeUnsuitable = "unsuitable" // Çalışmaya uygun değil
 )
 
 func IsRecheckOutcome(code string) bool {
-	return code == RecheckOutcomeCorrected || code == RecheckOutcomeNoChange || code == RecheckOutcomeUndecided
+	switch code {
+	case RecheckOutcomeCorrected, RecheckOutcomeNoChange, RecheckOutcomeUndecided, RecheckOutcomeUnsuitable:
+		return true
+	}
+	return false
 }
 
 // RecheckNoteMaxLen is the longest note accepted, in characters.

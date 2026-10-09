@@ -1,6 +1,9 @@
 package command
 
 import (
+	"time"
+	"unicode/utf8"
+
 	"github.com/histopathai/main-service/internal/domain/fields"
 	"github.com/histopathai/main-service/internal/domain/vobj"
 )
@@ -362,7 +365,18 @@ type UpdateImageCommand struct {
 	Size              *int64
 	Magnification     *vobj.OpticalMagnification
 	MarkedAsCompleted *bool
+
+	// Unsuitable marks the image "Çalışmaya uygun değil" (true) or clears it
+	// (false); UnsuitableBy is the signed-in user, UnsuitableNote is optional.
+	Unsuitable     *bool
+	UnsuitableBy   string
+	UnsuitableNote string
+	// Now is when it happens; time.Now when nil.
+	Now func() time.Time
 }
+
+// UnsuitableNoteMaxLen is the longest note accepted, in characters.
+const UnsuitableNoteMaxLen = 500
 
 func (c *UpdateImageCommand) Validate() (map[string]interface{}, bool) {
 	details, ok := c.UpdateEntityCommand.Validate()
@@ -378,6 +392,9 @@ func (c *UpdateImageCommand) Validate() (map[string]interface{}, bool) {
 	}
 	if c.Size != nil && *c.Size <= 0 {
 		details["size"] = "Size must be positive"
+	}
+	if utf8.RuneCountInString(c.UnsuitableNote) > UnsuitableNoteMaxLen {
+		details["unsuitable_note"] = "Note is too long"
 	}
 
 	if len(details) > 0 {
@@ -411,8 +428,35 @@ func (c *UpdateImageCommand) GetUpdates() map[string]interface{} {
 	if c.MarkedAsCompleted != nil {
 		updates[fields.ImageMarkedAsCompleted.DomainName()] = *c.MarkedAsCompleted
 	}
+	if c.Unsuitable != nil {
+		for k, v := range UnsuitableUpdates(*c.Unsuitable, c.UnsuitableBy, c.UnsuitableNote, c.Now) {
+			updates[k] = v
+		}
+	}
 
 	return updates
+}
+
+// UnsuitableUpdates sets or clears "Çalışmaya uygun değil" with who, when and
+// why; clearing empties all four fields.
+func UnsuitableUpdates(unsuitable bool, by, note string, now func() time.Time) map[string]interface{} {
+	if !unsuitable {
+		return map[string]interface{}{
+			fields.ImageUnsuitable.DomainName():     false,
+			fields.ImageUnsuitableBy.DomainName():   "",
+			fields.ImageUnsuitableAt.DomainName():   nil,
+			fields.ImageUnsuitableNote.DomainName(): "",
+		}
+	}
+	if now == nil {
+		now = time.Now
+	}
+	return map[string]interface{}{
+		fields.ImageUnsuitable.DomainName():     true,
+		fields.ImageUnsuitableBy.DomainName():   by,
+		fields.ImageUnsuitableAt.DomainName():   now(),
+		fields.ImageUnsuitableNote.DomainName(): note,
+	}
 }
 
 // ================================================================================
