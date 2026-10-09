@@ -3,6 +3,7 @@ package handler
 import (
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/histopathai/main-service/internal/api/http/dto/request"
@@ -369,6 +370,19 @@ func (ih *ImageHandler) Update(c *gin.Context) {
 		Height:            req.Height,
 		Magnification:     magnification,
 		MarkedAsCompleted: req.MarkedAsCompleted,
+		Unsuitable:        req.Unsuitable,
+	}
+	if req.Unsuitable != nil {
+		// Who marked it comes from the session, never from the payload.
+		userID, err := middleware.GetAuthenticatedUserID(c)
+		if err != nil {
+			ih.HandleError(c, err)
+			return
+		}
+		cmd.UnsuitableBy = userID
+		if req.UnsuitableNote != nil && *req.Unsuitable {
+			cmd.UnsuitableNote = strings.TrimSpace(*req.UnsuitableNote)
+		}
 	}
 
 	errDetails, ok := cmd.Validate()

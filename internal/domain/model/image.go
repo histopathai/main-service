@@ -1,6 +1,8 @@
 package model
 
 import (
+	"time"
+
 	"github.com/histopathai/main-service/internal/domain/vobj"
 )
 
@@ -37,4 +39,11 @@ type Image struct {
 	Processing *vobj.ProcessingInfo
 
 	MarkedAsCompleted bool
+
+	// Unsuitable ("Çalışmaya uygun değil"): the image is out of the study. Its
+	// labels are kept; who marked it, when and (optionally) why.
+	Unsuitable     bool
+	UnsuitableBy   *string
+	UnsuitableAt   *time.Time
+	UnsuitableNote *string
 }

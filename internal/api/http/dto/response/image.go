@@ -73,6 +73,12 @@ type ImageResponse struct {
 
 	MarkedAsCompleted bool `json:"marked_as_completed" example:"false"`
 
+	// "Çalışmaya uygun değil": out of the study, with who, when and why.
+	Unsuitable     bool       `json:"unsuitable" example:"false"`
+	UnsuitableBy   *string    `json:"unsuitable_by,omitempty"`
+	UnsuitableAt   *time.Time `json:"unsuitable_at,omitempty"`
+	UnsuitableNote *string    `json:"unsuitable_note,omitempty"`
+
 	// Timestamps
 	CreatedAt time.Time `json:"created_at" example:"2024-01-01T12:00:00Z"`
 	UpdatedAt time.Time `json:"updated_at" example:"2024-01-02T12:00:00Z"`
@@ -94,6 +100,10 @@ func NewImageResponse(img *model.Image) *ImageResponse {
 		MagnificationLabel: img.MagnificationLabel,
 		Status:             img.Processing.Status.String(),
 		MarkedAsCompleted:  img.MarkedAsCompleted,
+		Unsuitable:         img.Unsuitable,
+		UnsuitableBy:       img.UnsuitableBy,
+		UnsuitableAt:       img.UnsuitableAt,
+		UnsuitableNote:     img.UnsuitableNote,
 		CreatedAt:          img.CreatedAt,
 		UpdatedAt:          img.UpdatedAt,
 	}

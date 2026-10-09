@@ -25,10 +25,14 @@ type UploadImageRequest struct {
 }
 
 type UpdateImageRequest struct {
-	CreatorID          *string               `json:"creator_id" binding:"required" example:"1"`
-	Name               *string               `json:"name,omitempty" example:"slide1_updated.svs"`
-	Width              *int                  `json:"width,omitempty" binding:"omitempty,gte=0"`
-	Height             *int                  `json:"height,omitempty" binding:"omitempty,gte=0"`
-	Magnification      *MagnificationRequest `json:"magnification,omitempty"`
-	MarkedAsCompleted  *bool                 `json:"marked_as_completed,omitempty" example:"true"`
+	CreatorID         *string               `json:"creator_id" binding:"required" example:"1"`
+	Name              *string               `json:"name,omitempty" example:"slide1_updated.svs"`
+	Width             *int                  `json:"width,omitempty" binding:"omitempty,gte=0"`
+	Height            *int                  `json:"height,omitempty" binding:"omitempty,gte=0"`
+	Magnification     *MagnificationRequest `json:"magnification,omitempty"`
+	MarkedAsCompleted *bool                 `json:"marked_as_completed,omitempty" example:"true"`
+	// Unsuitable marks the image "Çalışmaya uygun değil" (true) or clears it (false).
+	Unsuitable *bool `json:"unsuitable,omitempty" example:"true"`
+	// UnsuitableNote says why; optional, kept only with unsuitable: true.
+	UnsuitableNote *string `json:"unsuitable_note,omitempty" example:"Tümör dokusu yetersiz"`
 }
