@@ -23,6 +23,10 @@ type ImageHandler struct {
 	IQuery     port.ImageQuery
 	IUseCase   port.ImageUseCase
 	IValidator *validator.Validator
+	// Recheck, when set, closes or reopens the image's Ek Kontrol request after
+	// "Değerlendirmeye uygun değil" changes. Best effort: a failure is logged only.
+	Recheck port.RecheckUnsuitableSync
+	log     *slog.Logger
 }
 
 func NewImageHandler(query port.ImageQuery, useCase port.ImageUseCase, logger *slog.Logger) *ImageHandler {
@@ -31,6 +35,7 @@ func NewImageHandler(query port.ImageQuery, useCase port.ImageUseCase, logger *s
 		IUseCase:    useCase,
 		IValidator:  validator.NewValidator(fields.NewImageFieldSet()),
 		BaseHandler: helper.NewBaseHandler(logger),
+		log:         logger,
 	}
 }
 
@@ -395,6 +400,12 @@ func (ih *ImageHandler) Update(c *gin.Context) {
 	if err != nil {
 		ih.HandleError(c, err)
 		return
+	}
+	if req.Unsuitable != nil && ih.Recheck != nil {
+		err := ih.Recheck.ImageUnsuitableChanged(c.Request.Context(), id, *req.Unsuitable, cmd.UnsuitableBy, cmd.UnsuitableNote)
+		if err != nil && ih.log != nil {
+			ih.log.Warn("ek kontrol unsuitable sync failed", "image_id", id, "error", err)
+		}
 	}
 
 	ih.Response.NoContent(c)
