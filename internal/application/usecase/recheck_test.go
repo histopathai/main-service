@@ -567,3 +567,45 @@ func TestRecheckReconcileWithoutARequest(t *testing.T) {
 	require.NoError(t, uc.Reconcile(context.Background(), "img2", "x"))
 	assert.Empty(t, store.requests)
 }
+
+func TestRecheckImageMarkedUnsuitableElsewhereClosesTheRequest(t *testing.T) {
+	uc, store := newRecheck()
+	ctx := context.Background()
+	_, err := uc.Request(ctx, "img1", "admin", port.RecheckReasonSubtype, "", "path1")
+	require.NoError(t, err)
+
+	require.NoError(t, uc.ImageUnsuitableChanged(ctx, "img1", true, "path1", "Kesit bozuk"))
+	r := store.requests["img1"]
+	assert.Equal(t, port.RecheckStatusDone, r.Status)
+	assert.Equal(t, port.RecheckOutcomeUnsuitable, r.Outcome)
+	assert.Equal(t, "path1", r.CompletedBy)
+	assert.Equal(t, "Kesit bozuk", r.CompletionNote)
+	assert.False(t, r.AutoCompleted)
+
+	require.NoError(t, uc.ImageUnsuitableChanged(ctx, "img1", false, "admin", ""))
+	r = store.requests["img1"]
+	assert.Equal(t, port.RecheckStatusOpen, r.Status, "taking the mark back opens it again")
+	assert.Empty(t, r.Outcome)
+	assert.Len(t, r.Reasons, 1, "reasons kept")
+}
+
+func TestRecheckImageUnsuitableOverridesAnotherOutcome(t *testing.T) {
+	uc, store := newRecheck()
+	ctx := context.Background()
+	_, err := uc.Request(ctx, "img1", "admin", port.RecheckReasonSubtype, "", "path1")
+	require.NoError(t, err)
+	_, err = uc.SetDone(ctx, expert, "img1", true, port.RecheckOutcomeCorrected, "")
+	require.NoError(t, err)
+
+	require.NoError(t, uc.ImageUnsuitableChanged(ctx, "img1", false, "admin", ""))
+	assert.Equal(t, port.RecheckOutcomeCorrected, store.requests["img1"].Outcome, "clearing leaves other outcomes alone")
+
+	require.NoError(t, uc.ImageUnsuitableChanged(ctx, "img1", true, "admin", ""))
+	assert.Equal(t, port.RecheckOutcomeUnsuitable, store.requests["img1"].Outcome)
+}
+
+func TestRecheckImageUnsuitableWithoutRequest(t *testing.T) {
+	uc, store := newRecheck()
+	require.NoError(t, uc.ImageUnsuitableChanged(context.Background(), "img1", true, "admin", ""))
+	assert.Empty(t, store.requests, "no request is made")
+}

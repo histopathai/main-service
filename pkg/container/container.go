@@ -431,6 +431,7 @@ func (c *Container) initHTTPLayer(ctx context.Context) error {
 		c.Logger,
 	)
 	c.AnnotationHandler.Recheck = c.RecheckUseCase
+	c.ImageHandler.Recheck = c.RecheckUseCase
 
 	c.AnnotationReviewHandler = handler.NewAnnotationReviewHandler(
 		c.AnnotationReviewQuery,

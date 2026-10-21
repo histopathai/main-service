@@ -425,6 +425,28 @@ func (uc *RecheckUseCase) SetDone(ctx context.Context, viewer port.RecheckViewer
 	return r, nil
 }
 
+func (uc *RecheckUseCase) ImageUnsuitableChanged(ctx context.Context, imageID string, unsuitable bool, actorID, note string) error {
+	now := uc.now()
+	_, err := uc.store.Update(ctx, imageID, func(current *port.RecheckRequest) (*port.RecheckRequest, error) {
+		if current == nil {
+			return nil, nil
+		}
+		closedUnsuitable := current.Status == port.RecheckStatusDone && current.Outcome == port.RecheckOutcomeUnsuitable
+		switch {
+		case unsuitable && !closedUnsuitable:
+			current.Status, current.CompletedBy, current.CompletedAt = port.RecheckStatusDone, actorID, &now
+			current.Outcome, current.CompletionNote, current.AutoCompleted = port.RecheckOutcomeUnsuitable, note, false
+		case !unsuitable && closedUnsuitable:
+			reopen(current)
+		default:
+			return nil, nil
+		}
+		current.UpdatedAt = now
+		return current, nil
+	})
+	return err
+}
+
 func (uc *RecheckUseCase) Cancel(ctx context.Context, imageID string) error {
 	return uc.store.Delete(ctx, imageID)
 }

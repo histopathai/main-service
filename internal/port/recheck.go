@@ -53,7 +53,7 @@ const (
 	// RecheckOutcomeUnsuitable: the image is not fit for the study (too little
 	// tumour, poor section, another lesion); its labels are left as they are.
 	// Saying so is enough: the note is optional.
-	RecheckOutcomeUnsuitable = "unsuitable" // Çalışmaya uygun değil
+	RecheckOutcomeUnsuitable = "unsuitable" // Değerlendirmeye uygun değil
 )
 
 func IsRecheckOutcome(code string) bool {
@@ -160,6 +160,14 @@ type RecheckUseCase interface {
 	// WithdrawWorkspace takes the reason "dataset" off the workspace's images,
 	// removing requests left without a reason; other reasons stay.
 	WithdrawWorkspace(ctx context.Context, wsID string) (int, error)
+	RecheckUnsuitableSync
+}
+
+// RecheckUnsuitableSync is called after an image is marked "Değerlendirmeye
+// uygun değil" (or the mark is taken back) outside Ek Kontrol: the image's
+// request closes with that outcome, or opens again, so both tabs agree.
+type RecheckUnsuitableSync interface {
+	ImageUnsuitableChanged(ctx context.Context, imageID string, unsuitable bool, actorID, note string) error
 }
 
 // RecheckReconciler is called after an image's annotations change.
